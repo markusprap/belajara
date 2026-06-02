@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   SidebarInset,
@@ -65,6 +66,7 @@ interface StudentDashboardData {
 }
 
 export default function CoursesPage() {
+  const router = useRouter()
   const [courses, setCourses] = React.useState<Course[]>([])
   const [activeCourseCodes, setActiveCourseCodes] = React.useState<string[]>([])
   const [loading, setLoading] = React.useState<boolean>(true)
@@ -200,7 +202,7 @@ export default function CoursesPage() {
       .then(() => {
         // Success
         fetchActiveCourses() // Refresh active codes
-        alert(`Berhasil mengambil mata kuliah ${courseCode}! Silakan lihat progres Anda di Dashboard.`)
+        alert(`Berhasil mengambil mata kuliah ${courseCode}! Silakan klik tombol 'Masuk Kelas' untuk memulai pembelajaran.`)
       })
       .catch((err) => {
         alert(err.message)
@@ -456,10 +458,13 @@ export default function CoursesPage() {
                                 </Button>
                                 
                                 {isEnrolled ? (
-                                  <span className="text-xs font-bold text-primary bg-accent/20 px-3 py-1.5 rounded-lg border border-accent/30 flex items-center gap-1">
-                                    <Check className="h-3.5 w-3.5 text-accent-foreground" />
-                                    Terdaftar
-                                  </span>
+                                  <Button
+                                    onClick={() => router.push(`/courses/${course.code}`)}
+                                    className="bg-destructive hover:bg-destructive/95 text-white text-xs h-8 px-3 rounded-lg cursor-pointer font-medium flex items-center gap-1 shadow-sm"
+                                  >
+                                    <Check className="h-3.5 w-3.5 text-white font-bold" />
+                                    Masuk Kelas
+                                  </Button>
                                 ) : (
                                   <Button
                                     onClick={() => handleEnroll(course.code)}

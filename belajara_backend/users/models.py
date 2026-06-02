@@ -6,6 +6,7 @@ class User(AbstractUser):
     Custom user model for Belajara.
     """
     is_mahasiswa = models.BooleanField(default=False)
+    is_premium = models.BooleanField(default=False)
     
     # Override groups and user_permissions if needed, or leave as default.
     # AbstractUser provides username, first_name, last_name, email, password.

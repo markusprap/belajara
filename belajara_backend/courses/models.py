@@ -7,6 +7,8 @@ class Course(models.Model):
     sks = models.IntegerField(default=3)
     semester = models.IntegerField(default=1)
     department = models.CharField(max_length=100)  # e.g., "Informatika", "Sistem Informasi"
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    is_premium = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.code} - {self.title}"
