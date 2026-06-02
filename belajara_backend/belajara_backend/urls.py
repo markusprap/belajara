@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import (
 )
 from users.views import StudentDashboardView, RegisterView, MeView
 from courses.views import CourseListView, CourseEnrollView
-from explore.views import PDFAnalyzeView, CurriculumUploadView
+from explore.views import PDFAnalyzeView, CurriculumUploadView, AIRecommendationStatusView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/courses/enroll/', CourseEnrollView.as_view(), name='course-enroll'),
     path('api/explore/analyze/', PDFAnalyzeView.as_view(), name='pdf-analyze'),
     path('api/explore/upload-curriculum/', CurriculumUploadView.as_view(), name='curriculum-upload'),
+    path('api/explore/recommendations/status/<int:curriculum_id>/', AIRecommendationStatusView.as_view(), name='ai-recommendation-status'),
 
     # New app endpoints
     path('api/', include('quizzes.urls')),

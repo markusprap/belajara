@@ -32,8 +32,8 @@ def test_llm_service_fallback():
         assert recs[0]["code"] == "IF101"
 
 @pytest.mark.django_db
-@patch('explore.views.extract_text_from_pdf', return_value="Saya berminat belajar Algoritma")
-def test_pdf_analyze_api(mock_extract):
+@patch('explore.views.analyze_curriculum_task.delay')
+def test_pdf_analyze_api(mock_task_delay):
     client = APIClient()
     # Create courses in test DB
     Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
@@ -48,8 +48,11 @@ def test_pdf_analyze_api(mock_extract):
     response = client.post(url, {'file': pdf_file}, format='multipart')
     
     assert response.status_code == status.HTTP_200_OK, response.data
-    assert len(response.data) > 0
-    assert "match_percentage" in response.data[0]
+    assert response.data["status"] == "processing"
+    assert "curriculum_id" in response.data
+    
+    # Assert Celery task is called asynchronously
+    mock_task_delay.assert_called_once()
 
 def test_excel_extraction_mocked():
     import openpyxl
@@ -106,3 +109,84 @@ def test_course_enroll_api():
     response_double = client.post(url, {'course_code': 'IF101'}, format='json')
     assert response_double.status_code == status.HTTP_400_BAD_REQUEST
 
+
+# --- Asynchronous Recommendations and Status Tests ---
+
+@pytest.mark.django_db
+def test_ai_recommendation_status_processing():
+    client = APIClient()
+    url = reverse('ai-recommendation-status', kwargs={'curriculum_id': 9999})
+    response = client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data == {"status": "processing"}
+
+@pytest.mark.django_db
+def test_ai_recommendation_status_success():
+    client = APIClient()
+    from users.models import Mahasiswa
+    from django.contrib.auth import get_user_model
+    from explore.models import Curriculum, AIRecommendation
+    
+    User = get_user_model()
+    user = User.objects.create_user(username="testuser", password="password123")
+    mahasiswa = Mahasiswa.objects.create(user=user, nim="12345", jurusan="Informatika")
+    curriculum = Curriculum.objects.create(user=user, file_name="curriculum.pdf")
+    
+    course = Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
+    
+    # Create the recommendation in DB
+    AIRecommendation.objects.create(
+        mahasiswa=mahasiswa,
+        curriculum=curriculum,
+        recommendations_data=[
+            {"code": "IF101", "match_percentage": 90, "reason": "Cocok dengan minat pemrograman"}
+        ]
+    )
+    
+    url = reverse('ai-recommendation-status', kwargs={'curriculum_id': curriculum.id})
+    response = client.get(url)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["status"] == "success"
+    assert len(response.data["recommendations"]) == 1
+    assert response.data["recommendations"][0]["course"]["code"] == "IF101"
+    assert response.data["recommendations"][0]["match_percentage"] == 90
+    assert response.data["recommendations"][0]["reason"] == "Cocok dengan minat pemrograman"
+
+@pytest.mark.django_db
+@patch('explore.tasks.analyze_curriculum_text')
+def test_analyze_curriculum_task(mock_analyze):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from users.models import Mahasiswa
+    from django.contrib.auth import get_user_model
+    from explore.models import Curriculum, AIRecommendation
+    from explore.tasks import analyze_curriculum_task
+    
+    # Mock LLM return value
+    mock_analyze.return_value = [
+        {"code": "IF101", "match_percentage": 95, "reason": "Sangat sesuai dengan dasar pemrograman"}
+    ]
+    
+    User = get_user_model()
+    user = User.objects.create_user(username="testuser2", password="password123")
+    mahasiswa = Mahasiswa.objects.create(user=user, nim="67890", jurusan="Informatika")
+    
+    uploaded_file = SimpleUploadedFile("curriculum.pdf", b"fake PDF bytes")
+    curriculum = Curriculum.objects.create(
+        user=user,
+        file_name="curriculum.pdf",
+        file_url=uploaded_file
+    )
+    
+    # We mock extract_text_from_pdf as we are using a fake PDF bytes
+    with patch('explore.tasks.extract_text_from_pdf', return_value="Saya berminat belajar pemrograman"):
+        Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
+        
+        # Execute Celery task synchronously
+        analyze_curriculum_task(curriculum.id, mahasiswa.id)
+        
+        # Verify AIRecommendation is created in database
+        recs = AIRecommendation.objects.filter(curriculum=curriculum)
+        assert recs.exists()
+        rec = recs.first()
+        assert len(rec.recommendations_data) == 1
+        assert rec.recommendations_data[0]["code"] == "IF101"
