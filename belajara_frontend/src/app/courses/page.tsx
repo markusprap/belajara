@@ -203,7 +203,7 @@ export default function CoursesPage() {
       .then(() => {
         // Success
         fetchActiveCourses() // Refresh active codes
-        alert(`Berhasil mengambil mata kuliah ${courseCode}! Silakan klik tombol 'Masuk Kelas' untuk memulai pembelajaran.`)
+        router.push(`/courses/${courseCode}`)
       })
       .catch((err) => {
         alert(err.message)

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   SidebarInset,
@@ -42,6 +43,7 @@ interface StudentDashboardData {
 }
 
 export default function ExplorePage() {
+  const router = useRouter()
   const [file, setFile] = React.useState<File | null>(null)
   const [dragging, setDragging] = React.useState<boolean>(false)
   const [loading, setLoading] = React.useState<boolean>(false)
@@ -219,7 +221,7 @@ export default function ExplorePage() {
       })
       .then(() => {
         fetchActiveCourses() // Refresh active list
-        alert(`Berhasil mengambil mata kuliah ${courseCode}! Silakan cek Dashboard untuk memulai pembelajaran.`)
+        router.push(`/courses/${courseCode}`)
       })
       .catch((err) => {
         alert(err.message)
