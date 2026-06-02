@@ -123,3 +123,25 @@ class QuizSubmissionsListView(APIView):
 
         serializer = QuizSubmissionSerializer(submissions, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class QuizManageView(APIView):
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def post(self, request, module_id):
+        try:
+            module = CourseModule.objects.get(pk=module_id)
+        except CourseModule.DoesNotExist:
+            return Response({"detail": "Modul tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        questions = request.data.get('questions_json')
+        if not isinstance(questions, list):
+            return Response({"detail": "questions_json harus berupa list of questions."}, status=status.HTTP_400_BAD_REQUEST)
+
+        quiz, created = Quiz.objects.update_or_create(
+            module=module,
+            defaults={'questions_json': questions, 'generated_by_ai': False}
+        )
+        serializer = QuizSerializer(quiz)
+        return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
+

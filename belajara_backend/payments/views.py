@@ -144,9 +144,22 @@ class MidtransWebhookView(APIView):
                 tx.status = 'success'
                 # Enroll student
                 mahasiswa = tx.mahasiswa
-                mahasiswa.active_courses.add(tx.course)
+                if not mahasiswa.active_courses.filter(id=tx.course.id).exists():
+                    mahasiswa.active_courses.add(tx.course)
+                
+                from courses.models import Enrollment
+                enrollment, created = Enrollment.objects.get_or_create(
+                    mahasiswa=mahasiswa,
+                    course=tx.course,
+                    defaults={'mode': 'verified', 'status': 'active'}
+                )
+                if not created and enrollment.mode != 'verified':
+                    enrollment.mode = 'verified'
+                    enrollment.save()
+                
                 mahasiswa.save()
-                logger.info(f"Transaction {order_id} marked success. Student {mahasiswa.nim} enrolled in {tx.course.code}")
+                logger.info(f"Transaction {order_id} marked success. Student {mahasiswa.nim} enrolled in {tx.course.code} with Verified mode")
+
             elif transaction_status in ['deny', 'cancel', 'expire', 'failure']:
                 tx.status = 'failed'
                 logger.info(f"Transaction {order_id} marked failed due to status: {transaction_status}")

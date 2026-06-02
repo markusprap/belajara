@@ -237,3 +237,105 @@ class TestIsInstructorPermission:
         resp = api_client.get('/api/auth/me/')
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data['is_instructor'] is True
+
+
+# ─── SubChapter CRUD Tests ──────────────────────────────────────────────────
+
+class TestSubChapterCRUD:
+    """Tests for SubChapterCreateView and SubChapterUpdateDeleteView"""
+
+    @pytest.fixture
+    def sample_module(self, db, sample_course):
+        return CourseModule.objects.create(
+            course=sample_course,
+            title='Modul Uji',
+            description='Uji sub-bab',
+            order=1
+        )
+
+    def test_instructor_can_create_subchapter(self, api_client, instructor_user, sample_module):
+        token = get_token(api_client, 'instructor_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        payload = {
+            'title': 'Sub Bab 1: Video Pendahuluan',
+            'type': 'video',
+            'order': 1,
+            'video_url': 'https://www.youtube.com/watch?v=123',
+            'content': '',
+            'duration': 10
+        }
+        resp = api_client.post(
+            f'/api/modules/{sample_module.pk}/subchapters/create/',
+            payload,
+            format='json'
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data['title'] == 'Sub Bab 1: Video Pendahuluan'
+        from courses.models import SubChapter
+        assert SubChapter.objects.filter(module=sample_module, title='Sub Bab 1: Video Pendahuluan').exists()
+
+    def test_student_cannot_create_subchapter(self, api_client, student_user, sample_module):
+        token = get_token(api_client, 'student_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        payload = {
+            'title': 'Hack Subchapter',
+            'type': 'reading',
+            'order': 1,
+            'content': 'Some content'
+        }
+        resp = api_client.post(
+            f'/api/modules/{sample_module.pk}/subchapters/create/',
+            payload,
+            format='json'
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_instructor_can_update_subchapter(self, api_client, instructor_user, sample_module):
+        from courses.models import SubChapter
+        sub = SubChapter.objects.create(
+            module=sample_module,
+            title='Studi Kasus Awal',
+            type='reading',
+            order=1,
+            content='Konten awal'
+        )
+        token = get_token(api_client, 'instructor_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        resp = api_client.put(
+            f'/api/subchapters/{sub.pk}/manage/',
+            {'title': 'Studi Kasus Baru', 'content': 'Konten baru'},
+            format='json'
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        sub.refresh_from_db()
+        assert sub.title == 'Studi Kasus Baru'
+        assert sub.content == 'Konten baru'
+
+    def test_instructor_can_delete_subchapter(self, api_client, instructor_user, sample_module):
+        from courses.models import SubChapter
+        sub = SubChapter.objects.create(
+            module=sample_module,
+            title='Delete Me',
+            type='reading',
+            order=2,
+            content='Deleted'
+        )
+        token = get_token(api_client, 'instructor_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        resp = api_client.delete(f'/api/subchapters/{sub.pk}/manage/')
+        assert resp.status_code == status.HTTP_204_NO_CONTENT
+        assert not SubChapter.objects.filter(pk=sub.pk).exists()
+
+    def test_student_cannot_delete_subchapter(self, api_client, student_user, sample_module):
+        from courses.models import SubChapter
+        sub = SubChapter.objects.create(
+            module=sample_module,
+            title='Do Not Delete',
+            type='reading',
+            order=2
+        )
+        token = get_token(api_client, 'student_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        resp = api_client.delete(f'/api/subchapters/{sub.pk}/manage/')
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+

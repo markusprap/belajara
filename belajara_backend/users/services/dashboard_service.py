@@ -36,7 +36,23 @@ def get_student_dashboard_data(user) -> dict:
 
     # 2. Query active courses with prefetch_related for high performance (Service Layer standard)
     active_courses_qs = mahasiswa.active_courses.all().prefetch_related('modules')
-    active_courses_data = CourseSerializer(active_courses_qs, many=True).data
+    
+    from courses.models import Enrollment
+    enrollments_map = {e.course_id: e for e in Enrollment.objects.filter(mahasiswa=mahasiswa)}
+    
+    active_courses_data = []
+    for course in active_courses_qs:
+        course_data = CourseSerializer(course).data
+        enrollment = enrollments_map.get(course.id)
+        if enrollment:
+            course_data['enrollment_mode'] = enrollment.mode
+            course_data['enrolled_at'] = enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None
+        else:
+            mode = 'verified' if (course.price <= 0 or not course.is_premium) else 'audit'
+            course_data['enrollment_mode'] = mode
+            course_data['enrolled_at'] = None
+        active_courses_data.append(course_data)
+
 
     # 3. Calculate stats from DB
     active_classes_count = active_courses_qs.count()

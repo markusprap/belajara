@@ -289,6 +289,48 @@ export const api = {
         throw err;
       }
     },
+    googleLogin: async (email: string, firstName: string, lastName: string, googleId: string = "mock-google-id") => {
+      try {
+        const data = await request("/auth/google/", {
+          method: "POST",
+          body: JSON.stringify({ email, first_name: firstName, last_name: lastName, google_id: googleId }),
+        });
+        setToken(data.token || data.access);
+        try {
+          const userProfile = await request("/auth/me/");
+          setUser(userProfile);
+          data.user = userProfile;
+        } catch (profileErr) {
+          console.warn("Failed retrieving user profile after Google login:", profileErr);
+        }
+        return data;
+      } catch (err: any) {
+        console.warn("API Google login failed, using mock auth session:", err);
+        const username = email.split('@')[0];
+        const isInstructor = email.includes("instructor") || email.includes("dosen") || email === "ahmad@gmail.com";
+        const mockUser = {
+          id: isInstructor ? 2 : 1,
+          username: username,
+          email: email,
+          first_name: firstName || username.charAt(0).toUpperCase() + username.slice(1),
+          last_name: lastName || "User",
+          is_mahasiswa: !isInstructor,
+          is_instructor: isInstructor,
+          is_premium: false,
+          nim: isInstructor ? undefined : "2201010102",
+          jurusan: isInstructor ? undefined : "Informatika",
+          universitas: "Universitas Indonesia",
+          semester: isInstructor ? undefined : 1
+        };
+        const mockData = {
+          token: "mock-jwt-google-token-xyz-123",
+          user: mockUser,
+        };
+        setToken(mockData.token);
+        setUser(mockData.user);
+        return mockData;
+      }
+    },
     register: async (registerData: any) => {
       try {
         return await request("/auth/register/", {
@@ -326,9 +368,16 @@ export const api = {
   },
 
   courses: {
+    enroll: async (courseCode: string, mode: string = 'audit') => {
+      return await request("/courses/enroll/", {
+        method: "POST",
+        body: JSON.stringify({ course_code: courseCode, enrollment_mode: mode })
+      });
+    },
     get: async (code: string) => {
       try {
         return await request(`/courses/${code}/`);
+
       } catch (err) {
         console.warn("Failed fetching single course, retrieving from catalog list:", err);
         try {
@@ -506,10 +555,11 @@ export const api = {
   },
 
   payment: {
-    checkout: async () => {
+    checkout: async (courseId: number) => {
       try {
         return await request("/payments/checkout/", {
-          method: "POST"
+          method: "POST",
+          body: JSON.stringify({ course_id: courseId })
         });
       } catch (err) {
         console.warn("Failed retrieving Midtrans token, generating mock Snap token:", err);
@@ -547,6 +597,10 @@ export const api = {
     updateModule: async (moduleId: number, data: any) => { try { return await request(`/modules/${moduleId}/manage/`, { method: 'PUT', body: JSON.stringify(data) }); } catch(e) { throw e; } },
     deleteModule: async (moduleId: number) => { try { return await request(`/modules/${moduleId}/manage/`, { method: 'DELETE' }); } catch(e) { throw e; } },
     generateQuiz: async (moduleId: number) => { try { return await request(`/modules/${moduleId}/quizzes/generate/`, { method: 'POST' }); } catch(e) { throw e; } },
+    createSubChapter: async (moduleId: number, data: any) => { try { return await request(`/modules/${moduleId}/subchapters/create/`, { method: 'POST', body: JSON.stringify(data) }); } catch(e) { throw e; } },
+    updateSubChapter: async (subchapterId: number, data: any) => { try { return await request(`/subchapters/${subchapterId}/manage/`, { method: 'PUT', body: JSON.stringify(data) }); } catch(e) { throw e; } },
+    deleteSubChapter: async (subchapterId: number) => { try { return await request(`/subchapters/${subchapterId}/manage/`, { method: 'DELETE' }); } catch(e) { throw e; } },
+    saveQuiz: async (moduleId: number, questionsJson: any[]) => { try { return await request(`/courses/modules/${moduleId}/quiz/manage/`, { method: 'POST', body: JSON.stringify({ questions_json: questionsJson }) }); } catch(e) { throw e; } },
   },
 
   explore: {

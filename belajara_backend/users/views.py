@@ -47,3 +47,69 @@ class StudentDashboardView(APIView):
             return Response({"detail": str(ve)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"detail": f"Terjadi kesalahan internal: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GoogleOAuthView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        import random
+        from django.contrib.auth import get_user_model
+        from users.models import Mahasiswa
+
+        User = get_user_model()
+        email = request.data.get('email')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        # google_id can be mock or real ID
+        google_id = request.data.get('google_id', '')
+
+        if not email:
+            return Response({"detail": "Email harus diisi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Try to find user with this email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Create user since they don't exist
+            username = email.split('@')[0]
+            # Handle username collision
+            base_username = username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            import secrets
+            password = secrets.token_urlsafe(16)
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                is_mahasiswa=True
+            )
+
+            # Generate random NIM
+            nim = f"2201{random.randint(100000, 999999)}"
+            while Mahasiswa.objects.filter(nim=nim).exists():
+                nim = f"2201{random.randint(100000, 999999)}"
+
+            # Create Mahasiswa profile
+            Mahasiswa.objects.create(
+                user=user,
+                nim=nim,
+                jurusan="Informatika",
+                universitas="Universitas Indonesia",
+                semester=1
+            )
+
+        # Generate simple JWT tokens
+        tokens = get_tokens_for_user(user)
+        user_data = UserSerializer(user).data
+        return Response({
+            "message": "Login Google berhasil.",
+            "user": user_data,
+            "tokens": tokens
+        }, status=status.HTTP_200_OK)
+

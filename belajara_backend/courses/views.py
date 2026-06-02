@@ -70,6 +70,7 @@ class CourseEnrollView(APIView):
 
     def post(self, request):
         course_code = request.data.get('course_code')
+        enrollment_mode = request.data.get('enrollment_mode')
         if not course_code:
             return Response({"detail": "Kode mata kuliah (course_code) harus diberikan."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -104,16 +105,86 @@ class CourseEnrollView(APIView):
         except Course.DoesNotExist:
             return Response({"detail": f"Mata kuliah dengan kode {course_code} tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if already enrolled
-        if mahasiswa.active_courses.filter(id=course.id).exists():
-            return Response({"detail": f"Anda sudah terdaftar di mata kuliah {course.title}."}, status=status.HTTP_400_BAD_REQUEST)
+        # Determine enrollment mode
+        is_course_free = (course.price <= 0 or not course.is_premium)
+        if is_course_free:
+            mode = 'verified'
+        else:
+            if enrollment_mode in ['audit', 'verified']:
+                mode = enrollment_mode
+            else:
+                mode = 'audit'
+
+        # Check if already enrolled in the ManyToMany relationship
+        from .models import Enrollment
+        is_enrolled_m2m = mahasiswa.active_courses.filter(id=course.id).exists()
+        existing_enrollment = Enrollment.objects.filter(mahasiswa=mahasiswa, course=course).first()
+
+        if is_enrolled_m2m and existing_enrollment and existing_enrollment.mode == mode:
+            return Response({"detail": f"Anda sudah terdaftar di mata kuliah {course.title} dengan mode {mode}."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Enroll student in course
-        mahasiswa.active_courses.add(course)
+        if not is_enrolled_m2m:
+            mahasiswa.active_courses.add(course)
+
+        if existing_enrollment:
+            if existing_enrollment.mode == 'audit' and mode == 'verified':
+                existing_enrollment.mode = 'verified'
+                existing_enrollment.save()
+        else:
+            Enrollment.objects.create(
+                mahasiswa=mahasiswa,
+                course=course,
+                mode=mode,
+                status='active'
+            )
+
         return Response({
-            "message": f"Berhasil mendaftar di mata kuliah {course.title}.",
-            "course": CourseSerializer(course).data
+            "message": f"Berhasil mendaftar di mata kuliah {course.title} ({'Kelas Lengkap' if mode == 'verified' else 'Mode Audit'}).",
+            "course": CourseSerializer(course).data,
+            "enrollment_mode": mode
         }, status=status.HTTP_200_OK)
+
+
+class CourseDetailView(APIView):
+    permission_classes = []  # Allow open access
+
+    def get(self, request, code):
+        try:
+            course = Course.objects.prefetch_related('modules').get(code=code)
+        except Course.DoesNotExist:
+            return Response({"detail": "Mata kuliah tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CourseSerializer(course)
+        data = serializer.data
+
+        # Check enrollment status
+        user = request.user
+        enrollment_data = None
+        if user and user.is_authenticated:
+            try:
+                mahasiswa = Mahasiswa.objects.get(user=user)
+                from .models import Enrollment
+                enrollment = Enrollment.objects.filter(mahasiswa=mahasiswa, course=course).first()
+                if enrollment:
+                    enrollment_data = {
+                        "mode": enrollment.mode,
+                        "status": enrollment.status,
+                        "enrolled_at": enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None
+                    }
+                elif mahasiswa.active_courses.filter(id=course.id).exists():
+                    mode = 'verified' if (course.price <= 0 or not course.is_premium) else 'audit'
+                    enrollment_data = {
+                        "mode": mode,
+                        "status": "active",
+                        "enrolled_at": None
+                    }
+            except Mahasiswa.DoesNotExist:
+                pass
+
+        data['enrollment'] = enrollment_data
+        return Response(data, status=status.HTTP_200_OK)
+
 
 
 # ─── Instructor CRUD Views ────────────────────────────────────────────────────
@@ -190,3 +261,53 @@ class ModuleUpdateDeleteView(APIView):
             return Response({'detail': 'Modul tidak ditemukan.'}, status=status.HTTP_404_NOT_FOUND)
         module.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SubChapterCreateView(APIView):
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def post(self, request, module_id):
+        from .models import SubChapter
+        from .serializers import SubChapterSerializer
+
+        try:
+            module = CourseModule.objects.get(pk=module_id)
+        except CourseModule.DoesNotExist:
+            return Response({'detail': 'Modul tidak ditemukan.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = SubChapterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(module=module)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SubChapterUpdateDeleteView(APIView):
+    permission_classes = [IsAuthenticated, IsInstructor]
+
+    def put(self, request, pk):
+        from .models import SubChapter
+        from .serializers import SubChapterSerializer
+
+        try:
+            subchapter = SubChapter.objects.get(pk=pk)
+        except SubChapter.DoesNotExist:
+            return Response({'detail': 'Sub-bab tidak ditemukan.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = SubChapterSerializer(subchapter, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        from .models import SubChapter
+
+        try:
+            subchapter = SubChapter.objects.get(pk=pk)
+        except SubChapter.DoesNotExist:
+            return Response({'detail': 'Sub-bab tidak ditemukan.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        subchapter.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+

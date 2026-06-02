@@ -82,21 +82,21 @@ export default function SettingsPage() {
                 <CardTitle className="font-heading text-lg text-[#060708] flex items-center gap-2">
                   <Bell className="h-5 w-5 text-accent" /> Preferensi Notifikasi
                 </CardTitle>
-                <CardDescription className="text-xs">Kelola pemberitahuan aktivitas kuis dan forum.</CardDescription>
+                <CardDescription className="text-xs">Kelola pemberitahuan aktivitas evaluasi dan forum.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-sm font-semibold text-primary">Notifikasi Email</Label>
-                    <p className="text-xs text-muted-foreground">Dapatkan email rangkuman diskusi baru dan ulasan kuis.</p>
+                    <p className="text-xs text-muted-foreground">Dapatkan email rangkuman diskusi baru dan ulasan evaluasi.</p>
                   </div>
                   <input type="checkbox" className="h-4 w-4 accent-primary" defaultChecked />
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-border">
                   <div>
-                    <Label className="text-sm font-semibold text-primary">Notifikasi Hasil Rekomendasi AI</Label>
-                    <p className="text-xs text-muted-foreground">Kirim notifikasi push ketika analisis dokumen kurikulum selesai.</p>
+                    <Label className="text-sm font-semibold text-primary">Notifikasi Hasil Rekomendasi Rencana Studi AI</Label>
+                    <p className="text-xs text-muted-foreground">Kirim notifikasi push ketika analisis dokumen silabus selesai.</p>
                   </div>
                   <input type="checkbox" className="h-4 w-4 accent-primary" defaultChecked />
                 </div>

@@ -3,13 +3,13 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
+import { getToken, getUser } from "@/lib/api"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -17,31 +17,10 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
-import { 
-  Search, 
-  SlidersHorizontal, 
-  BookOpen, 
-  AlertCircle, 
-  Plus, 
-  ChevronDown, 
-  ChevronUp, 
-  Check, 
-  Upload, 
-  FileText, 
-  X, 
-  Sparkles, 
-  Loader2 
-} from "lucide-react"
+import { BookOpen, AlertTriangle, ArrowRight, Sparkles, Check } from "lucide-react"
 
 interface Module {
   id: number
@@ -59,594 +38,210 @@ interface Course {
   semester: number
   department: string
   modules: Module[]
+  enrollment_mode?: "audit" | "verified"
 }
 
-interface StudentDashboardData {
+interface Student {
+  name: string
+  nim: string
+  jurusan: string
+  universitas: string
+  semester: number
+}
+
+interface DashboardData {
+  student: Student
   active_courses: Course[]
 }
 
 export default function CoursesPage() {
   const router = useRouter()
   const [courses, setCourses] = React.useState<Course[]>([])
-  const [activeCourseCodes, setActiveCourseCodes] = React.useState<string[]>([])
+  const [student, setStudent] = React.useState<Student | null>(null)
   const [loading, setLoading] = React.useState<boolean>(true)
   const [error, setError] = React.useState<string | null>(null)
-  
-  // Expanded rows state (course code -> boolean)
-  const [expandedRows, setExpandedRows] = React.useState<Record<string, boolean>>({})
+  const [username, setUsername] = React.useState<string>("")
 
-  // Filter states
-  const [search, setSearch] = React.useState<string>("")
-  const [department, setDepartment] = React.useState<string>("")
-  const [sks, setSks] = React.useState<string>("")
-
-  // Import Dialog states
-  const [isImportOpen, setIsImportOpen] = React.useState<boolean>(false)
-  const [importFile, setImportFile] = React.useState<File | null>(null)
-  const [importDept, setImportDept] = React.useState<string>("Informatika")
-  const [importDragging, setImportDragging] = React.useState<boolean>(false)
-  const [importLoading, setImportLoading] = React.useState<boolean>(false)
-  const [importStep, setImportStep] = React.useState<string>("Menyiapkan file...")
-  const [importError, setImportError] = React.useState<string | null>(null)
-  const [importSuccess, setImportSuccess] = React.useState<string | null>(null)
-  
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-
-  // Cycle loading messages for a premium dynamic UX during AI extraction
   React.useEffect(() => {
-    if (!importLoading) return
+    const token = getToken()
+    if (!token) {
+      router.push("/login")
+      return
+    }
 
-    const steps = [
-      "Mengekstrak teks dokumen PDF/Excel secara in-memory...",
-      "Menganalisis daftar mata kuliah menggunakan Gemini 3.5 Flash...",
-      "Mengekstrak kode, judul, SKS, dan semester...",
-      "Menyusun modul pembelajaran per mata kuliah...",
-      "Menyimpan data mata kuliah dan silabus ke PostgreSQL..."
-    ]
-    let currentStep = 0
-    setImportStep(steps[0])
+    const u = getUser()
+    if (u) {
+      setUsername(u.username || "mahasiswa")
+    }
 
-    const interval = setInterval(() => {
-      currentStep = (currentStep + 1) % steps.length
-      setImportStep(steps[currentStep])
-    }, 2000)
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    }
 
-    return () => clearInterval(interval)
-  }, [importLoading])
-
-  // Fetch student active courses to check enrollment status
-  const fetchActiveCourses = () => {
-    fetch("http://localhost:8001/api/dashboard/")
-      .then((res) => {
-        if (res.ok) return res.json()
-        throw new Error()
-      })
-      .then((data: StudentDashboardData) => {
-        if (data && data.active_courses) {
-          setActiveCourseCodes(data.active_courses.map(c => c.code))
-        }
-      })
-      .catch(() => {
-        // Silent catch, fallback to empty active list
-      })
-  }
-
-  const fetchCourses = React.useCallback(() => {
-    setLoading(true)
-    setError(null)
-    
-    const params = new URLSearchParams()
-    if (search) params.append("search", search)
-    if (department) params.append("department", department)
-    if (sks) params.append("sks", sks)
-    
-    fetch(`http://localhost:8001/api/courses/?${params.toString()}`)
+    fetch("http://localhost:8001/api/dashboard/", { headers })
       .then((res) => {
         if (!res.ok) {
-          throw new Error("Gagal mengambil daftar mata kuliah")
+          throw new Error("Gagal mengambil data kelas terdaftar.")
         }
         return res.json()
       })
-      .then((data: any) => {
-        const list = Array.isArray(data) ? data : (data.results || [])
-        setCourses(list)
+      .then((data: DashboardData) => {
+        setCourses(data.active_courses || [])
+        setStudent(data.student || null)
         setLoading(false)
       })
       .catch((err) => {
         setError(err.message || "Gagal menghubungi server backend.")
         setLoading(false)
       })
-  }, [search, department, sks])
+  }, [router])
 
-  React.useEffect(() => {
-    fetchActiveCourses()
-  }, [])
-
-  React.useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchCourses()
-    }, 300)
-
-    return () => clearTimeout(delayDebounceFn)
-  }, [search, department, sks, fetchCourses])
-
-  const clearFilters = () => {
-    setSearch("")
-    setDepartment("")
-    setSks("")
-  }
-
-  const toggleRow = (code: string) => {
-    setExpandedRows(prev => ({
-      ...prev,
-      [code]: !prev[code]
-    }))
-  }
-
-  // Handle student enrollment
-  const handleEnroll = (courseCode: string) => {
-    fetch("http://localhost:8001/api/courses/enroll/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ course_code: courseCode })
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then(data => {
-            throw new Error(data.detail || "Gagal mendaftar kelas.")
-          })
-        }
-        return res.json()
-      })
-      .then(() => {
-        // Success
-        fetchActiveCourses() // Refresh active codes
-        router.push(`/courses/${courseCode}`)
-      })
-      .catch((err) => {
-        alert(err.message)
-      })
-  }
-
-  // Import operations
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setImportDragging(true)
-  }
-
-  const handleDragLeave = () => {
-    setImportDragging(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setImportDragging(false)
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0]
-      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
-      if (ext === '.pdf' || ext === '.xlsx' || ext === '.xls') {
-        setImportFile(file)
-        setImportError(null)
-      } else {
-        setImportError("Hanya file PDF atau Excel yang diperbolehkan.")
-      }
+  // Local helper to resolve progress percentage from localStorage
+  const getCourseProgress = (courseCode: string, totalModules: number) => {
+    if (totalModules === 0) return 0
+    try {
+      const storageKey = `belajara_completed_subchapters_${username}_${courseCode}`
+      const raw = localStorage.getItem(storageKey)
+      if (!raw) return 0
+      const completed = JSON.parse(raw)
+      if (!Array.isArray(completed)) return 0
+      
+      const totalSubchapters = totalModules * 5
+      return Math.min(100, Math.round((completed.length / totalSubchapters) * 100))
+    } catch (e) {
+      return 0
     }
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0]
-      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
-      if (ext === '.pdf' || ext === '.xlsx' || ext === '.xls') {
-        setImportFile(file)
-        setImportError(null)
-      } else {
-        setImportError("Hanya file PDF atau Excel yang diperbolehkan.")
-      }
-    }
-  }
-
-  const handleImportSubmit = () => {
-    if (!importFile) return
-
-    setImportLoading(true)
-    setImportError(null)
-    setImportSuccess(null)
-
-    const formData = new FormData()
-    formData.append("file", importFile)
-    formData.append("department", importDept)
-
-    fetch("http://localhost:8001/api/explore/upload-curriculum/", {
-      method: "POST",
-      body: formData,
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then(data => {
-            throw new Error(data.detail || "Gagal memproses file kurikulum.")
-          })
-        }
-        return res.json()
-      })
-      .then((data) => {
-        setImportLoading(false)
-        setImportSuccess(data.message || "Kurikulum berhasil diimpor!")
-        setImportFile(null)
-        fetchCourses() // Refresh catalog
-        setTimeout(() => {
-          setIsImportOpen(false)
-          setImportSuccess(null)
-        }, 2000)
-      })
-      .catch((err) => {
-        setImportLoading(false)
-        setImportError(err.message || "Terjadi kesalahan koneksi.")
-      })
   }
 
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <div className="font-heading text-lg font-semibold text-primary">
-            Katalog Mata Kuliah
+        {/* Minimalist Top Nav Header */}
+        <header className="flex h-14 shrink-0 items-center justify-between px-6 bg-white border-b border-border/80">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <span className="text-xs font-semibold text-[#060708]">Mata Kuliah Saya</span>
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col gap-6 p-6 bg-background">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-3xl font-heading font-bold text-primary">
-                Katalog Mata Kuliah
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Eksplorasi silabus kurikulum dan daftarkan mata kuliah pilihan Anda langsung ke sistem.
+        {/* Scrollable Container */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#FAF9FB] text-[#060708] font-sans selection:bg-[#C6B5BF]/30">
+          <div className="max-w-6xl mx-auto space-y-8">
+            
+            {/* Page Title & Context Header */}
+            <div className="space-y-2">
+              <h2 className="font-heading text-3xl font-black tracking-tight text-primary">
+                Mata Kuliah Saya
+              </h2>
+              <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
+                Pantau kemajuan belajar Anda, akses evaluasi pembelajaran berbasis AI, forum tanya jawab akademik, dan sertifikat kompetensi.
               </p>
             </div>
-            
-            <Button
-              onClick={() => setIsImportOpen(true)}
-              className="bg-destructive hover:bg-destructive/90 text-white cursor-pointer flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium self-start md:self-auto shadow-sm"
-            >
-              <Plus className="h-4.5 w-4.5" />
-              <span>Import Kurikulum (AI)</span>
-            </Button>
-          </div>
 
-          {/* Filter Bar */}
-          <div className="p-4 border border-border bg-white rounded-xl shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-              <SlidersHorizontal className="h-4 w-4 text-accent" />
-              <span>Filter & Pencarian</span>
-            </div>
-            
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Cari mata kuliah atau kode..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 bg-white border border-border rounded-lg text-primary focus:outline-none"
-                />
+            {loading ? (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((n) => (
+                  <Card key={n} className="border border-[#E8E5E9] bg-white rounded-xl shadow-2xs overflow-hidden animate-pulse">
+                    <CardHeader className="p-4 space-y-2">
+                      <div className="h-4 w-24 bg-slate-100 rounded" />
+                      <div className="h-6 w-3/4 bg-slate-100 rounded" />
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="h-10 w-full bg-slate-100 rounded" />
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-
-              {/* Department Select */}
-              <select
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full bg-white border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none cursor-pointer"
-              >
-                <option value="">Semua Jurusan</option>
-                <option value="Informatika">Informatika</option>
-                <option value="Sistem Informasi">Sistem Informasi</option>
-              </select>
-
-              {/* SKS Select */}
-              <select
-                value={sks}
-                onChange={(e) => setSks(e.target.value)}
-                className="w-full bg-white border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none cursor-pointer"
-              >
-                <option value="">Semua Bobot SKS</option>
-                <option value="2">2 SKS</option>
-                <option value="3">3 SKS</option>
-                <option value="4">4 SKS</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border">
-              <span className="text-xs text-muted-foreground">
-                Menampilkan {courses.length} mata kuliah
-              </span>
-              {(search || department || sks) && (
+            ) : error ? (
+              <div className="p-8 border border-destructive/20 bg-destructive/5 rounded-2xl text-center text-destructive text-xs font-semibold">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-80" />
+                {error}
+              </div>
+            ) : courses.length === 0 ? (
+              <Card className="border border-[#E8E5E9] bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
+                <BookOpen className="h-16 w-16 text-[#C6B5BF] mb-4 opacity-80" />
+                <h3 className="font-heading text-xl font-bold text-primary">Belum Mengambil Mata Kuliah</h3>
+                <p className="text-xs text-slate-500 max-w-sm mt-2 leading-relaxed font-semibold">
+                  Mulai langkah akademik Anda dengan memilih mata kuliah dari Katalog Mata Kuliah kami.
+                </p>
                 <Button
-                  variant="ghost"
-                  onClick={clearFilters}
-                  className="text-xs text-destructive hover:text-destructive/80 h-8 cursor-pointer"
+                  onClick={() => router.push("/#katalog")}
+                  className="mt-6 bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white text-xs font-bold px-6 h-9 rounded-lg shadow-sm cursor-pointer"
                 >
-                  Bersihkan Filter
+                  Telusuri Katalog Mata Kuliah
                 </Button>
-              )}
-            </div>
-          </div>
-
-          {/* DataTable Card Container */}
-          <Card className="border border-border shadow-sm rounded-xl bg-card overflow-hidden">
-            <CardHeader className="border-b border-border/80 px-6 py-4 bg-white">
-              <CardTitle className="text-lg font-bold text-primary">Daftar Kurikulum Aktif</CardTitle>
-              <CardDescription className="text-xs">Informasi lengkap seluruh mata kuliah yang terintegrasi di sistem.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="p-6 space-y-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center justify-between gap-4">
-                      <Skeleton className="h-5 w-20" />
-                      <Skeleton className="h-5 w-60" />
-                      <Skeleton className="h-5 w-12" />
-                      <Skeleton className="h-5 w-16" />
-                      <Skeleton className="h-8 w-24" />
-                    </div>
-                  ))}
-                </div>
-              ) : error ? (
-                <div className="p-12 text-center max-w-lg mx-auto flex flex-col items-center gap-4">
-                  <AlertCircle className="h-10 w-10 text-destructive" />
-                  <div>
-                    <h3 className="font-heading text-lg font-bold text-primary">Gagal Memuat Data</h3>
-                    <p className="text-xs text-muted-foreground mt-1">{error}</p>
-                  </div>
-                  <Button onClick={fetchCourses} className="bg-destructive text-white text-xs px-4 h-9 rounded-lg">Coba Lagi</Button>
-                </div>
-              ) : courses.length === 0 ? (
-                <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
-                  <BookOpen className="h-10 w-10 text-muted-foreground/60" />
-                  <p className="text-sm">Tidak ada mata kuliah yang cocok dengan kriteria pencarian Anda.</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[120px]">Kode</TableHead>
-                      <TableHead>Nama Mata Kuliah</TableHead>
-                      <TableHead className="w-[80px]">SKS</TableHead>
-                      <TableHead className="w-[100px]">Semester</TableHead>
-                      <TableHead className="w-[180px]">Jurusan</TableHead>
-                      <TableHead className="w-[200px] text-right">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {courses.map((course) => {
-                      const isExpanded = !!expandedRows[course.code]
-                      const isEnrolled = activeCourseCodes.includes(course.code)
-                      
-                      return (
-                        <React.Fragment key={course.id}>
-                          <TableRow className="group/row">
-                            <TableCell className="font-semibold text-primary">
-                              <span className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded bg-accent/15 border border-accent/25">
-                                {course.code}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <div className="font-medium text-primary">{course.title}</div>
-                              <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5 max-w-lg">
-                                {course.description}
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-semibold text-primary">{course.sks} SKS</TableCell>
-                            <TableCell className="text-muted-foreground font-medium">Sem {course.semester}</TableCell>
-                            <TableCell className="text-accent-foreground font-semibold text-xs">{course.department}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  onClick={() => toggleRow(course.code)}
-                                  className="text-xs h-8 px-2 flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-primary hover:bg-secondary/40 rounded-md"
-                                >
-                                  <span>Silabus</span>
-                                  {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                </Button>
-                                
-                                {isEnrolled ? (
-                                  <Button
-                                    onClick={() => router.push(`/courses/${course.code}`)}
-                                    className="bg-destructive hover:bg-destructive/95 text-white text-xs h-8 px-3 rounded-lg cursor-pointer font-medium flex items-center gap-1 shadow-sm"
-                                  >
-                                    <Check className="h-3.5 w-3.5 text-white font-bold" />
-                                    Masuk Kelas
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    onClick={() => handleEnroll(course.code)}
-                                    className="bg-primary hover:bg-primary/90 text-white text-xs h-8 px-3 rounded-lg cursor-pointer font-medium"
-                                  >
-                                    Ambil Kelas
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                          
-                          {/* Expanded Syllabus Row */}
-                          {isExpanded && (
-                            <TableRow className="bg-secondary/10">
-                              <TableCell colSpan={6} className="p-4 border-b border-border/40">
-                                <div className="pl-4 border-l-2 border-accent/40 space-y-3">
-                                  <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Deskripsi Lengkap</h4>
-                                    <p className="text-sm text-primary mt-1 leading-relaxed max-w-3xl">
-                                      {course.description || "Belum ada deskripsi untuk mata kuliah ini."}
-                                    </p>
-                                  </div>
-                                  
-                                  <div className="pt-2">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Modul Pembelajaran ({course.modules.length})</h4>
-                                    {course.modules.length === 0 ? (
-                                      <p className="text-xs text-muted-foreground italic">Belum ada modul pembelajaran yang didefinisikan.</p>
-                                    ) : (
-                                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
-                                        {course.modules.map((mod) => (
-                                          <div key={mod.id} className="p-2.5 border border-border bg-white rounded-lg flex flex-col justify-between shadow-xs">
-                                            <div>
-                                              <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {mod.order}</span>
-                                              <h5 className="font-semibold text-xs text-primary mt-0.5 leading-snug">{mod.title}</h5>
-                                              <p className="text-[11px] text-muted-foreground leading-normal mt-1">{mod.description}</p>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </React.Fragment>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </SidebarInset>
-
-      {/* Custom HTML-based Import Dialog */}
-      {isImportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primary/40 backdrop-blur-xs">
-          <Card className="w-full max-w-md bg-white border border-border shadow-xl rounded-xl overflow-hidden p-6 relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setIsImportOpen(false)
-                setImportFile(null)
-                setImportError(null)
-              }}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-primary h-8 w-8 cursor-pointer rounded-full"
-              disabled={importLoading}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            
-            <div className="mb-4">
-              <h3 className="text-xl font-heading font-bold text-primary flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-destructive" />
-                Import Kurikulum AI
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Unggah file kurikulum perguruan tinggi (PDF atau Excel). Gemini AI akan mengekstrak mata kuliah dan bab silabus secara otomatis ke catalog database.
-              </p>
-            </div>
-
-            {importSuccess ? (
-              <div className="p-8 text-center space-y-3 flex flex-col items-center justify-center min-h-[200px]">
-                <div className="h-10 w-10 bg-accent/25 text-primary border border-accent/40 rounded-full flex items-center justify-center">
-                  <Check className="h-5 w-5 font-bold" />
-                </div>
-                <h4 className="font-heading text-lg font-bold text-primary">Import Berhasil</h4>
-                <p className="text-xs text-muted-foreground">{importSuccess}</p>
-              </div>
-            ) : importLoading ? (
-              <div className="p-8 text-center space-y-4 flex flex-col items-center justify-center min-h-[200px]">
-                <Loader2 className="h-10 w-10 text-accent animate-spin" />
-                <div className="space-y-1">
-                  <h4 className="font-heading text-base font-bold text-primary">Sedang Memproses Dokumen</h4>
-                  <p className="text-xs text-muted-foreground font-medium animate-pulse">{importStep}</p>
-                </div>
-              </div>
+              </Card>
             ) : (
-              <div className="space-y-4">
-                {/* Department select */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-primary">Mata Kuliah Pilihan Jurusan</label>
-                  <select
-                    value={importDept}
-                    onChange={(e) => setImportDept(e.target.value)}
-                    className="w-full bg-white border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none cursor-pointer"
-                  >
-                    <option value="Informatika">Informatika</option>
-                    <option value="Sistem Informasi">Sistem Informasi</option>
-                  </select>
-                </div>
-
-                {/* Upload drag-n-drop */}
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
-                    importDragging
-                      ? "border-accent bg-accent/10"
-                      : "border-border hover:border-accent bg-background"
-                  }`}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    accept=".pdf,.xlsx,.xls"
-                    className="hidden"
-                  />
-                  <Upload className="h-8 w-8 text-muted-foreground mb-3" />
-                  <p className="text-xs font-bold text-primary mb-0.5">Drag & Drop file di sini</p>
-                  <p className="text-[10px] text-muted-foreground">atau klik untuk menelusuri (PDF atau Excel)</p>
-                </div>
-
-                {importError && (
-                  <div className="p-3 bg-destructive/10 text-destructive text-xs rounded-lg flex items-start gap-2">
-                    <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
-                    <span>{importError}</span>
-                  </div>
-                )}
-
-                {/* File Details */}
-                {importFile && (
-                  <div className="p-3 border rounded-lg bg-background flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <FileText className="h-7 w-7 text-accent shrink-0" />
-                      <div className="overflow-hidden">
-                        <p className="text-xs font-bold text-primary truncate">{importFile.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{(importFile.size / 1024).toFixed(1)} KB</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setImportFile(null)}
-                      className="text-muted-foreground hover:text-destructive h-7 w-7 cursor-pointer"
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {courses.map((course) => {
+                  const progress = getCourseProgress(course.code, course.modules?.length || 0)
+                  const isVerified = course.enrollment_mode === "verified"
+                  
+                  return (
+                    <Card
+                      key={course.id}
+                      className="border border-[#E8E5E9] hover:border-[#C6B5BF] bg-white rounded-xl shadow-2xs transition-all flex flex-col justify-between overflow-hidden group"
                     >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
+                      <CardHeader className="p-4 border-b border-[#E8E5E9]/60">
+                        <div className="flex justify-between items-start gap-4">
+                          <span className="text-[9px] font-bold text-accent uppercase tracking-wider block">
+                            {course.department}
+                          </span>
+                          
+                          {/* Enrollment Mode Badge */}
+                          {isVerified ? (
+                            <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#060708] text-white border border-[#060708] flex items-center gap-0.5 shadow-2xs">
+                              <Sparkles className="h-2 w-2 text-[#C6B5BF]" /> Terverifikasi
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-250 flex items-center gap-0.5">
+                              Mode Audit
+                            </span>
+                          )}
+                        </div>
+                        <CardTitle className="font-heading text-sm font-black text-primary mt-2 line-clamp-1 leading-snug">
+                          {course.title}
+                        </CardTitle>
+                        <CardDescription className="text-[10px] mt-0.5 font-semibold text-slate-500">
+                          {course.sks} SKS • Semester {course.semester}
+                        </CardDescription>
+                      </CardHeader>
 
-                <Button
-                  onClick={handleImportSubmit}
-                  disabled={!importFile}
-                  className="w-full bg-destructive hover:bg-destructive/90 text-white cursor-pointer py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Sparkles className="h-4.5 w-4.5" />
-                  Mulai Impor AI
-                </Button>
+                      <CardContent className="p-4 space-y-4">
+                        {/* Progress Bar */}
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500 uppercase tracking-widest">
+                            <span>Kemajuan Belajar</span>
+                            <span>{progress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200">
+                            <div
+                              className="bg-[#CF3A1F] h-full rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+
+                      <CardFooter className="p-4 bg-slate-50/50 border-t border-[#E8E5E9]/60 flex justify-end">
+                        <Button
+                          onClick={() => router.push(`/courses/${course.code}`)}
+                          className="bg-[#060708] hover:bg-[#060708]/90 text-white font-bold text-xs h-8 px-4 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        >
+                          Masuk Kelas <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  )
+                })}
               </div>
             )}
-          </Card>
-        </div>
-      )}
+          </div>
+        </main>
+      </SidebarInset>
     </SidebarProvider>
   )
 }

@@ -123,7 +123,7 @@ export default function Page() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="font-heading text-lg font-semibold text-primary">
-            Belajara Dashboard
+            Dashboard Belajara
           </div>
         </header>
 
@@ -202,7 +202,7 @@ export default function Page() {
                 <Card className="border-none shadow-sm bg-white">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Rekomendasi AI
+                      Rekomendasi Rencana Studi
                     </CardTitle>
                     <Sparkles className="h-4 w-4 text-destructive" />
                   </CardHeader>
@@ -210,14 +210,14 @@ export default function Page() {
                     <div className="text-2xl font-bold font-heading">
                       {data.stats.ai_recommendations_count} Mata Kuliah
                     </div>
-                    <p className="text-xs text-muted-foreground">Berdasarkan minatmu</p>
+                    <p className="text-xs text-muted-foreground">Berdasarkan minat Anda</p>
                   </CardContent>
                 </Card>
 
                 <Card className="border-none shadow-sm bg-white">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Pencapaian
+                      Pencapaian Akademik
                     </CardTitle>
                     <Trophy className="h-4 w-4 text-accent" />
                   </CardHeader>
@@ -225,7 +225,7 @@ export default function Page() {
                     <div className="text-2xl font-bold font-heading">
                       Level {data.stats.achievement_level}
                     </div>
-                    <p className="text-xs text-muted-foreground">Terus semangat belajar!</p>
+                    <p className="text-xs text-muted-foreground">Semangat menempuh studi!</p>
                   </CardContent>
                 </Card>
               </div>
@@ -233,7 +233,7 @@ export default function Page() {
               {/* Today's Recommendation */}
               <div className="rounded-xl border border-border bg-white shadow-sm p-6">
                 <h2 className="text-xl font-heading font-semibold mb-4 text-primary">
-                  Rekomendasi Belajar Hari Ini
+                  Rekomendasi Rencana Studi Hari Ini
                 </h2>
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border border-border rounded-lg bg-background gap-4">
                   <div>
@@ -264,7 +264,7 @@ export default function Page() {
               {/* Active Courses List */}
               <div className="rounded-xl border border-border bg-white shadow-sm p-6">
                 <h2 className="text-xl font-heading font-semibold mb-4 text-primary">
-                  Daftar Kelas Aktif Anda
+                  Mata Kuliah Aktif Anda
                 </h2>
                 {data.active_courses.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Anda belum mengambil mata kuliah aktif.</p>
@@ -297,17 +297,17 @@ export default function Page() {
                         </div>
                         
                         <div className="border-t border-border pt-3">
-                          <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Modul Pembelajaran</h5>
+                          <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Modul Belajar</h5>
                           <div className="space-y-1.5">
                             {course.modules.slice(0, 3).map((module) => (
                               <div key={module.id} className="text-xs flex items-center justify-between text-primary">
-                                <span className="truncate pr-2">Modul {module.order}: {module.title}</span>
+                                <span className="truncate pr-2">Modul Belajar {module.order}: {module.title}</span>
                                 <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded shrink-0">Aktif</span>
                               </div>
                             ))}
                             {course.modules.length > 3 && (
                               <div className="text-[10px] text-muted-foreground italic mt-1">
-                                + {course.modules.length - 3} modul lainnya
+                                + {course.modules.length - 3} modul belajar lainnya
                               </div>
                             )}
                           </div>

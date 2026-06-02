@@ -59,11 +59,11 @@ export default function ExplorePage() {
     if (!loading) return
 
     const steps = [
-      "Mengekstrak teks dokumen secara in-memory...",
-      "Menganalisis kompetensi dan topik dalam dokumen...",
-      "Menghubungi Gemini AI Engine...",
-      "Mencocokkan profil dokumen dengan katalog mata kuliah...",
-      "Menyusun rekomendasi belajar terbaik untuk Anda..."
+      "Mengekstrak teks dokumen akademik...",
+      "Menganalisis kompetensi dan topik studi...",
+      "Memproses data melalui sistem analisis AI...",
+      "Mencocokkan dokumen dengan katalog mata kuliah...",
+      "Menyusun rekomendasi rencana studi..."
     ]
     let currentStep = 0
     setLoadingStep(steps[0])
@@ -125,7 +125,7 @@ export default function ExplorePage() {
         setFile(droppedFile)
         setError(null)
       } else {
-        setError("Hanya file PDF atau Excel yang diperbolehkan.")
+        setError("Hanya dokumen PDF atau Excel yang diperbolehkan.")
       }
     }
   }
@@ -137,7 +137,7 @@ export default function ExplorePage() {
         setFile(selectedFile)
         setError(null)
       } else {
-        setError("Hanya file PDF atau Excel yang diperbolehkan.")
+        setError("Hanya dokumen PDF atau Excel yang diperbolehkan.")
       }
     }
   }
@@ -242,7 +242,7 @@ export default function ExplorePage() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="font-heading text-lg font-semibold text-primary">
-            Eksplorasi (AI)
+            Eksplorasi Rencana Studi
           </div>
         </header>
 
@@ -250,10 +250,10 @@ export default function ExplorePage() {
           {/* Header */}
           <div className="flex flex-col gap-1">
             <h1 className="text-3xl font-heading font-bold text-primary">
-              Rekomendasi Rencana Studi AI
+              Rekomendasi Rencana Studi Berbasis AI
             </h1>
             <p className="text-sm text-muted-foreground">
-              Unggah proposal penelitian, silabus eksternal, atau dokumen kurikulum Anda untuk mendapatkan rekomendasi mata kuliah yang relevan.
+              Unggah proposal penelitian, silabus eksternal, atau dokumen kurikulum Anda untuk mendapatkan rekomendasi mata kuliah secara terstruktur.
             </p>
           </div>
 
@@ -285,10 +285,10 @@ export default function ExplorePage() {
                   />
                   <Upload className="h-10 w-10 text-muted-foreground mb-4" />
                   <p className="text-sm font-semibold text-primary mb-1">
-                    Drag & Drop file Anda di sini
+                    Tarik & lepas dokumen Anda di sini
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    atau klik untuk menjelajah file (Format: PDF / Excel)
+                    atau klik untuk mencari dokumen (Format: PDF / Excel)
                   </p>
                 </div>
 
@@ -331,7 +331,7 @@ export default function ExplorePage() {
                     className="w-full mt-6 bg-destructive hover:bg-destructive/90 text-white cursor-pointer py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium"
                   >
                     <Sparkles className="h-4 w-4" />
-                    Mulai Analisis AI
+                    Mulai Analisis Dokumen
                   </Button>
                 )}
               </Card>
@@ -356,7 +356,7 @@ export default function ExplorePage() {
               {!loading && recommendations.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center p-12 border border-dashed rounded-xl bg-white min-h-[400px]">
                   <Sparkles className="h-12 w-12 text-accent/50 mb-4" />
-                  <h3 className="font-heading text-xl font-bold text-primary">Hasil Rekomendasi AI</h3>
+                  <h3 className="font-heading text-xl font-bold text-primary">Hasil Rekomendasi Rencana Studi</h3>
                   <p className="text-sm text-muted-foreground max-w-sm mt-2">
                     Unggah dokumen kurikulum atau proposal rencana belajar Anda di panel kiri untuk memetakan mata kuliah yang paling sesuai.
                   </p>
@@ -408,12 +408,12 @@ export default function ExplorePage() {
                           </div>
 
                           <div className="space-y-2 border-t border-border pt-4">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Modul Pembelajaran</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Modul Belajar</h4>
                             <div className="grid gap-2 sm:grid-cols-2">
                               {course.modules.map((module) => (
                                 <div key={module.id} className="text-xs flex items-center gap-2 text-primary p-2 border rounded bg-background">
                                   <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
-                                  <span className="truncate">Modul {module.order}: {module.title}</span>
+                                  <span className="truncate">Modul Belajar {module.order}: {module.title}</span>
                                 </div>
                               ))}
                             </div>
@@ -427,7 +427,7 @@ export default function ExplorePage() {
                             {isEnrolled ? (
                               <span className="text-xs font-bold text-primary bg-accent/20 px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-1">
                                 <Check className="h-4 w-4" />
-                                Terdaftar di Dashboard
+                                Sudah Terdaftar
                               </span>
                             ) : (
                               <Button

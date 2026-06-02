@@ -22,3 +22,13 @@ class Mahasiswa(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.nim})"
+
+class InstructorProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='instructor_profile')
+    nidn = models.CharField(max_length=20, unique=True)
+    bidang_keahlian = models.CharField(max_length=100)
+    universitas = models.CharField(max_length=150)
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} ({self.nidn})"
+

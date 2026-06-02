@@ -61,51 +61,239 @@ interface SubChapter {
   id: string
   title: string
   type: "video" | "reading" | "quiz" | "forum"
-  order: number
+  duration: string
+  section: string // Group section header
   module: Module
+  video_url?: string
+  content?: string
 }
 
-// Function to dynamically generate sub-chapters under each module
-const getSubChapters = (mod: Module): SubChapter[] => {
-  const cleanTitle = mod.title.replace(/^Modul\s+\d+:\s*/i, "")
+// Function to generate the grouped Sub-Chapters for each module matching Coursera style
+const getSubChaptersForModule = (mod: any): SubChapter[] => {
+  if (mod.subchapters && mod.subchapters.length > 0) {
+    return mod.subchapters.map((sub: any) => ({
+      id: sub.id,
+      title: sub.title,
+      type: sub.type,
+      duration: sub.duration || "15 mnt",
+      section: sub.type === "video" ? "Video Pembelajaran" : sub.type === "reading" ? "Materi Kuliah" : sub.type === "quiz" ? "Evaluasi Pembelajaran" : "Diskusi Akademik",
+      module: mod,
+      video_url: sub.video_url,
+      content: sub.content
+    }))
+  }
+
+  const cleanTitle = mod.title.replace(/^Modul\s+\d+:\s*/i, "").trim()
   return [
     {
       id: `${mod.id}_sub1`,
-      title: `Pengenalan ${cleanTitle}`,
+      title: `Sub-bab 1: Video Pembelajaran - ${cleanTitle}`,
       type: "video",
-      order: 1,
+      duration: "10 mnt",
+      section: "Video Pembelajaran",
       module: mod
     },
     {
       id: `${mod.id}_sub2`,
-      title: `Materi Utama & Slide Kuliah`,
+      title: `Sub-bab 2: Materi Kuliah - ${cleanTitle}`,
       type: "reading",
-      order: 2,
+      duration: "15 mnt",
+      section: "Materi Kuliah",
       module: mod
     },
     {
       id: `${mod.id}_sub3`,
-      title: `Studi Kasus & Analisis Mendalam`,
+      title: `Sub-bab 3: Studi Kasus & Analisis Mendalam`,
       type: "reading",
-      order: 3,
+      duration: "15 mnt",
+      section: "Materi Kuliah",
       module: mod
     },
     {
       id: `${mod.id}_sub4`,
-      title: `Kuis Kompetensi Modul ${mod.order}`,
+      title: `Evaluasi Pembelajaran Modul ${mod.order}`,
       type: "quiz",
-      order: 4,
+      duration: "15 mnt",
+      section: "Evaluasi Pembelajaran",
       module: mod
     },
     {
       id: `${mod.id}_sub5`,
-      title: `Diskusi Tanya Jawab`,
+      title: `Forum Diskusi Modul ${mod.order}`,
       type: "forum",
-      order: 5,
+      duration: "10 mnt",
+      section: "Diskusi Akademik",
       module: mod
     }
   ]
 }
+
+// Function to generate rich textbook-style reading material dynamically
+const getReadingContent = (courseCode: string, moduleOrder: number, subChapterIndex: number, moduleTitle: string) => {
+  const cleanModTitle = moduleTitle.replace(/^Modul\s+\d+:\s*/i, "").trim()
+
+  if (courseCode === "IF201" || courseCode === "IF101") {
+    if (subChapterIndex === 2) {
+      return {
+        introduction: `Selamat datang di materi utama untuk modul ini. Pada bagian ini, kita akan membahas secara mendalam mengenai konsep dasar, teori, serta implementasi praktis terkait "${cleanModTitle}". Pemahaman yang kuat pada sub-bab ini sangat penting sebagai fondasi Anda sebelum melanjutkan ke evaluasi pembelajaran.`,
+        sections: [
+          {
+            heading: "1. Konsep Utama & Definisi",
+            paragraphs: [
+              `Dalam rekayasa perangkat lunak modern, pemahaman mengenai ${cleanModTitle} merupakan salah satu kompetensi inti yang harus dimiliki oleh setiap analis dan pengembang sistem. Konsep ini mengatur bagaimana data distrukturkan, disimpan, dan diakses secara efisien.`,
+              `Secara formal, kita mendefinisikan ini sebagai abstraksi dari entitas dunia nyata ke dalam representasi logis yang dapat dipahami oleh mesin komputer. Komponen utama pembentuknya meliputi tipe data primitif, struktur data komposit, dan relasi logis antar elemen.`
+            ]
+          },
+          {
+            heading: "2. Teori & Mekanisme Kerja",
+            paragraphs: [
+              "Untuk memahami cara kerjanya, perhatikan skema operasional berikut. Setiap instruksi yang dijalankan akan diproses secara sekuensial atau paralel sesuai kompleksitas waktu (Time Complexity) yang dinotasikan dengan Big O. Optimasi memori (Space Complexity) juga menjadi parameter krusial dalam perancangan arsitektur data ini.",
+              "Sebagai contoh, apabila kita menggunakan alokasi memori dinamis (dynamic memory allocation), pointer akan merujuk pada alamat memori fisik yang berbeda namun tetap terhubung secara logis melalui metadata referensi."
+            ],
+            codeBlock: courseCode === "IF101" ? `// Contoh implementasi linked list Node dalam Bahasa C / C++
+struct Node {
+    int data;
+    struct Node* next;
+};` : `-- Contoh skema pembuatan tabel dan integritas referensial (SQL DDL)
+CREATE TABLE Mahasiswa (
+    nim VARCHAR(20) PRIMARY KEY,
+    nama VARCHAR(150) NOT NULL,
+    jurusan VARCHAR(100),
+    semester INTEGER DEFAULT 1
+);`
+          },
+          {
+            heading: "3. Kesimpulan & Best Practices",
+            paragraphs: [
+              "Dalam mengimplementasikan arsitektur ini, selalu prioritaskan efisiensi algoritma dan normalisasi untuk mencegah inkonsistensi data. Lakukan analisis kebutuhan fungsional sistem terlebih dahulu sebelum memilih struktur data atau skema basis data yang akan digunakan."
+            ]
+          }
+        ]
+      }
+    } else {
+      return {
+        introduction: `Studi kasus ini dirancang untuk mengajak Anda melihat bagaimana konsep "${cleanModTitle}" diterapkan dalam skenario industri nyata. Kita akan menganalisis tantangan yang sering dihadapi oleh software engineer di lapangan dan bagaimana menyelesaikannya secara sistematis.`,
+        sections: [
+          {
+            heading: "1. Skenario Masalah (Problem Statement)",
+            paragraphs: [
+              "Sebuah platform e-commerce berskala nasional mengalami latensi tinggi (bottleneck) pada modul penanganan transaksi di jam sibuk (peak hours). Setelah dilakukan profiling, ditemukan bahwa struktur penyimpanan riwayat belanja pelanggan tidak diindeks dengan baik dan query pencarian memiliki kompleksitas O(N^2).",
+              "Hal ini mengakibatkan beban kerja server database meningkat drastis, memicu kegagalan koneksi (timeout) bagi pengguna yang sedang melakukan pembayaran."
+            ]
+          },
+          {
+            heading: "2. Analisis & Solusi Teknis",
+            paragraphs: [
+              "Untuk mengatasi masalah tersebut, tim engineer melakukan refactoring dengan menerapkan dua langkah optimasi utama:",
+              "Pertama, mengubah pencarian linear menjadi pencarian berbasis indeks hash (Hash-based Indexing) yang memotong kompleksitas waktu pencarian rata-rata menjadi O(1). Kedua, melakukan denormalisasi terkontrol pada tabel transaksional sensitif guna meminimalisir join database yang berat.",
+              "Di bawah ini adalah ilustrasi perbandingan query sebelum dan setelah optimasi dilakukan:"
+            ],
+            codeBlock: courseCode === "IF101" ? `// O(N) linear search vs O(log N) binary search
+int binarySearch(int arr[], int l, int r, int x) {
+    while (l <= r) {
+        int m = l + (r - l) / 2;
+        if (arr[m] == x) return m;
+        if (arr[m] < x) l = m + 1;
+        else r = m - 1;
+    }
+    return -1;
+}` : `-- Query teroptimasi dengan pemanfaatan Indexing
+CREATE INDEX idx_transaksi_tanggal ON Transaksi(tanggal_bayar);
+
+SELECT t.id, m.nama, t.total_amount
+FROM Transaksi t
+INNER JOIN Mahasiswa m ON t.mahasiswa_id = m.id
+WHERE t.tanggal_bayar >= '2026-06-01'
+ORDER BY t.tanggal_bayar DESC;`
+          },
+          {
+            heading: "3. Evaluasi & Pembelajaran",
+            paragraphs: [
+              "Dengan dilakukannya optimasi ini, response time sistem turun dari 2.4 detik menjadi 150 milidetik. Hal ini menunjukkan bahwa pemahaman teori dasar struktur data dan basis data relasional sangat vital bagi performa aplikasi skala enterprise."
+            ]
+          }
+        ]
+      }
+    }
+  }
+
+  // General fallback content for other courses
+  if (subChapterIndex === 2) {
+    return {
+      introduction: `Selamat datang di materi utama untuk modul ini. Pada bagian ini, kita akan membahas secara mendalam mengenai konsep dasar, teori, serta implementasi praktis terkait "${cleanModTitle}". Pemahaman yang kuat pada sub-bab ini sangat penting sebagai fondasi Anda sebelum melanjutkan ke evaluasi pembelajaran.`,
+      sections: [
+        {
+          heading: "1. Pengantar Teori & Konsep",
+          paragraphs: [
+            `Materi tentang ${cleanModTitle} ini menjelaskan aspek fundamental dari domain pembelajaran Anda. Dalam mata kuliah ini, kita mempelajari bagaimana sistem dirancang untuk menghasilkan output yang dapat diandalkan.`,
+            "Konsep ini merupakan standar baku yang digunakan oleh para profesional di industri teknologi informasi global saat ini."
+          ]
+        },
+        {
+          heading: "2. Cara Kerja & Operasional",
+          paragraphs: [
+            "Prinsip utama yang melandasi konsep ini adalah pembagian modul (modularity) dan pemisahan tugas (separation of concerns). Dengan pendekatan ini, sistem menjadi lebih mudah dirawat (maintainable) dan dikembangkan (extensible) secara berkelanjutan.",
+            "Berikut adalah contoh sintaks umum atau diagram struktur logika yang relevan dengan bahasan kita:"
+          ],
+          codeBlock: `// Contoh struktur implementasi modul logis
+class ModulPendidikan {
+  private String namaMateri;
+  private int durasiMenit;
+
+  public void jalankanSesi() {
+    System.out.println("Memulai sesi pembelajaran: " + this.namaMateri);
+  }
+}`
+        },
+        {
+          heading: "3. Rangkuman Materi",
+          paragraphs: [
+            "Poin penting yang perlu dicatat adalah bahwa keberhasilan perancangan sistem ditentukan oleh ketepatan pemilihan struktur dan kepatuhan terhadap standar best practices pemrograman."
+          ]
+        }
+      ]
+    }
+  } else {
+    return {
+      introduction: `Studi kasus ini dirancang untuk mengajak Anda melihat bagaimana konsep "${cleanModTitle}" diterapkan dalam skenario industri nyata. Kita akan menganalisis tantangan yang sering dihadapi oleh software engineer di lapangan dan bagaimana menyelesaikannya secara sistematis.`,
+      sections: [
+        {
+          heading: "1. Kasus Masalah Nyata",
+          paragraphs: [
+            "Dalam operasional harian perusahaan teknologi, sering kali dijumpai masalah sinkronisasi data akibat kurangnya pemodelan modular. Hal ini dapat menghambat produktivitas tim pengembang dan menyebabkan inkonsistensi data pada dashboard user.",
+            "Studi ini menunjukkan proses identifikasi akar masalah (root-cause analysis) dan formulasi solusinya."
+          ]
+        },
+        {
+          heading: "2. Formulasi Solusi",
+          paragraphs: [
+            "Solusi yang diadopsi adalah restrukturisasi total pada modul-modul yang saling tumpang tindih, dengan menerapkan paradigma OOP modern serta design pattern yang sesuai.",
+            "Di bawah ini merupakan visualisasi skema perubahan kode logis:"
+          ],
+          codeBlock: `// Refactored Class with Single Responsibility Principle (SRP)
+class OrderManager {
+  public void processOrder(Order order) {
+    // logic pemrosesan saja
+  }
+}
+
+class InvoiceGenerator {
+  public void generateInvoice(Order order) {
+    // logic pembuatan nota saja
+  }
+}`
+        },
+        {
+          heading: "3. Pelajaran yang Dapat Diambil",
+          paragraphs: [
+            "Pemisahan tanggung jawab kelas (separation of concerns) terbukti menyederhanakan proses debugging dan meminimalisir duplikasi kode di seluruh repositori proyek."
+          ]
+        }
+      ]
+    }
+  }
+}
+
 
 export default function CourseDetailPage({ params }: PageProps) {
   const router = useRouter()
@@ -125,9 +313,14 @@ export default function CourseDetailPage({ params }: PageProps) {
   const [completedSubChapters, setCompletedSubChapters] = React.useState<string[]>([]) // item keys: `${moduleId}_subX`
   const [activeSubChapter, setActiveSubChapter] = React.useState<SubChapter | null>(null)
 
+  // Enrollment states
+  const [enrollmentMode, setEnrollmentMode] = React.useState<"audit" | "verified" | null>(null)
+  const [isEnrolled, setIsEnrolled] = React.useState<boolean>(false)
+
   // Derived states
   const activeModule = activeSubChapter?.module || null
   const activeSubItem = activeSubChapter?.type || "video"
+
 
   // Quiz states
   const [activeQuiz, setActiveQuiz] = React.useState<any | null>(null)
@@ -185,9 +378,19 @@ export default function CourseDetailPage({ params }: PageProps) {
     try {
       const data = await api.courses.get(courseCode)
       setCourse(data)
+      
+      // Save enrollment details if present
+      if (data && data.enrollment) {
+        setIsEnrolled(true)
+        setEnrollmentMode(data.enrollment.mode)
+      } else {
+        setIsEnrolled(false)
+        setEnrollmentMode(null)
+      }
+
       if (data && data.modules && data.modules.length > 0) {
         const firstMod = data.modules[0]
-        const subs = getSubChapters(firstMod)
+        const subs = getSubChaptersForModule(firstMod)
         setActiveSubChapter(subs[0])
         setExpandedModules({ [firstMod.id]: true })
       }
@@ -264,10 +467,10 @@ export default function CourseDetailPage({ params }: PageProps) {
         setQuizTimeLeft(quiz.time_limit)
         setQuizTimerActive(true)
       } else {
-        alert("Belum ada kuis untuk modul ini.")
+        alert("Belum ada evaluasi untuk modul ini.")
       }
     } catch (err) {
-      alert("Gagal memuat kuis.")
+      alert("Gagal memuat evaluasi.")
     }
   }
 
@@ -290,7 +493,7 @@ export default function CourseDetailPage({ params }: PageProps) {
         markSubChapterAsCompleted(activeSubChapter.id)
       }
     } catch (err) {
-      alert("Gagal mengirimkan kuis.")
+      alert("Gagal mengirimkan jawaban evaluasi.")
       setQuizTimerActive(true)
     }
   }
@@ -341,12 +544,13 @@ export default function CourseDetailPage({ params }: PageProps) {
 
   // Payment triggers
   const handleCheckoutTrigger = async () => {
+    if (!course) return
     setCheckoutOpen(true)
     setCheckoutLoading(true)
     setPaymentStatus("idle")
     setSnapToken(null)
     try {
-      const response = await api.payment.checkout()
+      const response = await api.payment.checkout(course.id)
       setSnapToken(response.snap_token)
       setOrderId(response.order_id)
       
@@ -358,6 +562,7 @@ export default function CourseDetailPage({ params }: PageProps) {
             await api.payment.verify(response.order_id, "success")
             api.auth.updatePremiumStatus(true)
             setUser(getUser()) // Reload status
+            await fetchCourseData() // Re-fetch course metadata to update enrollmentMode to 'verified'
             alert("Upgrade premium berhasil! Selamat belajar.")
             setCheckoutOpen(false)
           },
@@ -390,6 +595,7 @@ export default function CourseDetailPage({ params }: PageProps) {
         await api.payment.verify(orderId, "success")
         api.auth.updatePremiumStatus(true)
         setUser(getUser()) // Refresh auth user state in React
+        await fetchCourseData() // Re-fetch course metadata to update enrollmentMode to 'verified'
         setPaymentStatus("success")
         
         // Auto close checkout popup
@@ -470,7 +676,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     if (!course) return []
     const items: SubChapter[] = []
     course.modules.forEach(mod => {
-      items.push(...getSubChapters(mod))
+      items.push(...getSubChaptersForModule(mod))
     })
     return items
   }, [course])
@@ -478,7 +684,7 @@ export default function CourseDetailPage({ params }: PageProps) {
   const activeIndex = flatSubChapters.findIndex(item => item.id === activeSubChapter?.id)
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FAF9FB] font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#FAF9FB] font-sans">
       {/* Midtrans Snap script injection */}
       <script
         src="https://app.sandbox.midtrans.com/snap/snap.js"
@@ -498,193 +704,235 @@ export default function CourseDetailPage({ params }: PageProps) {
           <p className="text-sm text-muted-foreground">{error || "Terjadi kesalahan loading."}</p>
           <Button onClick={fetchCourseData} className="bg-destructive text-white text-xs px-4">Coba Lagi</Button>
         </div>
+      ) : !isEnrolled ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center max-w-lg mx-auto gap-6 bg-white border border-border rounded-2xl shadow-xl my-12">
+          <BookOpen className="h-16 w-16 text-[#C6B5BF] animate-pulse" />
+          <div className="space-y-2">
+            <h3 className="font-heading text-2xl font-black text-[#060708]">Anda Belum Mengambil Mata Kuliah Ini</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Mata kuliah <strong>"{course.title}"</strong> ini memerlukan pengisian rencana studi aktif sebelum Anda dapat mengakses workspace materi kuliah, diskusi, dan evaluasi pembelajaran.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              router.push("/courses")
+            }}
+            className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white font-bold text-xs h-10 px-6 rounded-xl shadow-md cursor-pointer"
+          >
+            Kembali ke Katalog Mata Kuliah & KRS
+          </Button>
+        </div>
       ) : (
         <>
-          {/* Custom Coursera Learning Workspace Header */}
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-white px-6 shadow-xs z-40 relative">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/dashboard")}
-                className="h-9 px-2 hover:bg-secondary/40 text-muted-foreground hover:text-primary gap-1.5 font-semibold rounded-lg"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Kembali ke Dashboard</span>
-              </Button>
-              <Separator orientation="vertical" className="h-5" />
+          {/* Collapsible Syllabus Sidebar - Coursera Style */}
+          <aside className={`h-full border-r border-border bg-white flex flex-col transition-all duration-300 ease-in-out shrink-0 select-none z-30 ${
+            isSyllabusCollapsed 
+              ? "w-0 overflow-hidden border-r-0" 
+              : "w-80"
+          }`}>
+            {/* Sidebar Header with Course Title & Close (X) button */}
+            <div className="p-5 border-b border-border flex items-start justify-between">
+              <h2 className="text-[#060708] font-heading font-black text-base leading-tight max-w-[85%]">
+                {course.title}
+              </h2>
               <button
-                onClick={() => setIsSyllabusCollapsed(prev => !prev)}
-                className="h-9 w-9 flex items-center justify-center hover:bg-secondary/40 text-muted-foreground hover:text-[#060708] rounded-lg transition-colors cursor-pointer"
-                title="Toggle Sidebar Silabus"
+                onClick={() => setIsSyllabusCollapsed(true)}
+                className="h-7 w-7 flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer shrink-0"
+                title="Tutup Silabus Mata Kuliah"
               >
-                <Menu className="h-5 w-5" />
+                <X className="h-4.5 w-4.5" />
               </button>
-              <div className="flex flex-col ml-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[#060708]/5 text-[#060708] border border-[#060708]/15 font-sans tracking-wide">
-                    {course.code}
-                  </span>
-                  <span className="text-xs text-muted-foreground hidden md:inline">{course.department}</span>
-                </div>
-                <h1 className="text-sm font-heading font-black text-[#060708] truncate max-w-[150px] sm:max-w-xs md:max-w-md">
-                  {course.title}
-                </h1>
-              </div>
             </div>
 
-            {/* Top Right Progress Tracker */}
-            <div className="flex items-center gap-4">
-              <div className="hidden sm:flex flex-col items-end gap-0.5">
-                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                  Progres Belajar
-                </span>
-                <span className="text-xs font-extrabold text-[#060708]">
-                  {completedCount}/{totalSubChapters} Sub-Bab ({progressPercent}%)
-                </span>
+            {/* Progress Bar inside sidebar */}
+            <div className="p-4 border-b border-border bg-slate-50/50 flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500 uppercase tracking-widest">
+                <span>Kemajuan Belajar</span>
+                <span>{progressPercent}% ({completedCount}/{totalSubChapters})</span>
               </div>
-              <div className="w-24 md:w-32 bg-secondary h-2.5 rounded-full overflow-hidden border border-border/80">
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden border border-slate-350/30">
                 <div
                   className="bg-[#CF3A1F] h-full rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
-          </header>
 
-          {/* Core Workspace Grid */}
-          <div className="flex flex-1 overflow-hidden relative">
+            {/* Audit Mode Alert */}
+            {enrollmentMode === "audit" && (
+              <div className="m-4 p-3 bg-amber-50 border border-amber-250 rounded-xl flex flex-col gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 text-amber-800 text-[10px] font-bold">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  <span>Mode Audit (Akses Gratis)</span>
+                </div>
+                <p className="text-[9px] text-amber-700 leading-normal font-semibold">
+                  Dapatkan akses lengkap untuk membuka Evaluasi Pembelajaran & Sertifikat Kompetensi.
+                </p>
+                <Button
+                  onClick={handleCheckoutTrigger}
+                  className="mt-1 w-full bg-[#060708] hover:bg-[#060708]/90 text-white text-[9px] font-extrabold h-7 rounded-lg transition-colors cursor-pointer text-center flex items-center justify-center gap-1"
+                >
+                  <Sparkles className="h-3 w-3 text-[#C6B5BF]" />
+                  Akses Kelas Lengkap
+                </Button>
+              </div>
+            )}
+
+            {/* Modules and Sub-Chapters scroll area */}
+            <div className="flex-1 overflow-y-auto divide-y divide-border/60">
+              {course.modules.map((mod) => {
+                const isModulePremium = !!mod.is_premium
+                const isUserPremium = user?.is_premium
+                const isLocked = isModulePremium && !isUserPremium
+                const isExpanded = !!expandedModules[mod.id]
+
+                const subs = getSubChaptersForModule(mod)
+                // Group subs by section
+                const sections: Record<string, SubChapter[]> = {}
+                subs.forEach(sub => {
+                  if (!sections[sub.section]) {
+                    sections[sub.section] = []
+                  }
+                  sections[sub.section].push(sub)
+                })
+
+                const completedInModule = subs.filter(s => completedSubChapters.includes(s.id)).length
+
+                return (
+                  <div key={mod.id} className="bg-white">
+                    {/* Module accordion header */}
+                    <button
+                      onClick={() => setExpandedModules(prev => ({ ...prev, [mod.id]: !prev[mod.id] }))}
+                      className="w-full p-4 bg-white flex items-center justify-between text-left hover:bg-slate-50/40 transition-colors cursor-pointer border-b border-border/20"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Modul {mod.order}</span>
+                          {isModulePremium && (
+                            <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5 shrink-0">
+                              <Lock className="h-2 w-2" />
+                              Premium
+                            </span>
+                          )}
+                          {completedInModule === 5 && (
+                            <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                              Selesai
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="font-extrabold text-xs text-[#060708] mt-0.5 leading-snug truncate">{mod.title}</h4>
+                      </div>
+                      <span className="text-slate-400 font-bold text-[9px] ml-2 select-none">
+                        {isExpanded ? "▲" : "▼"}
+                      </span>
+                    </button>
+
+                    {/* Nested sub-chapters listed sequentially */}
+                    {isExpanded && (
+                      <div className="pb-4 bg-white space-y-0.5 px-2">
+                        {subs.map((sub) => {
+                          const isSubCompleted = completedSubChapters.includes(sub.id)
+                          const isSubActive = activeSubChapter?.id === sub.id
+                          
+                          let typeLabel = "Video"
+                          if (sub.type === "reading") typeLabel = "Materi Kuliah"
+                          if (sub.type === "quiz") typeLabel = "Evaluasi"
+                          if (sub.type === "forum") typeLabel = "Forum"
+
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => {
+                                if (isLocked && sub.type !== "forum") {
+                                  // let user click to see lock promo screen
+                                }
+                                if (quizTaking) {
+                                  if (!confirm("Evaluasi sedang berjalan. Beralih halaman akan membatalkan evaluasi ini. Lanjutkan?")) {
+                                    return
+                                  }
+                                }
+                                setActiveSubChapter(sub)
+                                setActiveQuiz(null)
+                                setQuizResult(null)
+                                setQuizTaking(false)
+                                setQuizTimerActive(false)
+                              }}
+                              className={`w-full p-2.5 rounded-xl flex items-start gap-3 transition-all text-left cursor-pointer border ${
+                                isSubActive
+                                  ? "bg-slate-100/90 border-slate-200 shadow-3xs"
+                                  : "hover:bg-slate-50 border-transparent"
+                              }`}
+                            >
+                              {/* Completion circle checkmark */}
+                              <div className={`mt-0.5 h-5 w-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                                isSubCompleted
+                                  ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                                  : isSubActive
+                                    ? "bg-white border-slate-350"
+                                    : "bg-slate-50 border-slate-200"
+                              }`}>
+                                {isSubCompleted ? (
+                                  <Check className="h-3 w-3 stroke-[2.5]" />
+                                ) : (
+                                  <div className={`h-2 w-2 rounded-full ${
+                                    isSubActive ? "bg-slate-400" : "bg-transparent"
+                                  }`} />
+                                )}
+                              </div>
+                              
+                              {/* Sub-chapter metadata */}
+                              <div className="flex-1 min-w-0">
+                                <h5 className={`text-[11px] leading-snug font-bold ${
+                                  isSubActive ? "text-[#060708]" : "text-slate-600"
+                                }`}>
+                                  {sub.title}
+                                </h5>
+                                <span className="text-[9px] text-muted-foreground font-semibold mt-0.5 block">
+                                  {typeLabel} • {sub.duration}
+                                </span>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </aside>
+
+          {/* Main learning player pane */}
+          <main className="flex-1 overflow-hidden flex flex-col bg-[#FAF9FB] relative h-full">
             
-            {/* Left Collapsible Syllabus Sidebar with Accordion Modules */}
-            <aside className={`absolute md:relative z-30 top-0 bottom-0 left-0 border-r border-border bg-white flex flex-col transition-all duration-300 ease-in-out shrink-0 select-none ${
-              isSyllabusCollapsed 
-                ? "-translate-x-full md:translate-x-0 md:w-0 md:border-r-0 overflow-hidden" 
-                : "translate-x-0 w-80"
-            }`}>
-              <div className="p-4 border-b border-border bg-secondary/15 flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-[#060708]">Silabus Kelas</span>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#CF3A1F]/15 text-[#CF3A1F] border border-[#CF3A1F]/30">
-                  {course.modules.length} Modul
-                </span>
-              </div>
+            {/* Top Minimalist Header */}
+            <header className="flex h-14 shrink-0 items-center justify-between px-6 z-20 relative bg-white border-b border-border/80">
+              {isSyllabusCollapsed ? (
+                <button
+                  onClick={() => setIsSyllabusCollapsed(false)}
+                  className="h-9 px-3 bg-white border border-border shadow-3xs rounded-lg flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-all"
+                >
+                  <Menu className="h-4 w-4" />
+                  Silabus Mata Kuliah
+                </button>
+              ) : (
+                <div />
+              )}
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/dashboard")}
+                className="h-9 px-2.5 hover:bg-secondary/40 text-muted-foreground hover:text-primary gap-1.5 font-bold rounded-lg"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Kembali ke Dashboard
+              </Button>
+            </header>
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                {course.modules.map((mod) => {
-                  const isModulePremium = !!mod.is_premium
-                  const isUserPremium = user?.is_premium
-                  const isLocked = isModulePremium && !isUserPremium
-                  const isExpanded = !!expandedModules[mod.id]
-
-                  const subs = getSubChapters(mod)
-                  // Count completed sub-chapters under this module
-                  const completedInModule = subs.filter(s => completedSubChapters.includes(s.id)).length
-
-                  return (
-                    <div key={mod.id} className="border border-border rounded-xl bg-[#FAF9FB] overflow-hidden">
-                      {/* Module accordion header */}
-                      <button
-                        onClick={() => setExpandedModules(prev => ({ ...prev, [mod.id]: !prev[mod.id] }))}
-                        className="w-full p-3 bg-white flex items-center justify-between text-left border-b border-border/60 hover:bg-secondary/10 transition-colors cursor-pointer"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase">Modul {mod.order}</span>
-                            {isModulePremium && (
-                              <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5 shrink-0">
-                                <Lock className="h-2 w-2" />
-                                Premium
-                              </span>
-                            )}
-                            {completedInModule === 5 && (
-                              <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                                Lengkap
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="font-bold text-xs text-[#060708] mt-0.5 truncate">{mod.title}</h4>
-                        </div>
-                        <span className="text-muted-foreground font-bold text-xs ml-2 select-none">
-                          {isExpanded ? "▲" : "▼"}
-                        </span>
-                      </button>
-
-                      {/* Accordion sub-chapters */}
-                      {isExpanded && (
-                        <div className="p-1 space-y-1 bg-white border-t border-border/40">
-                          {subs.map((sub) => {
-                            const isSubCompleted = completedSubChapters.includes(sub.id)
-                            const isSubActive = activeSubChapter?.id === sub.id
-
-                            let SubIcon = PlayCircle
-                            if (sub.type === "reading") SubIcon = BookOpen
-                            if (sub.type === "quiz") SubIcon = HelpCircle
-                            if (sub.type === "forum") SubIcon = MessageSquare
-
-                            return (
-                              <button
-                                key={sub.id}
-                                onClick={() => {
-                                  if (isLocked && sub.type !== "forum") {
-                                    // User can click to trigger locked premium screen
-                                  }
-                                  if (quizTaking) {
-                                    if (!confirm("Kuis sedang berjalan. Beralih halaman akan membatalkan kuis ini. Lanjutkan?")) {
-                                      return
-                                    }
-                                  }
-                                  setActiveSubChapter(sub)
-                                  setActiveQuiz(null)
-                                  setQuizResult(null)
-                                  setQuizTaking(false)
-                                  setQuizTimerActive(false)
-                                }}
-                                className={`w-full p-2.5 rounded-lg flex items-center justify-between text-left text-xs transition-all cursor-pointer ${
-                                  isSubActive
-                                    ? "bg-[#060708] text-white font-bold"
-                                    : "hover:bg-secondary/30 text-primary"
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <SubIcon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? "text-white" : "text-muted-foreground"}`} />
-                                  <span className="truncate">{sub.title}</span>
-                                </div>
-                                <div className="shrink-0 ml-2">
-                                  {isSubCompleted ? (
-                                    <CheckCircle className={`h-3.5 w-3.5 ${isSubActive ? "text-emerald-400" : "text-emerald-600"}`} />
-                                  ) : (
-                                    <div className={`h-3.5 w-3.5 rounded-full border ${isSubActive ? "border-white/30" : "border-border"}`} />
-                                  )}
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Course Meta Info Box */}
-              <div className="p-4 border-t border-border bg-[#FAF9FB] space-y-2 text-xs">
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <span>Total SKS:</span>
-                  <span className="font-semibold text-[#060708]">{course.sks} SKS</span>
-                </div>
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <span>Semester:</span>
-                  <span className="font-semibold text-[#060708]">Semester {course.semester}</span>
-                </div>
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <span>Jurusan:</span>
-                  <span className="font-semibold text-[#060708]">{course.department}</span>
-                </div>
-              </div>
-            </aside>
-
-            {/* Main Learning Content Panel */}
-            <main className="flex-1 overflow-y-auto flex flex-col justify-between p-6 md:p-8 bg-[#FAF9FB] relative">
-              <div className="max-w-5xl mx-auto w-full flex-1">
+            {/* Scrollable Content Viewport */}
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col justify-between">
+              <div className="max-w-4xl mx-auto w-full flex-1">
                 
                 {activeSubChapter ? (
                   (() => {
@@ -693,20 +941,20 @@ export default function CourseDetailPage({ params }: PageProps) {
                     // Locked Premium screen
                     if (isLocked && activeSubItem !== "forum") {
                       return (
-                        <Card className="border border-border bg-white rounded-xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[400px] mt-4">
+                        <Card className="border border-border bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[380px] mt-4">
                           <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
                             <Lock className="h-6 w-6" />
                           </div>
                           <h3 className="font-heading text-2xl font-bold text-primary">Modul Premium Terkunci</h3>
                           <p className="text-sm text-muted-foreground max-w-md mt-2 leading-relaxed">
-                            Sub-bab ini merupakan bagian dari modul premium <strong>"{activeModule?.title}"</strong> yang berisi materi pembelajaran interaktif, slide kuliah resmi, dan kuis kompetensi AI.
+                            Sub-bab ini merupakan bagian dari modul premium <strong>"{activeModule?.title}"</strong> yang berisi materi kuliah interaktif, bacaan mendalam, dan evaluasi pembelajaran.
                           </p>
                           <Button
                             onClick={handleCheckoutTrigger}
                             className="mt-6 bg-destructive hover:bg-destructive/90 text-white rounded-lg px-6 py-2.5 font-bold flex items-center gap-2 cursor-pointer shadow-sm"
                           >
                             <Sparkles className="h-4 w-4" />
-                            Buka Premium Sekarang
+                            Akses Premium Sekarang
                           </Button>
                         </Card>
                       )
@@ -724,44 +972,56 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 {completedSubChapters.includes(activeSubChapter.id) && (
                                   <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                                     <Check className="h-2.5 w-2.5" />
-                                    Ditonton
+                                    Selesai Ditonton
                                   </span>
                                 )}
                               </div>
                               <CardTitle className="font-heading text-xl font-black text-primary mt-1">{activeSubChapter.title}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
-                              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border flex flex-col justify-between p-4 group">
-                                <div className="flex justify-between items-center text-white/80 text-[10px] font-semibold bg-gradient-to-b from-black/80 to-transparent p-3 absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                  <span>{activeSubChapter.title}</span>
-                                  <span>12:45</span>
+                              {activeSubChapter.video_url ? (
+                                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border">
+                                  <iframe
+                                    className="w-full h-full"
+                                    src={activeSubChapter.video_url}
+                                    title={activeSubChapter.title}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                  />
                                 </div>
-                                <div 
-                                  onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
-                                  className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/25 transition-colors cursor-pointer z-0"
-                                >
-                                  <div className="h-16 w-16 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
-                                    <Play className="h-6 w-6 fill-white ml-1" />
+                              ) : (
+                                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border flex flex-col justify-between p-4 group">
+                                  <div className="flex justify-between items-center text-white/80 text-[10px] font-semibold bg-gradient-to-b from-black/80 to-transparent p-3 absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <span>{activeSubChapter.title}</span>
+                                    <span>12:45</span>
                                   </div>
-                                </div>
-                                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                  <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden">
-                                    <div className="bg-[#CF3A1F] h-full w-[45%]" />
-                                  </div>
-                                  <div className="flex justify-between items-center text-white text-[10px] font-semibold">
-                                    <div className="flex items-center gap-3">
-                                      <span>Play</span>
-                                      <span>05:32 / 12:45</span>
+                                  <div 
+                                    onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
+                                    className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/25 transition-colors cursor-pointer z-0"
+                                  >
+                                    <div className="h-16 w-16 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
+                                      <Play className="h-6 w-6 fill-white ml-1" />
                                     </div>
-                                    <span>HD / Fullscreen</span>
+                                  </div>
+                                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden">
+                                      <div className="bg-[#CF3A1F] h-full w-[45%]" />
+                                    </div>
+                                    <div className="flex justify-between items-center text-white text-[10px] font-semibold">
+                                      <div className="flex items-center gap-3">
+                                        <span>Play</span>
+                                        <span>05:32 / 12:45</span>
+                                      </div>
+                                      <span>HD / Fullscreen</span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
+                              )}
 
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#FAF9FB] p-4 rounded-xl border border-border/60">
                                 <div>
                                   <h5 className="text-xs font-bold text-primary">Status Penayangan</h5>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">Tonton video hingga selesai untuk melengkapi aktivitas ini.</p>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">Tonton video hingga selesai untuk melengkapi aktivitas ini.</p>
                                 </div>
                                 <Button
                                   size="sm"
@@ -792,49 +1052,65 @@ export default function CourseDetailPage({ params }: PageProps) {
                           <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
                             <CardHeader className="border-b bg-white p-6">
                               <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Bacaan</span>
+                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Materi Kuliah</span>
                                 {completedSubChapters.includes(activeSubChapter.id) && (
                                   <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                                     <Check className="h-2.5 w-2.5" />
-                                    Dibaca
+                                    Selesai Dibaca
                                   </span>
                                 )}
                               </div>
                               <CardTitle className="font-heading text-xl font-black text-primary mt-1">{activeSubChapter.title}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
-                              <div className="space-y-2">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Deskripsi Bacaan</h4>
-                                <p className="text-sm text-primary leading-relaxed">
-                                  Silakan baca dan pahami dokumen modul utama <strong>"{activeModule?.title}"</strong> berikut untuk menguasai materi bab ini sebelum berlanjut ke kuis kompetensi evaluasi.
-                                </p>
-                              </div>
-
-                              <div className="p-4 border border-border rounded-xl bg-[#FAF9FB] space-y-4">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Slide Dokumen Pendukung</h4>
-                                <div className="p-3 border border-border rounded-lg bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                                  <div className="flex items-center gap-3">
-                                    <FileText className="h-8 w-8 text-[#CF3A1F] shrink-0" />
-                                    <div>
-                                      <p className="text-xs font-bold text-[#060708]">Slide Kuliah - Modul {activeModule?.order}.pdf</p>
-                                      <p className="text-[10px] text-muted-foreground">PDF Dokumen | 1.8 MB | Diperbarui baru-baru ini</p>
+                              {/* RENDER RICH TEXTBOOK MATERIAL */}
+                              {activeSubChapter && (() => {
+                                if (activeSubChapter.content) {
+                                  return (
+                                    <div className="space-y-4 text-xs text-primary leading-relaxed font-sans prose prose-slate max-w-none">
+                                      <div className="p-4 rounded-xl border border-[#C6B5BF]/40 bg-[#FAF9FB]/70 text-xs text-slate-600 font-serif leading-relaxed italic shrink-0">
+                                        Materi kuliah mandiri untuk memperkuat pemahaman Anda dalam topik ini.
+                                      </div>
+                                      <div className="whitespace-pre-wrap mt-3 text-slate-800 font-sans border border-border p-5 rounded-xl bg-white leading-loose text-[13px] font-medium">
+                                        {activeSubChapter.content}
+                                      </div>
                                     </div>
+                                  )
+                                }
+
+                                const readingData = getReadingContent(course?.code || "IF101", activeModule?.order || 1, typeof activeSubChapter.id === "string" && activeSubChapter.id.endsWith("_sub3") ? 3 : 2, activeModule?.title || "");
+                                return (
+                                  <div className="space-y-6 text-[#060708]">
+                                    <div className="p-4 rounded-xl border border-[#C6B5BF]/40 bg-[#FAF9FB]/70 text-xs italic text-slate-600 leading-relaxed font-serif">
+                                      {readingData.introduction}
+                                    </div>
+                                    
+                                    {readingData.sections.map((sect, sIdx) => (
+                                      <div key={sIdx} className="space-y-3 pt-2">
+                                        <h3 className="font-heading font-extrabold text-sm text-[#060708] border-b pb-1 border-slate-100 uppercase tracking-wide">
+                                          {sect.heading}
+                                        </h3>
+                                        {sect.paragraphs.map((p, pIdx) => (
+                                          <p key={pIdx} className="text-xs text-slate-700 leading-relaxed font-sans">
+                                            {p}
+                                          </p>
+                                        ))}
+                                        {sect.codeBlock && (
+                                          <pre className="p-4 rounded-xl bg-[#060708] text-emerald-400 font-mono text-[10px] overflow-x-auto shadow-inner leading-relaxed border border-slate-800">
+                                            <code>{sect.codeBlock}</code>
+                                          </pre>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => alert("Slide kuliah diunduh! (Simulated)")}
-                                    className="text-xs border-border text-primary font-bold cursor-pointer rounded-lg w-full sm:w-auto"
-                                  >
-                                    Unduh PDF Slide
-                                  </Button>
-                                </div>
-                              </div>
+                                )
+                              })()}
+
 
                               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
                                 <div>
                                   <h5 className="text-xs font-bold text-primary">Status Pembacaan</h5>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah memahami isi slide materi.</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah memahami materi kuliah ini.</p>
                                 </div>
                                 <Button
                                   size="sm"
@@ -863,6 +1139,27 @@ export default function CourseDetailPage({ params }: PageProps) {
                         {/* 3. QUIZ VIEW */}
                         {activeSubItem === "quiz" && (
                           (() => {
+                            if (enrollmentMode === "audit") {
+                              return (
+                                <Card className="border border-border bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[380px] mt-4">
+                                  <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
+                                    <Lock className="h-6 w-6" />
+                                  </div>
+                                  <h3 className="font-heading text-2xl font-bold text-primary">Evaluasi Pembelajaran Terkunci</h3>
+                                  <p className="text-sm text-slate-600 max-w-md mt-2 leading-relaxed font-sans">
+                                    Anda sedang mengakses kelas ini dalam <strong>Mode Audit (Gratis)</strong>. Evaluasi pembelajaran dan sertifikat kompetensi hanya tersedia bagi mahasiswa Kelas Terverifikasi.
+                                  </p>
+                                  <Button
+                                    onClick={handleCheckoutTrigger}
+                                    className="mt-6 bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg px-6 py-2.5 font-bold flex items-center gap-2 cursor-pointer shadow-sm text-xs"
+                                  >
+                                    <Sparkles className="h-4 w-4 text-[#C6B5BF]" />
+                                    Akses Kelas Lengkap
+                                  </Button>
+                                </Card>
+                              )
+                            }
+
                             if (quizTaking && activeQuiz) {
                               return (
                                 <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
@@ -876,7 +1173,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       <span>{formatTime(quizTimeLeft)}</span>
                                     </div>
                                   </CardHeader>
-                                  <CardContent className="p-6 space-y-8 max-h-[500px] overflow-y-auto">
+                                  <CardContent className="p-6 space-y-8 max-h-[450px] overflow-y-auto">
                                     {activeQuiz.questions.map((q: any, idx: number) => {
                                       const selected = quizAnswers[q.id]
                                       return (
@@ -920,7 +1217,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       onClick={handleQuizSubmit}
                                       className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold cursor-pointer"
                                     >
-                                      Selesaikan Kuis
+                                      Kirim Jawaban
                                     </Button>
                                   </CardFooter>
                                 </Card>
@@ -932,7 +1229,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                               return (
                                 <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
                                   <CardHeader className="border-b bg-white p-6 text-center">
-                                    <h3 className="font-heading text-lg font-bold text-primary">Hasil Evaluasi Kuis</h3>
+                                    <h3 className="font-heading text-lg font-bold text-primary">Hasil Evaluasi Pembelajaran</h3>
                                     <p className="text-xs text-muted-foreground mt-0.5">{activeQuiz.title}</p>
                                   </CardHeader>
                                   <CardContent className="p-6 space-y-6">
@@ -946,7 +1243,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                         {quizResult.passed ? (
                                           <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-bold">
                                             <CheckCircle className="h-3.5 w-3.5" />
-                                            LULUS KUIS
+                                            SELESAI & LULUS
                                           </span>
                                         ) : (
                                           <span className="px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-1 font-bold">
@@ -1013,13 +1310,13 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       onClick={handleResetQuiz}
                                       className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/45 cursor-pointer h-9 px-3 rounded-lg"
                                     >
-                                      Kembali ke Halaman Kuis
+                                      Kembali ke Halaman Evaluasi
                                     </Button>
                                     <Button
                                       onClick={() => activeModule && handleStartQuiz(activeModule.id)}
                                       className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold cursor-pointer"
                                     >
-                                      Coba Kuis Lagi
+                                      Ulangi Evaluasi
                                     </Button>
                                   </CardFooter>
                                 </Card>
@@ -1040,7 +1337,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 </CardHeader>
                                 <CardContent className="p-6 space-y-4">
                                   <p className="text-sm text-primary leading-relaxed">
-                                    Gunakan kuis ini untuk mengevaluasi pemahaman Anda terkait konsep yang telah dijelaskan dalam materi. Anda membutuhkan nilai minimal 60% untuk dinyatakan lulus modul ini.
+                                    Gunakan evaluasi ini untuk mengukur pemahaman Anda terkait materi kuliah yang telah dipelajari. Anda membutuhkan nilai minimal 60% untuk dinyatakan lulus modul ini.
                                   </p>
                                   <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground bg-secondary/10 p-3 rounded-xl border border-border/50 max-w-sm">
                                     <div className="flex items-center gap-1">
@@ -1059,7 +1356,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                     className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold flex items-center gap-2 cursor-pointer shadow-xs"
                                   >
                                     <HelpCircle className="h-4 w-4" />
-                                    Mulai Kuis Interaktif
+                                    Mulai Evaluasi Pembelajaran
                                   </Button>
                                 </CardFooter>
                               </Card>
@@ -1074,7 +1371,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                               {/* Left Panel: Threads */}
                               <div className={`lg:col-span-1 space-y-3 ${activePost ? "hidden lg:block" : "block"}`}>
                                 <div className="flex items-center justify-between px-1 mb-2">
-                                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Diskusi Aktif</h3>
+                                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Forum Diskusi</h3>
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -1082,16 +1379,16 @@ export default function CourseDetailPage({ params }: PageProps) {
                                     className="h-8 px-2 text-xs text-[#CF3A1F] hover:text-[#CF3A1F]/80 hover:bg-[#CF3A1F]/10 rounded-md cursor-pointer flex items-center gap-1 font-semibold border border-transparent hover:border-[#CF3A1F]/20"
                                   >
                                     <PlusCircle className="h-4 w-4" />
-                                    <span>Buat Post</span>
+                                    <span>Buat Diskusi Baru</span>
                                   </Button>
                                 </div>
 
                                 {forumPosts.length === 0 ? (
                                   <div className="text-xs text-muted-foreground p-6 border rounded-xl text-center bg-white">
-                                    Belum ada forum diskusi. Jadilah yang pertama bertanya!
+                                    Belum ada diskusi di forum ini. Silakan mulai berdiskusi!
                                   </div>
                                 ) : (
-                                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                                  <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                                     {forumPosts.map((post) => {
                                       const isActive = activePost?.id === post.id
                                       const replyCount = post.replies.length
@@ -1134,8 +1431,8 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 {isCreatingPost ? (
                                   <Card className="border border-border bg-white rounded-2xl shadow-xs">
                                     <CardHeader className="border-b bg-white">
-                                      <CardTitle className="font-heading text-lg font-bold text-primary">Buat Pertanyaan Baru</CardTitle>
-                                      <CardDescription className="text-xs">Ajukan pertanyaan mengenai topik kuliah ini ke dosen dan sesama mahasiswa.</CardDescription>
+                                      <CardTitle className="font-heading text-lg font-bold text-primary">Mulai Diskusi Baru</CardTitle>
+                                      <CardDescription className="text-xs">Ajukan pertanyaan mengenai topik mata kuliah ini ke dosen pengampu dan sesama mahasiswa.</CardDescription>
                                     </CardHeader>
                                     <form onSubmit={handleCreatePost}>
                                       <CardContent className="p-6 space-y-4">
@@ -1174,7 +1471,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                           type="submit"
                                           className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold"
                                         >
-                                          Kirim Diskusi
+                                          Kirim Pertanyaan
                                         </Button>
                                       </CardFooter>
                                     </form>
@@ -1214,7 +1511,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                         <CardTitle className="font-heading text-lg font-bold text-primary pt-3">{activePost.title}</CardTitle>
                                       </div>
                                     </CardHeader>
-                                    <CardContent className="p-6 space-y-6 max-h-[350px] overflow-y-auto">
+                                    <CardContent className="p-6 space-y-6 max-h-[300px] overflow-y-auto">
                                       <p className="text-sm text-primary leading-relaxed border-b border-border pb-6">
                                         {activePost.content}
                                       </p>
@@ -1257,18 +1554,18 @@ export default function CourseDetailPage({ params }: PageProps) {
                                     </CardContent>
                                   </Card>
                                 ) : (
-                                  <div className="text-center text-muted-foreground p-12 border border-dashed rounded-2xl bg-white min-h-[350px] flex flex-col items-center justify-center">
+                                  <div className="text-center text-muted-foreground p-12 border border-dashed rounded-2xl bg-white min-h-[300px] flex flex-col items-center justify-center">
                                     <MessageSquare className="h-10 w-10 text-muted-foreground/50 mb-3" />
-                                    <h4 className="font-heading text-lg font-bold text-[#060708]">Forum Diskusi Kelas</h4>
+                                    <h4 className="font-heading text-lg font-bold text-[#060708]">Forum Diskusi Mata Kuliah</h4>
                                     <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                                      Pilih pertanyaan dari panel samping untuk melihat detail pembahasan, atau klik "Buat Post" untuk mengajukan pertanyaan baru.
+                                      Pilih pertanyaan dari panel samping untuk melihat detail pembahasan, atau klik "Buat Diskusi Baru" untuk mengajukan pertanyaan baru.
                                     </p>
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#FAF9FB] p-4 rounded-xl border border-border/60">
                               <div>
                                 <h5 className="text-xs font-bold text-primary">Partisipasi Diskusi</h5>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah membaca atau berdiskusi di modul ini.</p>
@@ -1312,7 +1609,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                   if (isLocked && activeSubItem !== "forum") return null
                   
                   return (
-                    <footer className="border-t border-border/80 bg-white p-4 flex items-center justify-between shrink-0 shadow-xs z-20 rounded-xl mt-8 max-w-5xl w-full mx-auto">
+                    <footer className="border-t border-border/80 bg-white p-4 flex items-center justify-between shrink-0 shadow-xs z-20 rounded-xl mt-8 max-w-4xl w-full mx-auto">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1328,14 +1625,14 @@ export default function CourseDetailPage({ params }: PageProps) {
                           }
                         }}
                         disabled={activeIndex <= 0}
-                        className="text-xs border-border hover:bg-secondary/40 text-primary gap-1 font-bold rounded-lg h-9"
+                        className="text-xs border-border hover:bg-slate-100/60 text-primary gap-1 font-bold rounded-lg h-9"
                       >
                         <ChevronLeft className="h-4 w-4" />
                         Sebelumnya
                       </Button>
 
                       <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider hidden md:inline-block">
-                        Lengkapi tiap sub-bab materi perkuliahan secara berurutan
+                        Lengkapi tiap sub-bab materi kuliah secara berurutan
                       </div>
 
                       {activeIndex < flatSubChapters.length - 1 ? (
@@ -1364,11 +1661,11 @@ export default function CourseDetailPage({ params }: PageProps) {
                           size="sm"
                           onClick={() => {
                             markSubChapterAsCompleted(activeSubChapter.id)
-                            alert("Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran di kelas ini. Semoga sukses dalam ujian akhir!")
+                            alert("Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran pada mata kuliah ini. Semoga sukses dalam ujian akhir!")
                           }}
                           className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm"
                         >
-                          Selesaikan Kelas
+                          Selesaikan Mata Kuliah
                           <CheckCircle className="h-4 w-4" />
                         </Button>
                       )}
@@ -1376,8 +1673,8 @@ export default function CourseDetailPage({ params }: PageProps) {
                   )
                 })()
               )}
-            </main>
-          </div>
+            </div>
+          </main>
         </>
       )}
 
@@ -1402,7 +1699,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                 Upgrade Belajara Premium
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                Buka seluruh modul kurikulum, generator latihan AI, dan kuis kompetensi AI selamanya.
+                Buka seluruh modul kuliah, latihan terstruktur, dan evaluasi pembelajaran selamanya.
               </p>
             </div>
 
@@ -1412,7 +1709,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                   <Check className="h-6 w-6 font-bold" />
                 </div>
                 <h4 className="font-heading text-lg font-bold text-primary">Upgrade Premium Berhasil!</h4>
-                <p className="text-xs text-muted-foreground">Membuka seluruh materi dan kuis kelas Anda...</p>
+                <p className="text-xs text-muted-foreground">Membuka seluruh materi dan evaluasi mata kuliah Anda...</p>
               </div>
             ) : checkoutLoading ? (
               <div className="p-8 text-center space-y-4 flex flex-col items-center justify-center min-h-[220px]">

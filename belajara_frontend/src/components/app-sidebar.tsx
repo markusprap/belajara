@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { BookOpen, Compass, Home, Settings, User, GraduationCap, LogOut } from "lucide-react"
+import { BookOpen, Compass, Home, Settings, User, GraduationCap, LogOut, Search } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +31,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const studentNav = [
     { title: "Dashboard", url: "/dashboard", icon: Home },
+    { title: "Katalog Kelas", url: "/catalog", icon: Search },
     { title: "Mata Kuliah", url: "/courses", icon: BookOpen },
     { title: "Eksplorasi (AI)", url: "/explore", icon: Compass },
     { title: "Profil", url: "/profile", icon: User },

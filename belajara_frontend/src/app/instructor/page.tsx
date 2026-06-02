@@ -101,13 +101,13 @@ export default function InstructorPage() {
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white gap-2 shadow-sm">
-                  <Plus className="h-4 w-4" /> Tambah Kelas Baru
+                  <Plus className="h-4 w-4" /> Tambah Mata Kuliah
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg bg-white">
                 <DialogHeader>
                   <DialogTitle className="font-heading text-xl text-[#060708]">
-                    Buat Kelas Baru
+                    Buat Mata Kuliah Baru
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4 mt-2">
@@ -175,7 +175,7 @@ export default function InstructorPage() {
                     disabled={creating}
                   >
                     {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    {creating ? "Membuat..." : "Buat Kelas"}
+                    {creating ? "Membuat..." : "Buat Mata Kuliah"}
                   </Button>
                 </form>
               </DialogContent>
@@ -186,9 +186,9 @@ export default function InstructorPage() {
         {/* Body */}
         <div className="flex flex-1 flex-col gap-6 p-6 bg-[#FAF9FB]">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-[#060708]">Selamat Datang, Dosen</h1>
+            <h1 className="text-3xl font-heading font-bold text-[#060708]">Selamat Datang, Dosen / Pengajar</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Kelola mata kuliah dan silabus Anda dari satu tempat.
+              Kelola mata kuliah dan modul belajar Anda dari satu tempat.
             </p>
           </div>
 
@@ -196,7 +196,7 @@ export default function InstructorPage() {
           <div className="grid grid-cols-3 gap-4">
             <Card className="bg-white border border-border shadow-sm">
               <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Kelas</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Mata Kuliah</p>
                 <p className="text-3xl font-heading font-bold text-[#060708] mt-1">{courses.length}</p>
               </CardContent>
             </Card>
@@ -210,7 +210,7 @@ export default function InstructorPage() {
             </Card>
             <Card className="bg-white border border-border shadow-sm">
               <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Kelas Premium</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Mata Kuliah Premium</p>
                 <p className="text-3xl font-heading font-bold text-[#CF3A1F] mt-1">
                   {courses.filter(c => c.is_premium).length}
                 </p>
@@ -234,9 +234,9 @@ export default function InstructorPage() {
           ) : courses.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[#C6B5BF]/50 rounded-xl bg-white">
               <GraduationCap className="h-14 w-14 text-[#C6B5BF] mb-4" />
-              <h3 className="font-heading text-xl font-bold text-[#060708]">Belum Ada Kelas</h3>
+              <h3 className="font-heading text-xl font-bold text-[#060708]">Belum Ada Mata Kuliah</h3>
               <p className="text-sm text-muted-foreground mt-2 max-w-xs">
-                Klik &ldquo;Tambah Kelas Baru&rdquo; untuk mulai membuat mata kuliah pertama Anda.
+                Klik &ldquo;Tambah Mata Kuliah&rdquo; untuk mulai membuat mata kuliah pertama Anda.
               </p>
             </div>
           ) : (

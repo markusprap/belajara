@@ -62,11 +62,11 @@ export default function ProfilePage() {
                 <div className="mt-4">
                   {user.is_premium ? (
                     <span className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/30">
-                      Premium Member
+                      Akses Premium
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded bg-muted text-muted-foreground border">
-                      Free Account
+                      Akun Gratis
                     </span>
                   )}
                 </div>
@@ -78,7 +78,7 @@ export default function ProfilePage() {
                   <CardTitle className="font-heading text-lg text-[#060708] flex items-center gap-2">
                     <User className="h-5 w-5 text-accent animate-pulse" /> Detail Akun
                   </CardTitle>
-                  <CardDescription className="text-xs">Informasi dasar akun login Anda di Belajara.</CardDescription>
+                  <CardDescription className="text-xs">Informasi dasar akun masuk Anda di Belajara.</CardDescription>
                 </CardHeader>
                 <CardContent className="divide-y divide-border pt-2 text-sm">
                   <div className="flex justify-between py-3">
