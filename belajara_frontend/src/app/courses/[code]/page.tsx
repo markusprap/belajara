@@ -67,13 +67,14 @@ export default function CourseDetailPage({ params }: PageProps) {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
-  // Workspace configuration states
+  // Workspace layout states
   const [isSyllabusCollapsed, setIsSyllabusCollapsed] = React.useState(false)
-  const [completedModules, setCompletedModules] = React.useState<number[]>([])
+  const [expandedModules, setExpandedModules] = React.useState<Record<number, boolean>>({})
 
-  // Workspace tabs: "materi" | "kuis" | "forum"
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = React.useState<"materi" | "kuis" | "forum">("materi")
+  // Workspace sub-items states
+  const [completedSubitems, setCompletedSubitems] = React.useState<string[]>([]) // item key format: `${moduleId}_${subItemType}`
   const [activeModule, setActiveModule] = React.useState<Module | null>(null)
+  const [activeSubItem, setActiveSubItem] = React.useState<"video" | "reading" | "quiz" | "forum">("video")
 
   // Quiz states
   const [activeQuiz, setActiveQuiz] = React.useState<any | null>(null)
@@ -109,16 +110,16 @@ export default function CourseDetailPage({ params }: PageProps) {
     setUser(loggedInUser)
   }, [router])
 
-  // Load progress completed modules from localStorage
+  // Load progress completed subitems from localStorage
   React.useEffect(() => {
     if (user && courseCode) {
-      const key = `belajara_completed_modules_${user.username}_${courseCode}`
+      const key = `belajara_completed_subitems_${user.username}_${courseCode}`
       const saved = localStorage.getItem(key)
       if (saved) {
         try {
-          setCompletedModules(JSON.parse(saved))
+          setCompletedSubitems(JSON.parse(saved))
         } catch (e) {
-          console.error("Failed loading completed modules", e)
+          console.error("Failed loading completed sub-items", e)
         }
       }
     }
@@ -133,6 +134,7 @@ export default function CourseDetailPage({ params }: PageProps) {
       setCourse(data)
       if (data && data.modules && data.modules.length > 0) {
         setActiveModule(data.modules[0])
+        setExpandedModules({ [data.modules[0].id]: true })
       }
     } catch (err: any) {
       setError(err.message || "Gagal mengambil detail mata kuliah.")
@@ -154,10 +156,10 @@ export default function CourseDetailPage({ params }: PageProps) {
   }, [courseCode])
 
   React.useEffect(() => {
-    if (activeWorkspaceTab === "forum") {
+    if (activeSubItem === "forum") {
       fetchForumData()
     }
-  }, [activeWorkspaceTab, fetchForumData])
+  }, [activeSubItem, fetchForumData])
 
   // Quiz Countdown Timer
   React.useEffect(() => {
@@ -182,13 +184,14 @@ export default function CourseDetailPage({ params }: PageProps) {
     return `${min}:${sec < 10 ? "0" : ""}${sec}`
   }
 
-  // Helper local progress save
-  const markModuleAsCompleted = React.useCallback((moduleId: number) => {
+  // Helper local sub-item progress save
+  const markSubItemAsCompleted = React.useCallback((moduleId: number, type: string) => {
     if (!user) return
-    setCompletedModules(prev => {
-      if (prev.includes(moduleId)) return prev
-      const next = [...prev, moduleId]
-      const key = `belajara_completed_modules_${user.username}_${courseCode}`
+    const itemKey = `${moduleId}_${type}`
+    setCompletedSubitems(prev => {
+      if (prev.includes(itemKey)) return prev
+      const next = [...prev, itemKey]
+      const key = `belajara_completed_subitems_${user.username}_${courseCode}`
       localStorage.setItem(key, JSON.stringify(next))
       return next
     })
@@ -230,7 +233,7 @@ export default function CourseDetailPage({ params }: PageProps) {
       setQuizTaking(false)
 
       if (result.passed && activeModule) {
-        markModuleAsCompleted(activeModule.id)
+        markSubItemAsCompleted(activeModule.id, "quiz")
       }
     } catch (err) {
       alert("Gagal mengirimkan kuis.")
@@ -403,10 +406,27 @@ export default function CourseDetailPage({ params }: PageProps) {
     ))
   }
 
-  // Pre-calculate workspace dimensions/proportions
-  const totalModules = course?.modules?.length || 0
-  const completedCount = course?.modules?.filter(m => completedModules.includes(m.id))?.length || 0
-  const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0
+  // Pre-calculate workspace dimensions/proportions (Coursera-style: 4 sub-items per module)
+  const totalSubItems = (course?.modules?.length || 0) * 4
+  const completedCount = completedSubitems.length
+  const progressPercent = totalSubItems > 0 ? Math.min(100, Math.round((completedCount / totalSubItems) * 100)) : 0
+
+  // Flattened sequential sub-items list for sequential bottom navigation
+  const flatSubItems = React.useMemo(() => {
+    if (!course) return []
+    const items: { module: Module; type: "video" | "reading" | "quiz" | "forum" }[] = []
+    course.modules.forEach(mod => {
+      items.push({ module: mod, type: "video" })
+      items.push({ module: mod, type: "reading" })
+      items.push({ module: mod, type: "quiz" })
+      items.push({ module: mod, type: "forum" })
+    })
+    return items
+  }, [course])
+
+  const activeIndex = flatSubItems.findIndex(
+    item => item.module.id === activeModule?.id && item.type === activeSubItem
+  )
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FAF9FB] font-sans">
@@ -431,7 +451,7 @@ export default function CourseDetailPage({ params }: PageProps) {
         </div>
       ) : (
         <>
-          {/* Custom Learning Workspace Header */}
+          {/* Custom Coursera Learning Workspace Header */}
           <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-white px-6 shadow-xs z-40 relative">
             <div className="flex items-center gap-3">
               <Button
@@ -471,7 +491,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                   Progres Belajar
                 </span>
                 <span className="text-xs font-extrabold text-[#060708]">
-                  {completedCount}/{totalModules} Modul ({progressPercent}%)
+                  {completedCount}/{totalSubItems} Topik ({progressPercent}%)
                 </span>
               </div>
               <div className="w-24 md:w-32 bg-secondary h-2.5 rounded-full overflow-hidden border border-border/80">
@@ -486,104 +506,116 @@ export default function CourseDetailPage({ params }: PageProps) {
           {/* Core Workspace Grid */}
           <div className="flex flex-1 overflow-hidden relative">
             
-            {/* Left Collapsible Syllabus Sidebar */}
+            {/* Left Collapsible Syllabus Sidebar with Coursera Hierarchy */}
             <aside className={`absolute md:relative z-30 top-0 bottom-0 left-0 border-r border-border bg-white flex flex-col transition-all duration-300 ease-in-out shrink-0 select-none ${
               isSyllabusCollapsed 
                 ? "-translate-x-full md:translate-x-0 md:w-0 md:border-r-0 overflow-hidden" 
                 : "translate-x-0 w-80"
             }`}>
               <div className="p-4 border-b border-border bg-secondary/15 flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-[#060708]">Silabus Kelas</span>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-[#060708]">Materi Silabus</span>
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#CF3A1F]/15 text-[#CF3A1F] border border-[#CF3A1F]/30">
-                  {totalModules} Modul
+                  {course.modules.length} Modul
                 </span>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {course.modules.map((mod) => {
                   const isModulePremium = !!mod.is_premium
                   const isUserPremium = user?.is_premium
                   const isLocked = isModulePremium && !isUserPremium
-                  const isActive = activeModule?.id === mod.id
-                  const isCompleted = completedModules.includes(mod.id)
+                  const isExpanded = !!expandedModules[mod.id]
+
+                  // Count completed sub-items under this module
+                  const completedInModule = completedSubitems.filter(item => item.startsWith(`${mod.id}_`)).length
 
                   return (
-                    <button
-                      key={mod.id}
-                      onClick={() => {
-                        if (quizTaking) {
-                          if (confirm("Kuis sedang berjalan. Beralih modul akan membatalkan kuis ini. Lanjutkan?")) {
-                            setQuizTaking(false)
-                            setQuizTimerActive(false)
-                            setActiveModule(mod)
-                            setActiveQuiz(null)
-                            setQuizResult(null)
-                            setActiveWorkspaceTab("materi")
-                          }
-                        } else {
-                          setActiveModule(mod)
-                          setActiveQuiz(null)
-                          setQuizResult(null)
-                          setActiveWorkspaceTab("materi")
-                        }
-                      }}
-                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start gap-3 cursor-pointer ${
-                        isActive 
-                          ? "bg-[#060708] border-[#060708] text-white shadow-md transform scale-[1.01]" 
-                          : "bg-white hover:bg-secondary/20 border-border hover:border-accent-2/40 text-primary"
-                      }`}
-                    >
-                      {/* Checkmark or Order icon */}
-                      <div className={`mt-0.5 p-1 rounded-md shrink-0 ${
-                        isActive 
-                          ? "bg-white/20 text-white" 
-                          : isCompleted
-                            ? "bg-emerald-100 text-emerald-600 border border-emerald-200"
-                            : "bg-secondary text-primary"
-                      }`}>
-                        {isCompleted ? (
-                          <Check className="h-3.5 w-3.5" />
-                        ) : (
-                          <PlayCircle className="h-3.5 w-3.5" />
-                        )}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={`text-[9px] font-bold uppercase tracking-wider ${
-                            isActive ? "text-[#C6B5BF]" : "text-muted-foreground"
-                          }`}>
-                            Modul {mod.order}
-                          </span>
-                          {isModulePremium && (
-                            <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5 border shrink-0 ${
-                              isActive
-                                ? "bg-white/10 text-white border-white/20"
-                                : "bg-destructive/10 text-destructive border-destructive/20"
-                            }`}>
-                              <Lock className="h-2 w-2" />
-                              Premium
-                            </span>
-                          )}
+                    <div key={mod.id} className="border border-border rounded-xl bg-[#FAF9FB] overflow-hidden">
+                      {/* Module accordion header */}
+                      <button
+                        onClick={() => setExpandedModules(prev => ({ ...prev, [mod.id]: !prev[mod.id] }))}
+                        className="w-full p-3 bg-white flex items-center justify-between text-left border-b border-border/60 hover:bg-secondary/10 transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase">Modul {mod.order}</span>
+                            {isModulePremium && (
+                              <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5 shrink-0">
+                                <Lock className="h-2 w-2" />
+                                Premium
+                              </span>
+                            )}
+                            {completedInModule === 4 && (
+                              <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                Lengkap
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-xs text-[#060708] mt-0.5 truncate">{mod.title}</h4>
                         </div>
-                        <h4 className={`font-semibold text-sm mt-1 truncate ${
-                          isActive ? "text-white" : "text-[#060708]"
-                        }`}>
-                          {mod.title}
-                        </h4>
-                        <p className={`text-[11px] line-clamp-1 mt-0.5 ${
-                          isActive ? "text-[#C6B5BF]" : "text-muted-foreground"
-                        }`}>
-                          {mod.description}
-                        </p>
-                      </div>
-                      {isLocked && <Lock className="h-3.5 w-3.5 text-muted-foreground/60 self-center shrink-0" />}
-                    </button>
+                        <span className="text-muted-foreground font-bold text-xs ml-2 select-none">
+                          {isExpanded ? "▲" : "▼"}
+                        </span>
+                      </button>
+
+                      {/* Accordion content: Sub-items tree */}
+                      {isExpanded && (
+                        <div className="p-1 space-y-1 bg-white">
+                          {[
+                            { type: "video", title: "Video Pembelajaran", icon: PlayCircle },
+                            { type: "reading", title: "Materi Bacaan & Slide", icon: BookOpen },
+                            { type: "quiz", title: "Kuis Evaluasi", icon: HelpCircle },
+                            { type: "forum", title: "Forum Diskusi", icon: MessageSquare }
+                          ].map((sub) => {
+                            const itemKey = `${mod.id}_${sub.type}`
+                            const isSubCompleted = completedSubitems.includes(itemKey)
+                            const isSubActive = activeModule?.id === mod.id && activeSubItem === sub.type
+
+                            return (
+                              <button
+                                key={sub.type}
+                                onClick={() => {
+                                  // Switch lesson
+                                  if (quizTaking) {
+                                    if (!confirm("Kuis sedang berjalan. Beralih halaman akan membatalkan kuis ini. Lanjutkan?")) {
+                                      return
+                                    }
+                                  }
+                                  setActiveModule(mod)
+                                  setActiveSubItem(sub.type as any)
+                                  setActiveQuiz(null)
+                                  setQuizResult(null)
+                                  setQuizTaking(false)
+                                  setQuizTimerActive(false)
+                                }}
+                                className={`w-full p-2.5 rounded-lg flex items-center justify-between text-left text-xs transition-all cursor-pointer ${
+                                  isSubActive
+                                    ? "bg-[#060708] text-white font-bold"
+                                    : "hover:bg-secondary/30 text-primary"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? "text-white" : "text-muted-foreground"}`} />
+                                  <span className="truncate">{sub.title}</span>
+                                </div>
+                                <div className="shrink-0 ml-2">
+                                  {isSubCompleted ? (
+                                    <CheckCircle className={`h-3.5 w-3.5 ${isSubActive ? "text-emerald-400" : "text-emerald-600"}`} />
+                                  ) : (
+                                    <div className={`h-3.5 w-3.5 rounded-full border ${isSubActive ? "border-white/30" : "border-border"}`} />
+                                  )}
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
 
-              {/* Course Meta Info Drawer Box */}
+              {/* Course Meta Info Box */}
               <div className="p-4 border-t border-border bg-[#FAF9FB] space-y-2 text-xs">
                 <div className="flex justify-between items-center text-muted-foreground">
                   <span>Total SKS:</span>
@@ -600,7 +632,7 @@ export default function CourseDetailPage({ params }: PageProps) {
               </div>
             </aside>
 
-            {/* Main Content Area */}
+            {/* Main Learning Content Panel */}
             <main className="flex-1 overflow-y-auto flex flex-col justify-between p-6 md:p-8 bg-[#FAF9FB] relative">
               <div className="max-w-5xl mx-auto w-full flex-1">
                 
@@ -608,7 +640,8 @@ export default function CourseDetailPage({ params }: PageProps) {
                   (() => {
                     const isLocked = activeModule.is_premium && !user?.is_premium
 
-                    if (isLocked) {
+                    // Locked Premium screen (except for Forum which can remain public)
+                    if (isLocked && activeSubItem !== "forum") {
                       return (
                         <Card className="border border-border bg-white rounded-xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[400px] mt-4">
                           <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
@@ -629,128 +662,158 @@ export default function CourseDetailPage({ params }: PageProps) {
                       )
                     }
 
+                    // Render corresponding page content view
                     return (
                       <div className="space-y-6">
                         
-                        {/* Tab Switcher inside the Workspace */}
-                        <div className="flex gap-1 bg-[#060708]/5 p-1 rounded-xl max-w-xs border border-border/80">
-                          <button
-                            onClick={() => setActiveWorkspaceTab("materi")}
-                            className={`flex-1 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1.5 rounded-lg cursor-pointer ${
-                              activeWorkspaceTab === "materi"
-                                ? "bg-white text-[#060708] shadow-xs border border-border/50"
-                                : "text-muted-foreground hover:text-[#060708]"
-                            }`}
-                          >
-                            <BookOpen className="h-3.5 w-3.5" />
-                            <span>Materi</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveWorkspaceTab("kuis")
-                              // Prefetch quiz
-                              api.quizzes.listByModule(activeModule.id)
-                            }}
-                            className={`flex-1 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1.5 rounded-lg cursor-pointer ${
-                              activeWorkspaceTab === "kuis"
-                                ? "bg-white text-[#060708] shadow-xs border border-border/50"
-                                : "text-muted-foreground hover:text-[#060708]"
-                            }`}
-                          >
-                            <HelpCircle className="h-3.5 w-3.5" />
-                            <span>Kuis</span>
-                          </button>
-                          <button
-                            onClick={() => setActiveWorkspaceTab("forum")}
-                            className={`flex-1 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1.5 rounded-lg cursor-pointer ${
-                              activeWorkspaceTab === "forum"
-                                ? "bg-white text-[#060708] shadow-xs border border-border/50"
-                                : "text-muted-foreground hover:text-[#060708]"
-                            }`}
-                          >
-                            <MessageSquare className="h-3.5 w-3.5" />
-                            <span>Forum</span>
-                          </button>
-                        </div>
-
-                        {/* Card Content display */}
-                        {activeWorkspaceTab === "materi" && (
+                        {/* 1. VIDEO VIEW */}
+                        {activeSubItem === "video" && (
                           <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
                             <CardHeader className="border-b bg-white p-6">
                               <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule.order}</span>
-                                {completedModules.includes(activeModule.id) && (
+                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule.order} — Video</span>
+                                {completedSubitems.includes(`${activeModule.id}_video`) && (
                                   <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                                     <Check className="h-2.5 w-2.5" />
-                                    Selesai
+                                    Ditonton
                                   </span>
                                 )}
                               </div>
-                              <CardTitle className="font-heading text-2xl font-black text-primary mt-1">{activeModule.title}</CardTitle>
+                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">Video Pembelajaran: {activeModule.title}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
-                              {/* Learning description */}
-                              <div className="space-y-2">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Deskripsi Pembelajaran</h4>
-                                <p className="text-sm text-primary leading-relaxed">{activeModule.description}</p>
-                              </div>
-
-                              {/* Premium-looking video lesson player mockup */}
-                              <div className="space-y-3 pt-4">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Video Pembelajaran</h4>
-                                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border flex flex-col justify-between p-4 group">
-                                  <div className="flex justify-between items-center text-white/80 text-[10px] font-semibold bg-gradient-to-b from-black/80 to-transparent p-3 absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <span>Modul {activeModule.order} — {activeModule.title}</span>
-                                    <span>12:45</span>
+                              <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border flex flex-col justify-between p-4 group">
+                                <div className="flex justify-between items-center text-white/80 text-[10px] font-semibold bg-gradient-to-b from-black/80 to-transparent p-3 absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                  <span>Modul {activeModule.order} — {activeModule.title}</span>
+                                  <span>12:45</span>
+                                </div>
+                                <div 
+                                  onClick={() => markSubItemAsCompleted(activeModule.id, "video")}
+                                  className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/25 transition-colors cursor-pointer z-0"
+                                >
+                                  <div className="h-16 w-16 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
+                                    <Play className="h-6 w-6 fill-white ml-1" />
                                   </div>
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/25 transition-colors cursor-pointer z-0">
-                                    <div className="h-16 w-16 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
-                                      <Play className="h-6 w-6 fill-white ml-1" />
-                                    </div>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                  <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden">
+                                    <div className="bg-[#CF3A1F] h-full w-[45%]" />
                                   </div>
-                                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden">
-                                      <div className="bg-[#CF3A1F] h-full w-[45%]" />
+                                  <div className="flex justify-between items-center text-white text-[10px] font-semibold">
+                                    <div className="flex items-center gap-3">
+                                      <span>Play</span>
+                                      <span>05:32 / 12:45</span>
                                     </div>
-                                    <div className="flex justify-between items-center text-white text-[10px] font-semibold">
-                                      <div className="flex items-center gap-3">
-                                        <span>Play</span>
-                                        <span>05:32 / 12:45</span>
-                                      </div>
-                                      <span>HD / Fullscreen</span>
-                                    </div>
+                                    <span>HD / Fullscreen</span>
                                   </div>
                                 </div>
                               </div>
 
-                              {/* Syllabus materials PDF slides */}
-                              <div className="pt-6 border-t border-border space-y-3">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Materi Slide Kuliah</h4>
-                                <div className="p-4 border border-border rounded-xl bg-[#FAF9FB] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
+                                <div>
+                                  <h5 className="text-xs font-bold text-primary">Status Penayangan</h5>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">Tonton video hingga selesai untuk melengkapi aktivitas ini.</p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => markSubItemAsCompleted(activeModule.id, "video")}
+                                  disabled={completedSubitems.includes(`${activeModule.id}_video`)}
+                                  className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
+                                    completedSubitems.includes(`${activeModule.id}_video`)
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                                      : "bg-[#060708] hover:bg-[#060708]/90 text-white"
+                                  }`}
+                                >
+                                  {completedSubitems.includes(`${activeModule.id}_video`) ? (
+                                    <span className="flex items-center justify-center gap-1">
+                                      <Check className="h-3.5 w-3.5" />
+                                      Sudah Ditonton
+                                    </span>
+                                  ) : (
+                                    "Tandai Selesai Menonton"
+                                  )}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* 2. READING VIEW */}
+                        {activeSubItem === "reading" && (
+                          <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
+                            <CardHeader className="border-b bg-white p-6">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule.order} — Bacaan</span>
+                                {completedSubitems.includes(`${activeModule.id}_reading`) && (
+                                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <Check className="h-2.5 w-2.5" />
+                                    Dibaca
+                                  </span>
+                                )}
+                              </div>
+                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">Materi Bacaan: {activeModule.title}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-6 space-y-6">
+                              <div className="space-y-2">
+                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Deskripsi Modul</h4>
+                                <p className="text-sm text-primary leading-relaxed">{activeModule.description}</p>
+                              </div>
+
+                              <div className="p-4 border border-border rounded-xl bg-[#FAF9FB] space-y-4">
+                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Petunjuk Belajar</h4>
+                                <p className="text-xs text-primary leading-relaxed">
+                                  Baca dan pahami materi pendukung di bawah ini dengan saksama. Slide PDF ini berisi poin-poin utama kurikulum perkuliahan yang akan diujikan pada kuis evaluasi.
+                                </p>
+                                <div className="p-3 border border-border rounded-lg bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                   <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/20 rounded-lg flex items-center justify-center shrink-0">
-                                      <FileText className="h-5 w-5" />
-                                    </div>
+                                    <FileText className="h-8 w-8 text-[#CF3A1F] shrink-0" />
                                     <div>
-                                      <p className="text-sm font-bold text-[#060708]">Slide Kuliah - Modul {activeModule.order}.pdf</p>
-                                      <p className="text-[10px] text-muted-foreground">PDF Slide Dokumen | 1.8 MB</p>
+                                      <p className="text-xs font-bold text-[#060708]">Slide Kuliah - Modul {activeModule.order}.pdf</p>
+                                      <p className="text-[10px] text-muted-foreground">PDF Dokumen | 1.8 MB</p>
                                     </div>
                                   </div>
                                   <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => alert("Slide kuliah diunduh! (Simulated)")}
-                                    className="text-xs border-border hover:bg-secondary/40 text-primary cursor-pointer font-bold w-full sm:w-auto rounded-lg"
+                                    className="text-xs border-border text-primary font-bold cursor-pointer rounded-lg w-full sm:w-auto"
                                   >
-                                    Unduh PDF Slide
+                                    Unduh PDF
                                   </Button>
                                 </div>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
+                                <div>
+                                  <h5 className="text-xs font-bold text-primary">Status Pembacaan</h5>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah memahami isi slide materi.</p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => markSubItemAsCompleted(activeModule.id, "reading")}
+                                  disabled={completedSubitems.includes(`${activeModule.id}_reading`)}
+                                  className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
+                                    completedSubitems.includes(`${activeModule.id}_reading`)
+                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                                      : "bg-[#060708] hover:bg-[#060708]/90 text-white"
+                                  }`}
+                                >
+                                  {completedSubitems.includes(`${activeModule.id}_reading`) ? (
+                                    <span className="flex items-center justify-center gap-1">
+                                      <Check className="h-3.5 w-3.5" />
+                                      Sudah Dibaca
+                                    </span>
+                                  ) : (
+                                    "Tandai Selesai Membaca"
+                                  )}
+                                </Button>
                               </div>
                             </CardContent>
                           </Card>
                         )}
 
-                        {activeWorkspaceTab === "kuis" && (
+                        {/* 3. QUIZ VIEW */}
+                        {activeSubItem === "quiz" && (
                           (() => {
                             if (quizTaking && activeQuiz) {
                               return (
@@ -902,7 +965,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       onClick={handleResetQuiz}
                                       className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/45 cursor-pointer h-9 px-3 rounded-lg"
                                     >
-                                      Kembali ke Modul
+                                      Kembali ke Halaman Kuis
                                     </Button>
                                     <Button
                                       onClick={() => handleStartQuiz(activeModule.id)}
@@ -919,7 +982,15 @@ export default function CourseDetailPage({ params }: PageProps) {
                             return (
                               <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
                                 <CardHeader className="border-b bg-white p-6">
-                                  <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Kuis Evaluasi</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule.order} — Evaluasi</span>
+                                    {completedSubitems.includes(`${activeModule.id}_quiz`) && (
+                                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                        <Check className="h-2.5 w-2.5" />
+                                        Lulus
+                                      </span>
+                                    )}
+                                  </div>
                                   <CardTitle className="font-heading text-xl font-bold text-primary mt-1">Uji Pemahaman: {activeModule.title}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-6 space-y-4">
@@ -951,203 +1022,231 @@ export default function CourseDetailPage({ params }: PageProps) {
                           })()
                         )}
 
-                        {activeWorkspaceTab === "forum" && (
-                          <div className="grid gap-6 lg:grid-cols-3 items-start">
-                            
-                            {/* Left Panel: Threads */}
-                            <div className={`lg:col-span-1 space-y-3 ${activePost ? "hidden lg:block" : "block"}`}>
-                              <div className="flex items-center justify-between px-1 mb-2">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Diskusi Aktif</h3>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setIsCreatingPost(true)}
-                                  className="h-8 px-2 text-xs text-[#CF3A1F] hover:text-[#CF3A1F]/80 hover:bg-[#CF3A1F]/10 rounded-md cursor-pointer flex items-center gap-1 font-semibold border border-transparent hover:border-[#CF3A1F]/20"
-                                >
-                                  <PlusCircle className="h-4 w-4" />
-                                  <span>Buat Post</span>
-                                </Button>
+                        {/* 4. FORUM VIEW */}
+                        {activeSubItem === "forum" && (
+                          <div className="space-y-6">
+                            <div className="grid gap-6 lg:grid-cols-3 items-start">
+                              {/* Left Panel: Threads */}
+                              <div className={`lg:col-span-1 space-y-3 ${activePost ? "hidden lg:block" : "block"}`}>
+                                <div className="flex items-center justify-between px-1 mb-2">
+                                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Diskusi Aktif</h3>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setIsCreatingPost(true)}
+                                    className="h-8 px-2 text-xs text-[#CF3A1F] hover:text-[#CF3A1F]/80 hover:bg-[#CF3A1F]/10 rounded-md cursor-pointer flex items-center gap-1 font-semibold border border-transparent hover:border-[#CF3A1F]/20"
+                                  >
+                                    <PlusCircle className="h-4 w-4" />
+                                    <span>Buat Post</span>
+                                  </Button>
+                                </div>
+
+                                {forumPosts.length === 0 ? (
+                                  <div className="text-xs text-muted-foreground p-6 border rounded-xl text-center bg-white">
+                                    Belum ada forum diskusi. Jadilah yang pertama bertanya!
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                                    {forumPosts.map((post) => {
+                                      const isActive = activePost?.id === post.id
+                                      const replyCount = post.replies.length
+                                      
+                                      return (
+                                        <button
+                                          key={post.id}
+                                          onClick={() => {
+                                            setActivePost(post)
+                                            setIsCreatingPost(false)
+                                          }}
+                                          className={`w-full text-left p-4 rounded-xl border transition-all flex flex-col gap-2 cursor-pointer ${
+                                            isActive 
+                                              ? "bg-white border-primary shadow-xs" 
+                                              : "bg-white hover:bg-secondary/20 border-border hover:border-accent-2/40"
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[10px] text-muted-foreground">
+                                              {new Date(post.created_at).toLocaleDateString("id-ID")}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-accent">•</span>
+                                            <span className="text-[10px] font-semibold text-primary">{post.author.name}</span>
+                                          </div>
+                                          <h4 className="font-bold text-sm text-primary leading-snug line-clamp-1">{post.title}</h4>
+                                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{post.content}</p>
+                                          <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-accent uppercase tracking-wide">
+                                            <MessageSquare className="h-3.5 w-3.5" />
+                                            <span>{replyCount} Balasan</span>
+                                          </div>
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                )}
                               </div>
 
-                              {forumPosts.length === 0 ? (
-                                <div className="text-xs text-muted-foreground p-6 border rounded-xl text-center bg-white">
-                                  Belum ada forum diskusi. Jadilah yang pertama bertanya!
-                                </div>
-                              ) : (
-                                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                                  {forumPosts.map((post) => {
-                                    const isActive = activePost?.id === post.id
-                                    const replyCount = post.replies.length
-                                    
-                                    return (
-                                      <button
-                                        key={post.id}
-                                        onClick={() => {
-                                          setActivePost(post)
-                                          setIsCreatingPost(false)
-                                        }}
-                                        className={`w-full text-left p-4 rounded-xl border transition-all flex flex-col gap-2 cursor-pointer ${
-                                          isActive 
-                                            ? "bg-white border-primary shadow-xs" 
-                                            : "bg-white hover:bg-secondary/20 border-border hover:border-accent-2/40"
-                                        }`}
-                                      >
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-[10px] text-muted-foreground">
-                                            {new Date(post.created_at).toLocaleDateString("id-ID")}
-                                          </span>
-                                          <span className="text-[10px] font-bold text-accent">•</span>
-                                          <span className="text-[10px] font-semibold text-primary">{post.author.name}</span>
+                              {/* Right Panel: Active Thread detail OR Creation Form */}
+                              <div className="lg:col-span-2">
+                                {isCreatingPost ? (
+                                  <Card className="border border-border bg-white rounded-2xl shadow-xs">
+                                    <CardHeader className="border-b bg-white">
+                                      <CardTitle className="font-heading text-lg font-bold text-primary">Buat Pertanyaan Baru</CardTitle>
+                                      <CardDescription className="text-xs">Ajukan pertanyaan mengenai topik kuliah ini ke dosen dan sesama mahasiswa.</CardDescription>
+                                    </CardHeader>
+                                    <form onSubmit={handleCreatePost}>
+                                      <CardContent className="p-6 space-y-4">
+                                        <div className="space-y-1.5">
+                                          <Label htmlFor="post-title" className="text-xs font-semibold text-primary">Judul Diskusi</Label>
+                                          <Input
+                                            id="post-title"
+                                            placeholder="Masukkan judul singkat (cth: Masalah p(k+1) induksi)"
+                                            value={newPostTitle}
+                                            onChange={(e) => setNewPostTitle(e.target.value)}
+                                            className="bg-white border border-border rounded-lg"
+                                          />
                                         </div>
-                                        <h4 className="font-bold text-sm text-primary leading-snug line-clamp-1">{post.title}</h4>
-                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{post.content}</p>
-                                        <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-accent uppercase tracking-wide">
-                                          <MessageSquare className="h-3.5 w-3.5" />
-                                          <span>{replyCount} Balasan</span>
+                                        <div className="space-y-1.5">
+                                          <Label htmlFor="post-content" className="text-xs font-semibold text-primary">Detail Pertanyaan</Label>
+                                          <textarea
+                                            id="post-content"
+                                            rows={5}
+                                            placeholder="Tuliskan pertanyaan Anda secara mendetail di sini..."
+                                            value={newPostContent}
+                                            onChange={(e) => setNewPostContent(e.target.value)}
+                                            className="w-full bg-white border border-border rounded-lg p-3 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                                          />
                                         </div>
-                                      </button>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Right Panel: Active Thread detail OR Creation Form */}
-                            <div className="lg:col-span-2">
-                              {isCreatingPost ? (
-                                <Card className="border border-border bg-white rounded-2xl shadow-xs">
-                                  <CardHeader className="border-b bg-white">
-                                    <CardTitle className="font-heading text-lg font-bold text-primary">Buat Pertanyaan Baru</CardTitle>
-                                    <CardDescription className="text-xs">Ajukan pertanyaan mengenai topik kuliah ini ke dosen dan sesama mahasiswa.</CardDescription>
-                                  </CardHeader>
-                                  <form onSubmit={handleCreatePost}>
-                                    <CardContent className="p-6 space-y-4">
+                                      </CardContent>
+                                      <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-end gap-3">
+                                        <Button
+                                          variant="ghost"
+                                          type="button"
+                                          onClick={() => setIsCreatingPost(false)}
+                                          className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/40 h-9 px-3 rounded-lg"
+                                        >
+                                          Batal
+                                        </Button>
+                                        <Button
+                                          type="submit"
+                                          className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold"
+                                        >
+                                          Kirim Diskusi
+                                        </Button>
+                                      </CardFooter>
+                                    </form>
+                                  </Card>
+                                ) : activePost ? (
+                                  <Card className="border border-border bg-white rounded-2xl shadow-xs">
+                                    <CardHeader className="border-b bg-white flex flex-row items-start justify-between gap-4 p-6">
                                       <div className="space-y-1.5">
-                                        <Label htmlFor="post-title" className="text-xs font-semibold text-primary">Judul Diskusi</Label>
-                                        <Input
-                                          id="post-title"
-                                          placeholder="Masukkan judul singkat (cth: Masalah p(k+1) induksi)"
-                                          value={newPostTitle}
-                                          onChange={(e) => setNewPostTitle(e.target.value)}
-                                          className="bg-white border border-border rounded-lg"
-                                        />
+                                        {/* Back to threads button only visible on mobile layout */}
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setActivePost(null)}
+                                          className="h-8 px-2 -ml-2 text-muted-foreground hover:text-primary hover:bg-secondary/40 gap-1 lg:hidden"
+                                        >
+                                          <ArrowLeft className="h-4 w-4" />
+                                          <span>Kembali ke List</span>
+                                        </Button>
+                                        
+                                        <div className="flex items-center gap-3">
+                                          <Avatar className="h-8 w-8 border bg-secondary/50 font-sans font-bold">
+                                            <AvatarFallback>{activePost.author.avatar || "M"}</AvatarFallback>
+                                          </Avatar>
+                                          <div>
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-bold text-primary">{activePost.author.name}</span>
+                                              <span className="text-[9px] font-bold px-1 py-0.5 rounded border bg-accent/20 text-primary border-accent/30">
+                                                {activePost.author.role}
+                                              </span>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                              Ditanyakan pada {new Date(activePost.created_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        
+                                        <CardTitle className="font-heading text-lg font-bold text-primary pt-3">{activePost.title}</CardTitle>
                                       </div>
-                                      <div className="space-y-1.5">
-                                        <Label htmlFor="post-content" className="text-xs font-semibold text-primary">Detail Pertanyaan</Label>
-                                        <textarea
-                                          id="post-content"
-                                          rows={5}
-                                          placeholder="Tuliskan pertanyaan Anda secara mendetail di sini..."
-                                          value={newPostContent}
-                                          onChange={(e) => setNewPostContent(e.target.value)}
-                                          className="w-full bg-white border border-border rounded-lg p-3 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                                        />
+                                    </CardHeader>
+                                    <CardContent className="p-6 space-y-6 max-h-[350px] overflow-y-auto">
+                                      <p className="text-sm text-primary leading-relaxed border-b border-border pb-6">
+                                        {activePost.content}
+                                      </p>
+
+                                      {/* Replies Thread list */}
+                                      <div className="space-y-4">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                                          Balasan ({activePost.replies.length})
+                                        </h4>
+                                        {activePost.replies.length === 0 ? (
+                                          <p className="text-xs text-muted-foreground italic text-center py-4 bg-background border rounded-lg">
+                                            Belum ada balasan. Tulis tanggapan Anda di bawah!
+                                          </p>
+                                        ) : (
+                                          <div className="space-y-2">
+                                            {renderReplies(activePost.replies, activePost.id, 1)}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Reply Form */}
+                                      <div className="pt-6 border-t border-border space-y-3">
+                                        <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tulis Tanggapan Anda</h5>
+                                        <div className="space-y-3">
+                                          <textarea
+                                            rows={3}
+                                            placeholder="Berikan jawaban atau tanggapan Anda..."
+                                            value={replyContents[`post-${activePost.id}`] || ""}
+                                            onChange={(e) => setReplyContents(prev => ({ ...prev, [`post-${activePost.id}`]: e.target.value }))}
+                                            className="w-full bg-white border border-border rounded-lg p-3 text-xs text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+                                          />
+                                          <Button
+                                            onClick={() => handleCreateReply(activePost.id, null)}
+                                            className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-4 h-9 rounded-lg font-bold flex items-center gap-1 cursor-pointer"
+                                          >
+                                            Kirim Tanggapan
+                                          </Button>
+                                        </div>
                                       </div>
                                     </CardContent>
-                                    <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-end gap-3">
-                                      <Button
-                                        variant="ghost"
-                                        type="button"
-                                        onClick={() => setIsCreatingPost(false)}
-                                        className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/40 h-9 px-3 rounded-lg"
-                                      >
-                                        Batal
-                                      </Button>
-                                      <Button
-                                        type="submit"
-                                        className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold"
-                                      >
-                                        Kirim Diskusi
-                                      </Button>
-                                    </CardFooter>
-                                  </form>
-                                </Card>
-                              ) : activePost ? (
-                                <Card className="border border-border bg-white rounded-2xl shadow-xs">
-                                  <CardHeader className="border-b bg-white flex flex-row items-start justify-between gap-4 p-6">
-                                    <div className="space-y-1.5">
-                                      {/* Back to threads button only visible on mobile layout */}
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setActivePost(null)}
-                                        className="h-8 px-2 -ml-2 text-muted-foreground hover:text-primary hover:bg-secondary/40 gap-1 lg:hidden"
-                                      >
-                                        <ArrowLeft className="h-4 w-4" />
-                                        <span>Kembali ke List</span>
-                                      </Button>
-                                      
-                                      <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8 border bg-secondary/50 font-sans font-bold">
-                                          <AvatarFallback>{activePost.author.avatar || "M"}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                          <div className="flex items-center gap-1.5">
-                                            <span className="text-xs font-bold text-primary">{activePost.author.name}</span>
-                                            <span className="text-[9px] font-bold px-1 py-0.5 rounded border bg-accent/20 text-primary border-accent/30">
-                                              {activePost.author.role}
-                                            </span>
-                                          </div>
-                                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                                            Ditanyakan pada {new Date(activePost.created_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      
-                                      <CardTitle className="font-heading text-lg font-bold text-primary pt-3">{activePost.title}</CardTitle>
-                                    </div>
-                                  </CardHeader>
-                                  <CardContent className="p-6 space-y-6 max-h-[350px] overflow-y-auto">
-                                    <p className="text-sm text-primary leading-relaxed border-b border-border pb-6">
-                                      {activePost.content}
+                                  </Card>
+                                ) : (
+                                  <div className="text-center text-muted-foreground p-12 border border-dashed rounded-2xl bg-white min-h-[350px] flex flex-col items-center justify-center">
+                                    <MessageSquare className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                                    <h4 className="font-heading text-lg font-bold text-[#060708]">Forum Diskusi Kelas</h4>
+                                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                                      Pilih pertanyaan dari panel samping untuk melihat detail pembahasan, atau klik "Buat Post" untuk mengajukan pertanyaan baru.
                                     </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
 
-                                    {/* Replies Thread list */}
-                                    <div className="space-y-4">
-                                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                                        Balasan ({activePost.replies.length})
-                                      </h4>
-                                      {activePost.replies.length === 0 ? (
-                                        <p className="text-xs text-muted-foreground italic text-center py-4 bg-background border rounded-lg">
-                                          Belum ada balasan. Tulis tanggapan Anda di bawah!
-                                        </p>
-                                      ) : (
-                                        <div className="space-y-2">
-                                          {renderReplies(activePost.replies, activePost.id, 1)}
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Reply Form */}
-                                    <div className="pt-6 border-t border-border space-y-3">
-                                      <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tulis Tanggapan Anda</h5>
-                                      <div className="space-y-3">
-                                        <textarea
-                                          rows={3}
-                                          placeholder="Berikan jawaban atau tanggapan Anda..."
-                                          value={replyContents[`post-${activePost.id}`] || ""}
-                                          onChange={(e) => setReplyContents(prev => ({ ...prev, [`post-${activePost.id}`]: e.target.value }))}
-                                          className="w-full bg-white border border-border rounded-lg p-3 text-xs text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                                        />
-                                        <Button
-                                          onClick={() => handleCreateReply(activePost.id, null)}
-                                          className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-4 h-9 rounded-lg font-bold flex items-center gap-1 cursor-pointer"
-                                        >
-                                          Kirim Tanggapan
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ) : (
-                                <div className="text-center text-muted-foreground p-12 border border-dashed rounded-2xl bg-white min-h-[350px] flex flex-col items-center justify-center">
-                                  <MessageSquare className="h-10 w-10 text-muted-foreground/50 mb-3" />
-                                  <h4 className="font-heading text-lg font-bold text-[#060708]">Forum Diskusi Kelas</h4>
-                                  <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                                    Pilih pertanyaan dari panel samping untuk melihat detail pembahasan, atau klik "Buat Post" untuk mengajukan pertanyaan baru.
-                                  </p>
-                                </div>
-                              )}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
+                              <div>
+                                <h5 className="text-xs font-bold text-primary">Partisipasi Forum</h5>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah membaca/berpartisipasi di dalam diskusi kelas.</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => markSubItemAsCompleted(activeModule.id, "forum")}
+                                disabled={completedSubitems.includes(`${activeModule.id}_forum`)}
+                                className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
+                                  completedSubitems.includes(`${activeModule.id}_forum`)
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                                    : "bg-[#060708] hover:bg-[#060708]/90 text-white"
+                                }`}
+                              >
+                                {completedSubitems.includes(`${activeModule.id}_forum`) ? (
+                                  <span className="flex items-center justify-center gap-1">
+                                    <Check className="h-3.5 w-3.5" />
+                                    Selesai
+                                  </span>
+                                ) : (
+                                  "Tandai Selesai"
+                                )}
+                              </Button>
                             </div>
                           </div>
                         )}
@@ -1165,9 +1264,7 @@ export default function CourseDetailPage({ params }: PageProps) {
               {activeModule && (
                 (() => {
                   const isLocked = activeModule.is_premium && !user?.is_premium
-                  if (isLocked) return null
-
-                  const currentIdx = course.modules.findIndex(m => m.id === activeModule.id)
+                  if (isLocked && activeSubItem !== "forum") return null
                   
                   return (
                     <footer className="border-t border-border/80 bg-white p-4 flex items-center justify-between shrink-0 shadow-xs z-20 rounded-xl mt-8 max-w-5xl w-full mx-auto">
@@ -1175,16 +1272,18 @@ export default function CourseDetailPage({ params }: PageProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          if (currentIdx > 0) {
-                            setActiveModule(course.modules[currentIdx - 1])
+                          if (activeIndex > 0) {
+                            const prevItem = flatSubItems[activeIndex - 1]
+                            setActiveModule(prevItem.module)
+                            setActiveSubItem(prevItem.type)
                             setActiveQuiz(null)
                             setQuizResult(null)
                             setQuizTaking(false)
                             setQuizTimerActive(false)
-                            setActiveWorkspaceTab("materi")
+                            setExpandedModules(prev => ({ ...prev, [prevItem.module.id]: true }))
                           }
                         }}
-                        disabled={currentIdx === 0}
+                        disabled={activeIndex <= 0}
                         className="text-xs border-border hover:bg-secondary/40 text-primary gap-1 font-bold rounded-lg h-9"
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -1192,23 +1291,25 @@ export default function CourseDetailPage({ params }: PageProps) {
                       </Button>
 
                       <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider hidden md:inline-block">
-                        Selesaikan materi dan kuis untuk progres belajar yang optimal
+                        Lengkapi tiap sub-materi kelas secara terstruktur
                       </div>
 
-                      {currentIdx < course.modules.length - 1 ? (
+                      {activeIndex < flatSubItems.length - 1 ? (
                         <Button
                           size="sm"
                           onClick={() => {
-                            // Save completion locally
-                            markModuleAsCompleted(activeModule.id)
+                            // Mark current as completed
+                            markSubItemAsCompleted(activeModule.id, activeSubItem)
                             
-                            // Move to next module
-                            setActiveModule(course.modules[currentIdx + 1])
+                            // Navigate to next
+                            const nextItem = flatSubItems[activeIndex + 1]
+                            setActiveModule(nextItem.module)
+                            setActiveSubItem(nextItem.type)
                             setActiveQuiz(null)
                             setQuizResult(null)
                             setQuizTaking(false)
                             setQuizTimerActive(false)
-                            setActiveWorkspaceTab("materi")
+                            setExpandedModules(prev => ({ ...prev, [nextItem.module.id]: true }))
                           }}
                           className="bg-[#060708] hover:bg-[#060708]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm"
                         >
@@ -1219,8 +1320,8 @@ export default function CourseDetailPage({ params }: PageProps) {
                         <Button
                           size="sm"
                           onClick={() => {
-                            markModuleAsCompleted(activeModule.id)
-                            alert("Selamat! Anda telah menyelesaikan seluruh silabus kelas ini. Tetap pertahankan performa Anda!")
+                            markSubItemAsCompleted(activeModule.id, activeSubItem)
+                            alert("Selamat! Anda telah menyelesaikan seluruh sub-judul dan aktivitas kelas ini. Tingkatkan terus kompetensi Anda!")
                           }}
                           className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm"
                         >
