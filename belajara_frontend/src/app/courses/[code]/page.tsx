@@ -33,6 +33,7 @@ import {
   FileText
 } from "lucide-react"
 import { api, getUser } from "@/lib/api"
+import { MarkdownRenderer } from "@/components/markdown-renderer"
 
 interface PageProps {
   params: Promise<{ code: string }>
@@ -337,6 +338,7 @@ export default function CourseDetailPage({ params }: PageProps) {
   const [newPostContent, setNewPostContent] = React.useState("")
   const [isCreatingPost, setIsCreatingPost] = React.useState(false)
   const [replyContents, setReplyContents] = React.useState<Record<string, string>>({}) // key: "post-id" or "post-reply-id"
+  const [activeReplyToId, setActiveReplyToId] = React.useState<number | null>(null)
 
   // Checkout states
   const [checkoutOpen, setCheckoutOpen] = React.useState(false)
@@ -528,6 +530,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     try {
       await api.forum.createReply(postId, parentReplyId, content, courseCode)
       setReplyContents(prev => ({ ...prev, [replyKey]: "" }))
+      setActiveReplyToId(null)
       fetchForumData() // Refresh list
       
       // Update expanded active post view if open
@@ -638,21 +641,39 @@ export default function CourseDetailPage({ params }: PageProps) {
             {/* Nesting reply action */}
             {level < 3 && (
               <div className="pt-1.5 flex flex-col gap-2 max-w-lg">
-                <div className="flex gap-2 items-center">
-                  <Input
-                    placeholder="Balas komentar ini..."
-                    value={replyContents[`reply-${reply.id}`] || ""}
-                    onChange={(e) => setReplyContents(prev => ({ ...prev, [`reply-${reply.id}`]: e.target.value }))}
-                    className="h-7 text-xs bg-white border-border rounded-md"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => handleCreateReply(postId, reply.id)}
-                    className="h-7 bg-[#060708] hover:bg-[#060708]/90 text-white text-[10px] px-2 rounded-md font-medium"
+                {activeReplyToId === reply.id ? (
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      placeholder="Balas komentar ini..."
+                      value={replyContents[`reply-${reply.id}`] || ""}
+                      onChange={(e) => setReplyContents(prev => ({ ...prev, [`reply-${reply.id}`]: e.target.value }))}
+                      className="h-7 text-xs bg-white border border-border rounded-md focus:outline-none focus:border-[#060708]"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => handleCreateReply(postId, reply.id)}
+                      className="h-7 bg-[#060708] hover:bg-[#060708]/90 text-white text-[10px] px-3.5 rounded-md font-medium cursor-pointer shrink-0"
+                    >
+                      Kirim
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setActiveReplyToId(null)}
+                      className="h-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-[10px] px-2.5 rounded-md font-medium cursor-pointer shrink-0"
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setActiveReplyToId(reply.id)}
+                    className="text-[10px] font-bold text-accent hover:text-[#060708] hover:underline uppercase tracking-wider flex items-center gap-1 cursor-pointer w-fit"
                   >
                     Balas
-                  </Button>
-                </div>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1071,8 +1092,8 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       <div className="p-4 rounded-xl border border-[#C6B5BF]/40 bg-[#FAF9FB]/70 text-xs text-slate-600 font-serif leading-relaxed italic shrink-0">
                                         Materi kuliah mandiri untuk memperkuat pemahaman Anda dalam topik ini.
                                       </div>
-                                      <div className="whitespace-pre-wrap mt-3 text-slate-800 font-sans border border-border p-5 rounded-xl bg-white leading-loose text-[13px] font-medium">
-                                        {activeSubChapter.content}
+                                      <div className="mt-3 text-slate-800 font-sans border border-border p-6 rounded-xl bg-white leading-loose text-[13px]">
+                                        <MarkdownRenderer content={activeSubChapter.content} />
                                       </div>
                                     </div>
                                   )
@@ -1173,7 +1194,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       <span>{formatTime(quizTimeLeft)}</span>
                                     </div>
                                   </CardHeader>
-                                  <CardContent className="p-6 space-y-8 max-h-[450px] overflow-y-auto">
+                                  <CardContent className="p-6 space-y-8">
                                     {activeQuiz.questions.map((q: any, idx: number) => {
                                       const selected = quizAnswers[q.id]
                                       return (
@@ -1388,7 +1409,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                     Belum ada diskusi di forum ini. Silakan mulai berdiskusi!
                                   </div>
                                 ) : (
-                                  <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+                                  <div className="space-y-2 pr-1">
                                     {forumPosts.map((post) => {
                                       const isActive = activePost?.id === post.id
                                       const replyCount = post.replies.length
@@ -1511,7 +1532,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                         <CardTitle className="font-heading text-lg font-bold text-primary pt-3">{activePost.title}</CardTitle>
                                       </div>
                                     </CardHeader>
-                                    <CardContent className="p-6 space-y-6 max-h-[300px] overflow-y-auto">
+                                    <CardContent className="p-6 space-y-6">
                                       <p className="text-sm text-primary leading-relaxed border-b border-border pb-6">
                                         {activePost.content}
                                       </p>

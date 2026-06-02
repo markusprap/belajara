@@ -18,9 +18,11 @@ import {
   Plus, Loader2, Pencil, Trash2, Sparkles, CheckCircle2,
   AlertCircle, ChevronLeft, GripVertical, PlayCircle, FileText,
   HelpCircle, MessageSquare, ChevronDown, ChevronUp, Trash, BookOpen,
-  Save, Eye, Edit3
+  Save, Eye, Edit3, Bold, Italic, Code, List, ListOrdered, Quote, Link,
+  Image, Table, Maximize2, Minimize2, Wand2, Columns
 } from "lucide-react"
 import { api, getToken } from "@/lib/api"
+import { MarkdownRenderer } from "@/components/markdown-renderer"
 
 interface SubChapter {
   id: number | string
@@ -98,6 +100,312 @@ export default function CourseManagePage() {
   }>(EMPTY_SUBCHAPTER)
   const [subchapterLoading, setSubchapterLoading] = React.useState(false)
   const [markdownPreview, setMarkdownPreview] = React.useState(false)
+
+  // AI assistant states
+  const [editorFullScreen, setEditorFullScreen] = React.useState(false)
+  const [aiPanelOpen, setAiPanelOpen] = React.useState(false)
+  const [aiLoading, setAiLoading] = React.useState(false)
+  const [aiTopic, setAiTopic] = React.useState("")
+  const [aiTemplateType, setAiTemplateType] = React.useState("theory")
+  const [aiStatusMsg, setAiStatusMsg] = React.useState("")
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
+
+  const insertMarkdown = (syntax: string, placeholder = "") => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const text = subchapterForm.content || ""
+    const selectedText = text.substring(start, end)
+
+    let replacement = ""
+    let selectionOffsetStart = 0
+    let selectionOffsetEnd = 0
+
+    switch (syntax) {
+      case "bold":
+        replacement = `**${selectedText || placeholder || "teks tebal"}**`
+        selectionOffsetStart = 2
+        selectionOffsetEnd = replacement.length - 2
+        break
+      case "italic":
+        replacement = `*${selectedText || placeholder || "teks miring"}*`
+        selectionOffsetStart = 1
+        selectionOffsetEnd = replacement.length - 1
+        break
+      case "h1":
+        replacement = `\n# ${selectedText || placeholder || "Judul 1"}\n`
+        selectionOffsetStart = 2
+        selectionOffsetEnd = replacement.length - 1
+        break
+      case "h2":
+        replacement = `\n## ${selectedText || placeholder || "Judul 2"}\n`
+        selectionOffsetStart = 3
+        selectionOffsetEnd = replacement.length - 1
+        break
+      case "h3":
+        replacement = `\n### ${selectedText || placeholder || "Judul 3"}\n`
+        selectionOffsetStart = 4
+        selectionOffsetEnd = replacement.length - 1
+        break
+      case "code-block":
+        replacement = `\n\`\`\`javascript\n${selectedText || placeholder || "// Tulis kode di sini"}\n\`\`\`\n`
+        selectionOffsetStart = 15
+        selectionOffsetEnd = replacement.length - 5
+        break
+      case "inline-code":
+        replacement = `\`${selectedText || placeholder || "kode"}\``
+        selectionOffsetStart = 1
+        selectionOffsetEnd = replacement.length - 1
+        break
+      case "bullet":
+        replacement = `\n- ${selectedText || placeholder || "Butir list"}`
+        selectionOffsetStart = 3
+        selectionOffsetEnd = replacement.length
+        break
+      case "number":
+        replacement = `\n1. ${selectedText || placeholder || "Langkah 1"}`
+        selectionOffsetStart = 4
+        selectionOffsetEnd = replacement.length
+        break
+      case "quote":
+        replacement = `\n> ${selectedText || placeholder || "Kutipan penting"}`
+        selectionOffsetStart = 3
+        selectionOffsetEnd = replacement.length
+        break
+      case "link":
+        replacement = `[${selectedText || "Tautan"}](${placeholder || "https://example.com"})`
+        selectionOffsetStart = 1
+        selectionOffsetEnd = (selectedText || "Tautan").length + 1
+        break
+      case "image":
+        replacement = `![${selectedText || "Deskripsi Gambar"}](${placeholder || "https://example.com/gambar.png"})`
+        selectionOffsetStart = 2
+        selectionOffsetEnd = (selectedText || "Deskripsi Gambar").length + 2
+        break
+      case "table":
+        replacement = `\n| Kolom 1 | Kolom 2 |\n|---------|---------|\n| Baris 1 | Nilai 1 |\n| Baris 2 | Nilai 2 |\n`
+        selectionOffsetStart = 1
+        selectionOffsetEnd = replacement.length
+        break
+      case "hr":
+        replacement = `\n---\n`
+        selectionOffsetStart = replacement.length
+        selectionOffsetEnd = replacement.length
+        break
+      default:
+        return
+    }
+
+    const newContent = text.substring(0, start) + replacement + text.substring(end)
+    setSubchapterForm(f => ({ ...f, content: newContent }))
+
+    // Restore focus and selection
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + selectionOffsetStart, start + selectionOffsetEnd)
+    }, 50)
+  }
+
+  const handleAIGenerateDraft = async () => {
+    if (!aiTopic.trim()) {
+      alert("Harap masukkan topik fokus materi.")
+      return
+    }
+
+    setAiLoading(true)
+    const messages = [
+      "Mengumpulkan data topik akademis...",
+      "Menyusun silabus pembelajaran...",
+      "Menghasilkan konten edukasi Markdown...",
+      "Membuat code snippet & visualisasi tabel...",
+      "Melakukan formatting Qurtuba Aesthetic...",
+      "Menyelesaikan draf materi kuliah..."
+    ]
+
+    let currentMsgIdx = 0
+    setAiStatusMsg(messages[0])
+
+    const interval = setInterval(() => {
+      currentMsgIdx++
+      if (currentMsgIdx < messages.length) {
+        setAiStatusMsg(messages[currentMsgIdx])
+      }
+    }, 800)
+
+    await new Promise(resolve => setTimeout(resolve, 3500))
+    clearInterval(interval)
+
+    const title = subchapterForm.title || "Materi Kuliah Baru"
+    let content = ""
+
+    if (aiTemplateType === "theory") {
+      content = `# Pembahasan Mendalam: ${title}
+
+Materi ini dirancang untuk membekali mahasiswa dengan pemahaman konseptual yang kuat mengenai **${aiTopic}**.
+
+## 1. Pendahuluan & Konsep Dasar
+Secara umum, ${aiTopic} merujuk pada prinsip penting di mana kita mengelola data, struktur program, atau metodologi penyelesaian masalah secara optimal.
+
+> **Definisi:** ${aiTopic} adalah konsep teoretis yang mendefinisikan hubungan terstruktur antara elemen-elemen instruksi dalam menyelesaikan problem komputasi atau akademik secara efisien.
+
+## 2. Karakteristik Utama
+Ada beberapa aspek penting yang harus Anda pahami:
+- **Efisiensi:** Mengurangi waktu pengerjaan (time complexity) dan penggunaan memori (space complexity).
+- **Keterbacaan (Readability):** Mempermudah kolaborasi antar pengembang.
+- **Skalabilitas:** Menjamin sistem tetap berjalan lancar saat ukuran input data meningkat secara eksponensial.
+
+## 3. Perbandingan Metode Terkait
+Berikut adalah perbandingan ringkas antara pendekatan konvensional dan pendekatan modern terkait topik ini:
+
+| Kriteria Analisis | Metode Konvensional | Pendekatan Modern |
+|---|---|---|
+| Kompleksitas | Cenderung tinggi / O(n^2) | Lebih rendah / O(n log n) |
+| Konsumsi Memori | Sangat besar | Efisien & adaptif |
+| Implementasi | Manual dan prosedural | Berorientasi objek & deklaratif |
+
+## 4. Kesimpulan & Diskusi
+Memahami dasar dari ${aiTopic} adalah pondasi utama sebelum melangkah ke teknik yang lebih rumit. Pastikan Anda mencoba latihan di bagian bawah.
+
+---
+**Pertanyaan Diskusi:** Mengapa pendekatan modern jauh lebih direkomendasikan pada sistem berskala enterprise dibandingkan metode konvensional? Tulis jawaban Anda di forum diskusi kelas!`
+    } else if (aiTemplateType === "code") {
+      content = `# Tutorial & Praktik Pemrograman: ${title}
+
+Dalam modul praktis ini, kita akan mengimplementasikan secara langsung konsep **${aiTopic}** menggunakan bahasa pemrograman terpopuler.
+
+## 1. Persiapan Lingkungan Pengembangan
+Pastikan Anda sudah menginstal runtime compiler yang sesuai. Kita akan menggunakan kode Python/JavaScript terstruktur.
+
+## 2. Alur Algoritma
+Langkah-langkah implementasi:
+1. Membaca input dataset secara terstruktur.
+2. Melakukan deklarasi variabel dan struktur data pendukung.
+3. Melakukan iterasi/pemrosesan logika utama dari ${aiTopic}.
+4. Mengembalikan nilai output yang tervalidasi.
+
+## 3. Implementasi Kode Lengkap
+Di bawah ini adalah contoh kode lengkap untuk menyelesaikan studi kasus:
+
+\`\`\`python
+# Implementasi ${aiTopic}
+# Dibuat otomatis oleh Asisten AI Belajara
+
+def jalankan_logika_materi(data_input, opsi_tambahan=True):
+    """
+    Fungsi utama untuk memproses ${aiTopic}.
+    Parameter:
+      data_input (list): Data mentah yang akan diproses.
+      opsi_tambahan (bool): Konfigurasi mode optimal.
+    """
+    print(f"[Belajara-AI] Memulai pemrosesan ${aiTopic}...")
+    
+    if not data_input:
+        return []
+        
+    hasil_proses = []
+    for indeks, item in enumerate(data_input):
+        # Proses pemetaan logika utama
+        nilai_kalkulasi = item * 2 if opsi_tambahan else item
+        hasil_proses.append({
+            "indeks": indeks,
+            "nilai_awal": item,
+            "nilai_akhir": nilai_kalkulasi
+        })
+        
+    print("[Belajara-AI] Pemrosesan selesai dengan sukses.")
+    return hasil_proses
+
+# Pengujian kode
+if __name__ == "__main__":
+    dataset_uji = [12, 45, 78, 23, 56]
+    hasil = jalankan_logika_materi(dataset_uji)
+    print("Hasil kalkulasi:", hasil)
+\`\`\`
+
+## 4. Analisis Kode
+Dari kode di atas, kita dapat melihat bahwa:
+- Loop berjalan linear dengan kompleksitas waktu **O(n)**.
+- Penggunaan list sekunder menghasilkan kompleksitas ruang **O(n)**.
+
+---
+**Tugas Praktikum:** Modifikasi fungsi di atas agar mendukung pencarian data secara spesifik (filtering) sebelum dikembalikan ke user!`
+    } else if (aiTemplateType === "case_study") {
+      content = `# Analisis Kasus Nyata: Implementasi ${title}
+
+Studi kasus ini meninjau bagaimana konsep **${aiTopic}** diimplementasikan di industri teknologi skala besar (enterprise).
+
+## 1. Latar Belakang Masalah
+Banyak perusahaan teknologi menghadapi kendala performa ketika skala transaksi data meningkat tajam. Masalah utama meliputi:
+- Terjadinya bottleneck pada query database.
+- Latensi respon server yang melebihi batas toleransi user (>200ms).
+- Penumpukan beban memori akibat eksekusi algoritma yang tidak efisien.
+
+## 2. Solusi dengan ${aiTopic}
+Dengan mengadopsi teknik ${aiTopic}, tim engineer berhasil merestrukturisasi alur sistem dengan hasil sebagai berikut:
+- Mengganti loop nested yang berat menjadi operasi terindeks.
+- Melakukan caching memori pada data yang sering diakses.
+
+## 3. Hasil & Metrik Performa
+Berikut adalah perbandingan data performa sistem sebelum dan sesudah optimasi:
+
+| Indikator Performa | Sebelum Optimasi | Setelah Optimasi | Dampak Perubahan |
+|---|---|---|---|
+| Latensi API | 480 ms | 45 ms | Naik 90% Lebih Cepat |
+| RAM Server | 8.4 GB | 2.1 GB | Hemat 75% Resources |
+| Throughput | 1,200 req/s | 8,500 req/s | Skalabilitas 7x Lipat |
+
+## 4. Kesimpulan Praktis
+Pelajaran penting dari studi kasus ini adalah bahwa pilihan arsitektur dan pemahaman terhadap ${aiTopic} memiliki dampak finansial nyata bagi efisiensi operasional server perusahaan cloud.
+
+---
+**Refleksi:** Coba hitung potensi penghematan biaya server bulanan jika resource yang digunakan berkurang sebesar 75%!`
+    } else {
+      content = `# Latihan Soal & Evaluasi: ${title}
+
+Gunakan latihan mandiri ini untuk menguji pemahaman Anda mengenai topik **${aiTopic}**.
+
+## Soal 1: Pemahaman Teoretis
+Jelaskan perbedaan mendasar antara implementasi konvensional dan implementasi modern pada konsep ${aiTopic}, khususnya terkait efisiensi pemrosesan data!
+
+### Pembahasan
+> Pendekatan modern memanfaatkan struktur data indeks (seperti hash map atau tree) yang memungkinkan operasi pencarian dan pembaruan data berjalan dalam waktu **O(1)** atau **O(log n)**, dibandingkan pencarian linear **O(n)** pada metode konvensional.
+
+---
+
+## Soal 2: Analisis Kode Program
+Diberikan cuplikan kode berikut:
+
+\`\`\`javascript
+function hitungData(n) {
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      count++;
+    }
+  }
+  return count;
+}
+\`\`\`
+
+Tentukan kompleksitas waktu dari fungsi di atas dalam notasi Big O dan berikan alasannya!
+
+### Pembahasan
+Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing beriterasi sebanyak \`n\` kali. Oleh karena itu, jumlah total operasi adalah $n \times n = n^2$. Notasi Big O-nya adalah **O(n^2)** (Kuadratik).
+
+---
+**Tips Belajar:** Coba tulis ulang fungsi di atas agar berjalan dalam kompleksitas linear **O(n)** dengan teknik memoization!`
+    }
+
+    setSubchapterForm(f => ({
+      ...f,
+      content: (f.content ? f.content + "\n\n" : "") + content
+    }))
+    setAiLoading(false)
+    setAiTopic("")
+    setAiPanelOpen(false)
+  }
 
   // Quiz states
   const [quizOpen, setQuizOpen] = React.useState(false)
@@ -716,100 +1024,382 @@ export default function CourseManagePage() {
         {/* Sub-Chapter Add/Edit Dialog */}
         {subchapterOpen && (
           <Dialog open={subchapterOpen} onOpenChange={setSubchapterOpen}>
-            <DialogContent className="max-w-2xl bg-white max-h-[85vh] flex flex-col p-6 overflow-hidden">
-              <DialogHeader className="border-b pb-3 shrink-0">
-                <DialogTitle className="font-heading text-lg font-bold text-[#060708]">
-                  {subchapterEditId !== null ? "Edit Sub-bab" : "Tambah Sub-bab Baru"}
-                </DialogTitle>
+            <DialogContent className={`bg-white flex flex-col p-6 overflow-hidden transition-all duration-300 ${
+              subchapterForm.type === "reading" 
+                ? editorFullScreen
+                  ? "fixed inset-0 z-[100] w-screen max-w-none h-screen max-h-none rounded-none left-0 top-0 translate-x-0 translate-y-0"
+                  : "w-[95vw] max-w-7xl h-[90vh] max-h-[90vh]" 
+                : "max-w-2xl max-h-[85vh]"
+            }`}>
+              <DialogHeader className="border-b pb-3 shrink-0 flex flex-row items-center justify-between">
+                <div>
+                  <DialogTitle className="font-heading text-lg font-bold text-[#060708]">
+                    {subchapterEditId !== null ? "Edit Sub-bab" : "Tambah Sub-bab Baru"}
+                  </DialogTitle>
+                  {subchapterForm.type === "reading" && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
+                      Gunakan Markdown workspace di bawah ini untuk membuat buku pelajaran mandiri yang komprehensif.
+                    </p>
+                  )}
+                </div>
+                {subchapterForm.type === "reading" && typeof window !== "undefined" && localStorage.getItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={() => {
+                      const saved = localStorage.getItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`)
+                      if (saved) {
+                        setSubchapterForm(f => ({ ...f, content: saved }))
+                        showToast("success", "Draf berhasil dipulihkan dari penyimpanan lokal.")
+                      }
+                    }}
+                    className="h-7 text-[10px] gap-1 mr-6 border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100/70"
+                  >
+                    <BookOpen className="h-3 w-3" />
+                    Pulihkan Draf Tersimpan
+                  </Button>
+                )}
               </DialogHeader>
 
-              <form onSubmit={handleSaveSubChapter} className="flex-1 flex flex-col overflow-hidden space-y-4 mt-2">
-                <div className="grid grid-cols-2 gap-4 shrink-0">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Judul Sub-bab *</Label>
-                    <Input
-                      value={subchapterForm.title}
-                      onChange={e => setSubchapterForm(f => ({ ...f, title: e.target.value }))}
-                      required
-                      placeholder="cth: Pengenalan Logika Kebenaran"
-                      className="h-8 text-xs rounded-lg"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                if (!subchapterModuleId) return
+                setSubchapterLoading(true)
+                try {
+                  if (subchapterEditId !== null && typeof subchapterEditId === "number") {
+                    await api.instructor.updateSubChapter(subchapterEditId, {
+                      ...subchapterForm,
+                      order: Number(subchapterForm.order)
+                    })
+                    showToast("success", "Sub-bab berhasil diperbarui.")
+                  } else {
+                    await api.instructor.createSubChapter(subchapterModuleId, {
+                      ...subchapterForm,
+                      order: Number(subchapterForm.order)
+                    })
+                    showToast("success", "Sub-bab berhasil ditambahkan.")
+                  }
+                  localStorage.removeItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`)
+                  setSubchapterOpen(false)
+                  fetchCourse()
+                } catch (err: any) {
+                  showToast("error", err.message || "Gagal menyimpan sub-bab.")
+                } finally {
+                  setSubchapterLoading(false)
+                }
+              }} className="flex-1 flex flex-col overflow-hidden space-y-4 mt-2">
+                
+                {/* Meta details top header */}
+                <div className="flex items-center justify-between gap-4 shrink-0 bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
                     <div className="space-y-1">
-                      <Label className="text-xs font-semibold">Urutan *</Label>
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Judul Sub-bab *</Label>
+                      <Input
+                        value={subchapterForm.title}
+                        onChange={e => setSubchapterForm(f => ({ ...f, title: e.target.value }))}
+                        required
+                        placeholder="cth: Pengenalan Logika Kebenaran"
+                        className="h-8 text-xs rounded-lg bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Urutan Tampil *</Label>
                       <Input
                         type="number" min={1}
                         value={subchapterForm.order}
                         onChange={e => setSubchapterForm(f => ({ ...f, order: parseInt(e.target.value) || 1 }))}
                         required
-                        className="h-8 text-xs rounded-lg"
+                        className="h-8 text-xs rounded-lg bg-white"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs font-semibold">Durasi estimasi *</Label>
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estimasi Durasi Belajar *</Label>
                       <Input
                         value={subchapterForm.duration}
                         onChange={e => setSubchapterForm(f => ({ ...f, duration: e.target.value }))}
                         required
                         placeholder="10 mnt"
-                        className="h-8 text-xs rounded-lg"
+                        className="h-8 text-xs rounded-lg bg-white"
                       />
                     </div>
                   </div>
+                  
+                  {subchapterForm.type === "reading" && (
+                    <div className="flex items-center gap-2 self-end h-8 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                        className={`h-8 gap-1.5 text-xs font-semibold rounded-lg transition-all ${
+                          aiPanelOpen 
+                            ? "bg-[#060708] text-white hover:bg-[#060708]/90" 
+                            : "border-[#C6B5BF] text-[#060708] hover:bg-[#C6B5BF]/10"
+                        }`}
+                      >
+                        <Wand2 className="h-3.5 w-3.5" />
+                        Asisten AI
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditorFullScreen(!editorFullScreen)}
+                        className="h-8 gap-1.5 text-xs font-semibold border-[#C6B5BF] text-[#060708] hover:bg-[#C6B5BF]/10 rounded-lg"
+                        title={editorFullScreen ? "Perkecil Tampilan" : "Layar Penuh"}
+                      >
+                        {editorFullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                        {editorFullScreen ? "Layar Biasa" : "Layar Penuh"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 flex flex-col min-h-0 space-y-2">
                   {subchapterForm.type === "video" ? (
-                    <div className="space-y-1 shrink-0">
-                      <Label className="text-xs font-semibold">URL Sematan Video (Iframe/YouTube) *</Label>
+                    <div className="space-y-2 border border-border bg-[#FAF9FB] p-5 rounded-xl">
+                      <Label className="text-xs font-bold text-[#060708]">URL Sematan Video (Iframe/YouTube) *</Label>
                       <Input
                         value={subchapterForm.video_url}
                         onChange={e => setSubchapterForm(f => ({ ...f, video_url: e.target.value }))}
                         required
                         placeholder="https://www.youtube.com/embed/..."
-                        className="h-8 text-xs rounded-lg"
+                        className="h-9 text-xs rounded-lg bg-white mt-1.5"
                       />
-                      <p className="text-[10px] text-muted-foreground leading-normal">
+                      <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
                         Pastikan menggunakan link embed YouTube (mengandung kata <strong>/embed/</strong>) agar dapat diputar dengan lancar oleh mahasiswa.
                       </p>
                     </div>
                   ) : subchapterForm.type === "reading" ? (
-                    <div className="flex-1 flex flex-col min-h-0 space-y-1">
-                      <div className="flex items-center justify-between shrink-0">
-                        <Label className="text-xs font-semibold">Konten Materi Kuliah (Format Markdown) *</Label>
-                        <div className="flex rounded-md border border-border p-0.5 bg-slate-100 text-[10px] font-bold">
-                          <button
-                            type="button"
-                            onClick={() => setMarkdownPreview(false)}
-                            className={`px-2 py-0.5 rounded-sm cursor-pointer transition-all ${!markdownPreview ? "bg-white text-primary shadow-xs" : "text-muted-foreground"}`}
-                          >
-                            Tulis (Markdown)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setMarkdownPreview(true)}
-                            className={`px-2 py-0.5 rounded-sm cursor-pointer transition-all ${markdownPreview ? "bg-white text-primary shadow-xs" : "text-muted-foreground"}`}
-                          >
-                            Pratinjau
-                          </button>
-                        </div>
-                      </div>
+                    <div className="flex-1 flex flex-col min-h-0 space-y-2">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 min-h-0">
+                        {/* Editor Pane: 5 columns (or 6 if AI panel is closed) */}
+                        <div className={`flex flex-col min-h-0 space-y-2 transition-all ${
+                          aiPanelOpen ? "md:col-span-5" : "md:col-span-6"
+                        }`}>
+                          <div className="flex items-center justify-between shrink-0">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Editor Teks (Markdown)</span>
+                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-semibold">
+                              <span>Kata: {((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length)}</span>
+                              <span>Karakter: {((subchapterForm.content || "").length)}</span>
+                              <span>Estimasi Baca: {Math.max(1, Math.ceil(((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length) / 200))} mnt</span>
+                            </div>
+                          </div>
 
-                      {!markdownPreview ? (
-                        <Textarea
-                          value={subchapterForm.content}
-                          onChange={e => setSubchapterForm(f => ({ ...f, content: e.target.value }))}
-                          required
-                          placeholder="# Judul Materi Kuliah&#10;&#10;Tulis materi teks di sini dengan format Markdown..."
-                          className="flex-1 text-xs rounded-lg p-3 font-mono resize-none focus-visible:ring-1"
-                        />
-                      ) : (
-                        <div className="flex-1 rounded-lg border border-border bg-[#FAF9FB] p-3 text-xs overflow-y-auto leading-relaxed prose prose-slate max-w-none">
-                          <h1 className="text-base font-bold font-heading border-b pb-1.5 mb-2">{subchapterForm.title}</h1>
-                          <p className="whitespace-pre-wrap font-semibold text-primary font-sans">{subchapterForm.content || "Belum ada konten."}</p>
+                          {/* Markdown Toolbar */}
+                          <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-50 border border-border rounded-lg text-slate-600 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("bold")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Teks Tebal (Bold)"
+                            >
+                              <Bold className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("italic")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Teks Miring (Italic)"
+                            >
+                              <Italic className="h-3.5 w-3.5" />
+                            </button>
+                            <div className="w-px h-4 bg-slate-300 mx-1" />
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("h1")}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Heading 1"
+                            >
+                              H1
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("h2")}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Heading 2"
+                            >
+                              H2
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("h3")}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Heading 3"
+                            >
+                              H3
+                            </button>
+                            <div className="w-px h-4 bg-slate-300 mx-1" />
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("code-block")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Code Block"
+                            >
+                              <Code className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("inline-code")}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-mono hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Inline Code"
+                            >
+                              `code`
+                            </button>
+                            <div className="w-px h-4 bg-slate-300 mx-1" />
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("bullet")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="List Bullet"
+                            >
+                              <List className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("number")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="List Numbered"
+                            >
+                              <ListOrdered className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("quote")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Blockquote"
+                            >
+                              <Quote className="h-3.5 w-3.5" />
+                            </button>
+                            <div className="w-px h-4 bg-slate-300 mx-1" />
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("link")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Insert Link"
+                            >
+                              <Link className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("image")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Insert Image"
+                            >
+                              <Image className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("table")}
+                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Insert Table"
+                            >
+                              <Table className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertMarkdown("hr")}
+                              className="px-1 py-0.5 rounded text-[10px] font-semibold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
+                              title="Horizontal Line"
+                            >
+                              ---
+                            </button>
+                          </div>
+
+                          <Textarea
+                            ref={textareaRef}
+                            value={subchapterForm.content}
+                            onChange={e => setSubchapterForm(f => ({ ...f, content: e.target.value }))}
+                            required
+                            placeholder="# Judul Materi Kuliah&#10;&#10;Tulis materi teks di sini dengan format Markdown..."
+                            className="flex-1 text-xs rounded-lg p-4 font-mono resize-none focus-visible:ring-1 border-border bg-white leading-relaxed text-[#060708] min-h-0"
+                          />
                         </div>
-                      )}
+
+                        {/* Preview Pane: 5 columns (or 6 if AI panel is closed) */}
+                        <div className={`flex flex-col min-h-0 space-y-2 transition-all ${
+                          aiPanelOpen ? "md:col-span-5" : "md:col-span-6"
+                        }`}>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pratinjau Langsung (Live Preview)</span>
+                          <div className="flex-1 rounded-lg border border-border bg-white p-6 overflow-y-auto leading-relaxed prose prose-slate max-w-none shadow-sm min-h-0">
+                            <h1 className="text-xl font-bold font-heading border-b pb-2 mb-4 text-[#060708]">
+                              {subchapterForm.title || "Judul Sub-bab"}
+                            </h1>
+                            {subchapterForm.content ? (
+                              <MarkdownRenderer content={subchapterForm.content} />
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">
+                                Tulis materi kuliah di panel kiri atau gunakan Asisten AI untuk melihat pratinjau langsung di sini...
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* AI Assistant Pane: 2 columns (only shown if aiPanelOpen is true) */}
+                        {aiPanelOpen && (
+                          <div className="md:col-span-2 flex flex-col min-h-0 space-y-3 bg-[#060708] text-white p-4 rounded-xl shadow-md border border-slate-800 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                              <div className="flex items-center gap-1.5">
+                                <Sparkles className="h-4 w-4 text-[#C6B5BF] animate-pulse" />
+                                <span className="text-xs font-bold font-heading text-white">Asisten AI Belajara</span>
+                              </div>
+                            </div>
+
+                            {aiLoading ? (
+                              <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
+                                <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF] mb-3" />
+                                <p className="text-[11px] font-medium text-slate-200 animate-pulse">{aiStatusMsg}</p>
+                                <p className="text-[9px] text-slate-400 mt-1">Mengolah struktur materi...</p>
+                              </div>
+                            ) : (
+                              <div className="flex-1 flex flex-col space-y-3.5 text-xs min-h-0 overflow-y-auto pr-1">
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Topik Fokus Materi</Label>
+                                  <Textarea
+                                    value={aiTopic}
+                                    onChange={e => setAiTopic(e.target.value)}
+                                    placeholder="cth: Cara kerja Quicksort atau Kompleksitas waktu Big O"
+                                    className="bg-slate-900 border-slate-800 text-white rounded-lg text-xs p-2 h-20 resize-none focus-visible:ring-1 focus-visible:ring-slate-700"
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Jenis Draf</Label>
+                                  <select
+                                    value={aiTemplateType}
+                                    onChange={e => setAiTemplateType(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none cursor-pointer"
+                                  >
+                                    <option value="theory">Pembahasan Teoretis</option>
+                                    <option value="code">Praktik & Contoh Kode</option>
+                                    <option value="case_study">Studi Kasus Industri</option>
+                                    <option value="evaluation">Latihan Soal & Pembahasan</option>
+                                  </select>
+                                </div>
+
+                                <Button
+                                  type="button"
+                                  onClick={handleAIGenerateDraft}
+                                  className="w-full bg-[#FAF9FB] hover:bg-[#FAF9FB]/90 text-[#060708] font-bold text-xs h-9 rounded-lg mt-2 cursor-pointer gap-1.5 shadow"
+                                >
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                  Buat Draf AI
+                                </Button>
+
+                                <div className="border-t border-slate-800 pt-3">
+                                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tips Menulis</h5>
+                                  <ul className="space-y-1 text-[10px] text-slate-300 list-disc list-inside">
+                                    <li>Gunakan link untuk referensi luar.</li>
+                                    <li>Sematkan code block untuk algoritma.</li>
+                                    <li>Gunakan tabel untuk rangkuman.</li>
+                                  </ul>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -818,14 +1408,17 @@ export default function CourseManagePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setSubchapterOpen(false)}
+                    onClick={() => {
+                      setEditorFullScreen(false)
+                      setSubchapterOpen(false)
+                    }}
                     className="h-8 text-xs rounded-lg cursor-pointer"
                   >
                     Batal
                   </Button>
                   <Button
                     type="submit"
-                    className="h-8 text-xs bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg cursor-pointer"
+                    className="h-8 text-xs bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg cursor-pointer font-semibold"
                     disabled={subchapterLoading}
                   >
                     {subchapterLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
