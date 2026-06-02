@@ -57,6 +57,56 @@ interface Course {
   modules: Module[]
 }
 
+interface SubChapter {
+  id: string
+  title: string
+  type: "video" | "reading" | "quiz" | "forum"
+  order: number
+  module: Module
+}
+
+// Function to dynamically generate sub-chapters under each module
+const getSubChapters = (mod: Module): SubChapter[] => {
+  const cleanTitle = mod.title.replace(/^Modul\s+\d+:\s*/i, "")
+  return [
+    {
+      id: `${mod.id}_sub1`,
+      title: `Pengenalan ${cleanTitle}`,
+      type: "video",
+      order: 1,
+      module: mod
+    },
+    {
+      id: `${mod.id}_sub2`,
+      title: `Materi Utama & Slide Kuliah`,
+      type: "reading",
+      order: 2,
+      module: mod
+    },
+    {
+      id: `${mod.id}_sub3`,
+      title: `Studi Kasus & Analisis Mendalam`,
+      type: "reading",
+      order: 3,
+      module: mod
+    },
+    {
+      id: `${mod.id}_sub4`,
+      title: `Kuis Kompetensi Modul ${mod.order}`,
+      type: "quiz",
+      order: 4,
+      module: mod
+    },
+    {
+      id: `${mod.id}_sub5`,
+      title: `Diskusi Tanya Jawab`,
+      type: "forum",
+      order: 5,
+      module: mod
+    }
+  ]
+}
+
 export default function CourseDetailPage({ params }: PageProps) {
   const router = useRouter()
   const resolvedParams = React.use(params)
@@ -71,10 +121,13 @@ export default function CourseDetailPage({ params }: PageProps) {
   const [isSyllabusCollapsed, setIsSyllabusCollapsed] = React.useState(false)
   const [expandedModules, setExpandedModules] = React.useState<Record<number, boolean>>({})
 
-  // Workspace sub-items states
-  const [completedSubitems, setCompletedSubitems] = React.useState<string[]>([]) // item key format: `${moduleId}_${subItemType}`
-  const [activeModule, setActiveModule] = React.useState<Module | null>(null)
-  const [activeSubItem, setActiveSubItem] = React.useState<"video" | "reading" | "quiz" | "forum">("video")
+  // Workspace sub-chapters states
+  const [completedSubChapters, setCompletedSubChapters] = React.useState<string[]>([]) // item keys: `${moduleId}_subX`
+  const [activeSubChapter, setActiveSubChapter] = React.useState<SubChapter | null>(null)
+
+  // Derived states
+  const activeModule = activeSubChapter?.module || null
+  const activeSubItem = activeSubChapter?.type || "video"
 
   // Quiz states
   const [activeQuiz, setActiveQuiz] = React.useState<any | null>(null)
@@ -110,16 +163,16 @@ export default function CourseDetailPage({ params }: PageProps) {
     setUser(loggedInUser)
   }, [router])
 
-  // Load progress completed subitems from localStorage
+  // Load progress completed subchapters from localStorage
   React.useEffect(() => {
     if (user && courseCode) {
-      const key = `belajara_completed_subitems_${user.username}_${courseCode}`
+      const key = `belajara_completed_subchapters_${user.username}_${courseCode}`
       const saved = localStorage.getItem(key)
       if (saved) {
         try {
-          setCompletedSubitems(JSON.parse(saved))
+          setCompletedSubChapters(JSON.parse(saved))
         } catch (e) {
-          console.error("Failed loading completed sub-items", e)
+          console.error("Failed loading completed sub-chapters", e)
         }
       }
     }
@@ -133,8 +186,10 @@ export default function CourseDetailPage({ params }: PageProps) {
       const data = await api.courses.get(courseCode)
       setCourse(data)
       if (data && data.modules && data.modules.length > 0) {
-        setActiveModule(data.modules[0])
-        setExpandedModules({ [data.modules[0].id]: true })
+        const firstMod = data.modules[0]
+        const subs = getSubChapters(firstMod)
+        setActiveSubChapter(subs[0])
+        setExpandedModules({ [firstMod.id]: true })
       }
     } catch (err: any) {
       setError(err.message || "Gagal mengambil detail mata kuliah.")
@@ -184,14 +239,13 @@ export default function CourseDetailPage({ params }: PageProps) {
     return `${min}:${sec < 10 ? "0" : ""}${sec}`
   }
 
-  // Helper local sub-item progress save
-  const markSubItemAsCompleted = React.useCallback((moduleId: number, type: string) => {
+  // Helper local sub-chapter progress save
+  const markSubChapterAsCompleted = React.useCallback((subId: string) => {
     if (!user) return
-    const itemKey = `${moduleId}_${type}`
-    setCompletedSubitems(prev => {
-      if (prev.includes(itemKey)) return prev
-      const next = [...prev, itemKey]
-      const key = `belajara_completed_subitems_${user.username}_${courseCode}`
+    setCompletedSubChapters(prev => {
+      if (prev.includes(subId)) return prev
+      const next = [...prev, subId]
+      const key = `belajara_completed_subchapters_${user.username}_${courseCode}`
       localStorage.setItem(key, JSON.stringify(next))
       return next
     })
@@ -232,8 +286,8 @@ export default function CourseDetailPage({ params }: PageProps) {
       setQuizResult(result)
       setQuizTaking(false)
 
-      if (result.passed && activeModule) {
-        markSubItemAsCompleted(activeModule.id, "quiz")
+      if (result.passed && activeSubChapter) {
+        markSubChapterAsCompleted(activeSubChapter.id)
       }
     } catch (err) {
       alert("Gagal mengirimkan kuis.")
@@ -406,27 +460,22 @@ export default function CourseDetailPage({ params }: PageProps) {
     ))
   }
 
-  // Pre-calculate workspace dimensions/proportions (Coursera-style: 4 sub-items per module)
-  const totalSubItems = (course?.modules?.length || 0) * 4
-  const completedCount = completedSubitems.length
-  const progressPercent = totalSubItems > 0 ? Math.min(100, Math.round((completedCount / totalSubItems) * 100)) : 0
+  // Pre-calculate workspace dimensions/proportions (Coursera-style: 5 sub-chapters per module)
+  const totalSubChapters = (course?.modules?.length || 0) * 5
+  const completedCount = completedSubChapters.length
+  const progressPercent = totalSubChapters > 0 ? Math.min(100, Math.round((completedCount / totalSubChapters) * 100)) : 0
 
-  // Flattened sequential sub-items list for sequential bottom navigation
-  const flatSubItems = React.useMemo(() => {
+  // Flattened sequential sub-chapters list for sequential bottom navigation
+  const flatSubChapters = React.useMemo(() => {
     if (!course) return []
-    const items: { module: Module; type: "video" | "reading" | "quiz" | "forum" }[] = []
+    const items: SubChapter[] = []
     course.modules.forEach(mod => {
-      items.push({ module: mod, type: "video" })
-      items.push({ module: mod, type: "reading" })
-      items.push({ module: mod, type: "quiz" })
-      items.push({ module: mod, type: "forum" })
+      items.push(...getSubChapters(mod))
     })
     return items
   }, [course])
 
-  const activeIndex = flatSubItems.findIndex(
-    item => item.module.id === activeModule?.id && item.type === activeSubItem
-  )
+  const activeIndex = flatSubChapters.findIndex(item => item.id === activeSubChapter?.id)
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FAF9FB] font-sans">
@@ -491,7 +540,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                   Progres Belajar
                 </span>
                 <span className="text-xs font-extrabold text-[#060708]">
-                  {completedCount}/{totalSubItems} Topik ({progressPercent}%)
+                  {completedCount}/{totalSubChapters} Sub-Bab ({progressPercent}%)
                 </span>
               </div>
               <div className="w-24 md:w-32 bg-secondary h-2.5 rounded-full overflow-hidden border border-border/80">
@@ -506,14 +555,14 @@ export default function CourseDetailPage({ params }: PageProps) {
           {/* Core Workspace Grid */}
           <div className="flex flex-1 overflow-hidden relative">
             
-            {/* Left Collapsible Syllabus Sidebar with Coursera Hierarchy */}
+            {/* Left Collapsible Syllabus Sidebar with Accordion Modules */}
             <aside className={`absolute md:relative z-30 top-0 bottom-0 left-0 border-r border-border bg-white flex flex-col transition-all duration-300 ease-in-out shrink-0 select-none ${
               isSyllabusCollapsed 
                 ? "-translate-x-full md:translate-x-0 md:w-0 md:border-r-0 overflow-hidden" 
                 : "translate-x-0 w-80"
             }`}>
               <div className="p-4 border-b border-border bg-secondary/15 flex items-center justify-between">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-[#060708]">Materi Silabus</span>
+                <span className="text-xs font-extrabold uppercase tracking-wider text-[#060708]">Silabus Kelas</span>
                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#CF3A1F]/15 text-[#CF3A1F] border border-[#CF3A1F]/30">
                   {course.modules.length} Modul
                 </span>
@@ -526,8 +575,9 @@ export default function CourseDetailPage({ params }: PageProps) {
                   const isLocked = isModulePremium && !isUserPremium
                   const isExpanded = !!expandedModules[mod.id]
 
-                  // Count completed sub-items under this module
-                  const completedInModule = completedSubitems.filter(item => item.startsWith(`${mod.id}_`)).length
+                  const subs = getSubChapters(mod)
+                  // Count completed sub-chapters under this module
+                  const completedInModule = subs.filter(s => completedSubChapters.includes(s.id)).length
 
                   return (
                     <div key={mod.id} className="border border-border rounded-xl bg-[#FAF9FB] overflow-hidden">
@@ -545,7 +595,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 Premium
                               </span>
                             )}
-                            {completedInModule === 4 && (
+                            {completedInModule === 5 && (
                               <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
                                 Lengkap
                               </span>
@@ -558,31 +608,31 @@ export default function CourseDetailPage({ params }: PageProps) {
                         </span>
                       </button>
 
-                      {/* Accordion content: Sub-items tree */}
+                      {/* Accordion sub-chapters */}
                       {isExpanded && (
-                        <div className="p-1 space-y-1 bg-white">
-                          {[
-                            { type: "video", title: "Video Pembelajaran", icon: PlayCircle },
-                            { type: "reading", title: "Materi Bacaan & Slide", icon: BookOpen },
-                            { type: "quiz", title: "Kuis Evaluasi", icon: HelpCircle },
-                            { type: "forum", title: "Forum Diskusi", icon: MessageSquare }
-                          ].map((sub) => {
-                            const itemKey = `${mod.id}_${sub.type}`
-                            const isSubCompleted = completedSubitems.includes(itemKey)
-                            const isSubActive = activeModule?.id === mod.id && activeSubItem === sub.type
+                        <div className="p-1 space-y-1 bg-white border-t border-border/40">
+                          {subs.map((sub) => {
+                            const isSubCompleted = completedSubChapters.includes(sub.id)
+                            const isSubActive = activeSubChapter?.id === sub.id
+
+                            let SubIcon = PlayCircle
+                            if (sub.type === "reading") SubIcon = BookOpen
+                            if (sub.type === "quiz") SubIcon = HelpCircle
+                            if (sub.type === "forum") SubIcon = MessageSquare
 
                             return (
                               <button
-                                key={sub.type}
+                                key={sub.id}
                                 onClick={() => {
-                                  // Switch lesson
+                                  if (isLocked && sub.type !== "forum") {
+                                    // User can click to trigger locked premium screen
+                                  }
                                   if (quizTaking) {
                                     if (!confirm("Kuis sedang berjalan. Beralih halaman akan membatalkan kuis ini. Lanjutkan?")) {
                                       return
                                     }
                                   }
-                                  setActiveModule(mod)
-                                  setActiveSubItem(sub.type as any)
+                                  setActiveSubChapter(sub)
                                   setActiveQuiz(null)
                                   setQuizResult(null)
                                   setQuizTaking(false)
@@ -595,7 +645,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? "text-white" : "text-muted-foreground"}`} />
+                                  <SubIcon className={`h-3.5 w-3.5 shrink-0 ${isSubActive ? "text-white" : "text-muted-foreground"}`} />
                                   <span className="truncate">{sub.title}</span>
                                 </div>
                                 <div className="shrink-0 ml-2">
@@ -636,11 +686,11 @@ export default function CourseDetailPage({ params }: PageProps) {
             <main className="flex-1 overflow-y-auto flex flex-col justify-between p-6 md:p-8 bg-[#FAF9FB] relative">
               <div className="max-w-5xl mx-auto w-full flex-1">
                 
-                {activeModule ? (
+                {activeSubChapter ? (
                   (() => {
-                    const isLocked = activeModule.is_premium && !user?.is_premium
+                    const isLocked = activeModule?.is_premium && !user?.is_premium
 
-                    // Locked Premium screen (except for Forum which can remain public)
+                    // Locked Premium screen
                     if (isLocked && activeSubItem !== "forum") {
                       return (
                         <Card className="border border-border bg-white rounded-xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[400px] mt-4">
@@ -649,7 +699,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                           </div>
                           <h3 className="font-heading text-2xl font-bold text-primary">Modul Premium Terkunci</h3>
                           <p className="text-sm text-muted-foreground max-w-md mt-2 leading-relaxed">
-                            Modul <strong>"{activeModule.title}"</strong> berisi materi pembelajaran interaktif, slide kuliah resmi, dan kuis kompetensi AI yang dikurasi khusus untuk pengguna Premium.
+                            Sub-bab ini merupakan bagian dari modul premium <strong>"{activeModule?.title}"</strong> yang berisi materi pembelajaran interaktif, slide kuliah resmi, dan kuis kompetensi AI.
                           </p>
                           <Button
                             onClick={handleCheckoutTrigger}
@@ -662,7 +712,6 @@ export default function CourseDetailPage({ params }: PageProps) {
                       )
                     }
 
-                    // Render corresponding page content view
                     return (
                       <div className="space-y-6">
                         
@@ -671,24 +720,24 @@ export default function CourseDetailPage({ params }: PageProps) {
                           <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
                             <CardHeader className="border-b bg-white p-6">
                               <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule.order} — Video</span>
-                                {completedSubitems.includes(`${activeModule.id}_video`) && (
+                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Video</span>
+                                {completedSubChapters.includes(activeSubChapter.id) && (
                                   <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                                     <Check className="h-2.5 w-2.5" />
                                     Ditonton
                                   </span>
                                 )}
                               </div>
-                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">Video Pembelajaran: {activeModule.title}</CardTitle>
+                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">{activeSubChapter.title}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
                               <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border flex flex-col justify-between p-4 group">
                                 <div className="flex justify-between items-center text-white/80 text-[10px] font-semibold bg-gradient-to-b from-black/80 to-transparent p-3 absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                  <span>Modul {activeModule.order} — {activeModule.title}</span>
+                                  <span>{activeSubChapter.title}</span>
                                   <span>12:45</span>
                                 </div>
                                 <div 
-                                  onClick={() => markSubItemAsCompleted(activeModule.id, "video")}
+                                  onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
                                   className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/25 transition-colors cursor-pointer z-0"
                                 >
                                   <div className="h-16 w-16 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
@@ -716,15 +765,15 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 </div>
                                 <Button
                                   size="sm"
-                                  onClick={() => markSubItemAsCompleted(activeModule.id, "video")}
-                                  disabled={completedSubitems.includes(`${activeModule.id}_video`)}
+                                  onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
+                                  disabled={completedSubChapters.includes(activeSubChapter.id)}
                                   className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
-                                    completedSubitems.includes(`${activeModule.id}_video`)
+                                    completedSubChapters.includes(activeSubChapter.id)
                                       ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
                                       : "bg-[#060708] hover:bg-[#060708]/90 text-white"
                                   }`}
                                 >
-                                  {completedSubitems.includes(`${activeModule.id}_video`) ? (
+                                  {completedSubChapters.includes(activeSubChapter.id) ? (
                                     <span className="flex items-center justify-center gap-1">
                                       <Check className="h-3.5 w-3.5" />
                                       Sudah Ditonton
@@ -743,33 +792,32 @@ export default function CourseDetailPage({ params }: PageProps) {
                           <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
                             <CardHeader className="border-b bg-white p-6">
                               <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule.order} — Bacaan</span>
-                                {completedSubitems.includes(`${activeModule.id}_reading`) && (
+                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Bacaan</span>
+                                {completedSubChapters.includes(activeSubChapter.id) && (
                                   <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
                                     <Check className="h-2.5 w-2.5" />
                                     Dibaca
                                   </span>
                                 )}
                               </div>
-                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">Materi Bacaan: {activeModule.title}</CardTitle>
+                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">{activeSubChapter.title}</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6 space-y-6">
                               <div className="space-y-2">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Deskripsi Modul</h4>
-                                <p className="text-sm text-primary leading-relaxed">{activeModule.description}</p>
+                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Deskripsi Bacaan</h4>
+                                <p className="text-sm text-primary leading-relaxed">
+                                  Silakan baca dan pahami dokumen modul utama <strong>"{activeModule?.title}"</strong> berikut untuk menguasai materi bab ini sebelum berlanjut ke kuis kompetensi evaluasi.
+                                </p>
                               </div>
 
                               <div className="p-4 border border-border rounded-xl bg-[#FAF9FB] space-y-4">
-                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Petunjuk Belajar</h4>
-                                <p className="text-xs text-primary leading-relaxed">
-                                  Baca dan pahami materi pendukung di bawah ini dengan saksama. Slide PDF ini berisi poin-poin utama kurikulum perkuliahan yang akan diujikan pada kuis evaluasi.
-                                </p>
+                                <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">Slide Dokumen Pendukung</h4>
                                 <div className="p-3 border border-border rounded-lg bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                   <div className="flex items-center gap-3">
                                     <FileText className="h-8 w-8 text-[#CF3A1F] shrink-0" />
                                     <div>
-                                      <p className="text-xs font-bold text-[#060708]">Slide Kuliah - Modul {activeModule.order}.pdf</p>
-                                      <p className="text-[10px] text-muted-foreground">PDF Dokumen | 1.8 MB</p>
+                                      <p className="text-xs font-bold text-[#060708]">Slide Kuliah - Modul {activeModule?.order}.pdf</p>
+                                      <p className="text-[10px] text-muted-foreground">PDF Dokumen | 1.8 MB | Diperbarui baru-baru ini</p>
                                     </div>
                                   </div>
                                   <Button
@@ -778,7 +826,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                     onClick={() => alert("Slide kuliah diunduh! (Simulated)")}
                                     className="text-xs border-border text-primary font-bold cursor-pointer rounded-lg w-full sm:w-auto"
                                   >
-                                    Unduh PDF
+                                    Unduh PDF Slide
                                   </Button>
                                 </div>
                               </div>
@@ -790,15 +838,15 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 </div>
                                 <Button
                                   size="sm"
-                                  onClick={() => markSubItemAsCompleted(activeModule.id, "reading")}
-                                  disabled={completedSubitems.includes(`${activeModule.id}_reading`)}
+                                  onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
+                                  disabled={completedSubChapters.includes(activeSubChapter.id)}
                                   className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
-                                    completedSubitems.includes(`${activeModule.id}_reading`)
+                                    completedSubChapters.includes(activeSubChapter.id)
                                       ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
                                       : "bg-[#060708] hover:bg-[#060708]/90 text-white"
                                   }`}
                                 >
-                                  {completedSubitems.includes(`${activeModule.id}_reading`) ? (
+                                  {completedSubChapters.includes(activeSubChapter.id) ? (
                                     <span className="flex items-center justify-center gap-1">
                                       <Check className="h-3.5 w-3.5" />
                                       Sudah Dibaca
@@ -968,7 +1016,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       Kembali ke Halaman Kuis
                                     </Button>
                                     <Button
-                                      onClick={() => handleStartQuiz(activeModule.id)}
+                                      onClick={() => activeModule && handleStartQuiz(activeModule.id)}
                                       className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold cursor-pointer"
                                     >
                                       Coba Kuis Lagi
@@ -982,16 +1030,13 @@ export default function CourseDetailPage({ params }: PageProps) {
                             return (
                               <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
                                 <CardHeader className="border-b bg-white p-6">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule.order} — Evaluasi</span>
-                                    {completedSubitems.includes(`${activeModule.id}_quiz`) && (
-                                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                                        <Check className="h-2.5 w-2.5" />
-                                        Lulus
-                                      </span>
-                                    )}
-                                  </div>
-                                  <CardTitle className="font-heading text-xl font-bold text-primary mt-1">Uji Pemahaman: {activeModule.title}</CardTitle>
+                                  <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Evaluasi</span>
+                                  {completedSubChapters.includes(activeSubChapter.id) && (
+                                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                                      <Check className="h-2.5 w-2.5" />
+                                      Lulus
+                                    </span>
+                                  )}
                                 </CardHeader>
                                 <CardContent className="p-6 space-y-4">
                                   <p className="text-sm text-primary leading-relaxed">
@@ -1010,7 +1055,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                                 </CardContent>
                                 <CardFooter className="border-t bg-secondary/15 p-4 flex justify-end">
                                   <Button
-                                    onClick={() => handleStartQuiz(activeModule.id)}
+                                    onClick={() => activeModule && handleStartQuiz(activeModule.id)}
                                     className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold flex items-center gap-2 cursor-pointer shadow-xs"
                                   >
                                     <HelpCircle className="h-4 w-4" />
@@ -1225,20 +1270,20 @@ export default function CourseDetailPage({ params }: PageProps) {
 
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
                               <div>
-                                <h5 className="text-xs font-bold text-primary">Partisipasi Forum</h5>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah membaca/berpartisipasi di dalam diskusi kelas.</p>
+                                <h5 className="text-xs font-bold text-primary">Partisipasi Diskusi</h5>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah membaca atau berdiskusi di modul ini.</p>
                               </div>
                               <Button
                                 size="sm"
-                                onClick={() => markSubItemAsCompleted(activeModule.id, "forum")}
-                                disabled={completedSubitems.includes(`${activeModule.id}_forum`)}
+                                onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
+                                disabled={completedSubChapters.includes(activeSubChapter.id)}
                                 className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
-                                  completedSubitems.includes(`${activeModule.id}_forum`)
+                                  completedSubChapters.includes(activeSubChapter.id)
                                     ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
                                     : "bg-[#060708] hover:bg-[#060708]/90 text-white"
                                 }`}
                               >
-                                {completedSubitems.includes(`${activeModule.id}_forum`) ? (
+                                {completedSubChapters.includes(activeSubChapter.id) ? (
                                   <span className="flex items-center justify-center gap-1">
                                     <Check className="h-3.5 w-3.5" />
                                     Selesai
@@ -1255,15 +1300,15 @@ export default function CourseDetailPage({ params }: PageProps) {
                   })()
                 ) : (
                   <div className="text-center text-muted-foreground p-12 border border-dashed rounded-xl bg-white">
-                    Pilih modul di panel kiri untuk memulai belajar.
+                    Pilih sub-bab di panel samping untuk memulai belajar.
                   </div>
                 )}
               </div>
 
               {/* Bottom Navigation controls */}
-              {activeModule && (
+              {activeSubChapter && (
                 (() => {
-                  const isLocked = activeModule.is_premium && !user?.is_premium
+                  const isLocked = activeModule?.is_premium && !user?.is_premium
                   if (isLocked && activeSubItem !== "forum") return null
                   
                   return (
@@ -1273,14 +1318,13 @@ export default function CourseDetailPage({ params }: PageProps) {
                         size="sm"
                         onClick={() => {
                           if (activeIndex > 0) {
-                            const prevItem = flatSubItems[activeIndex - 1]
-                            setActiveModule(prevItem.module)
-                            setActiveSubItem(prevItem.type)
+                            const prevItem = flatSubChapters[activeIndex - 1]
+                            setActiveSubChapter(prevItem)
+                            setExpandedModules(prev => ({ ...prev, [prevItem.module.id]: true }))
                             setActiveQuiz(null)
                             setQuizResult(null)
                             setQuizTaking(false)
                             setQuizTimerActive(false)
-                            setExpandedModules(prev => ({ ...prev, [prevItem.module.id]: true }))
                           }
                         }}
                         disabled={activeIndex <= 0}
@@ -1291,25 +1335,24 @@ export default function CourseDetailPage({ params }: PageProps) {
                       </Button>
 
                       <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider hidden md:inline-block">
-                        Lengkapi tiap sub-materi kelas secara terstruktur
+                        Lengkapi tiap sub-bab materi perkuliahan secara berurutan
                       </div>
 
-                      {activeIndex < flatSubItems.length - 1 ? (
+                      {activeIndex < flatSubChapters.length - 1 ? (
                         <Button
                           size="sm"
                           onClick={() => {
                             // Mark current as completed
-                            markSubItemAsCompleted(activeModule.id, activeSubItem)
+                            markSubChapterAsCompleted(activeSubChapter.id)
                             
                             // Navigate to next
-                            const nextItem = flatSubItems[activeIndex + 1]
-                            setActiveModule(nextItem.module)
-                            setActiveSubItem(nextItem.type)
+                            const nextItem = flatSubChapters[activeIndex + 1]
+                            setActiveSubChapter(nextItem)
+                            setExpandedModules(prev => ({ ...prev, [nextItem.module.id]: true }))
                             setActiveQuiz(null)
                             setQuizResult(null)
                             setQuizTaking(false)
                             setQuizTimerActive(false)
-                            setExpandedModules(prev => ({ ...prev, [nextItem.module.id]: true }))
                           }}
                           className="bg-[#060708] hover:bg-[#060708]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm"
                         >
@@ -1320,8 +1363,8 @@ export default function CourseDetailPage({ params }: PageProps) {
                         <Button
                           size="sm"
                           onClick={() => {
-                            markSubItemAsCompleted(activeModule.id, activeSubItem)
-                            alert("Selamat! Anda telah menyelesaikan seluruh sub-judul dan aktivitas kelas ini. Tingkatkan terus kompetensi Anda!")
+                            markSubChapterAsCompleted(activeSubChapter.id)
+                            alert("Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran di kelas ini. Semoga sukses dalam ujian akhir!")
                           }}
                           className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm"
                         >
@@ -1359,7 +1402,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                 Upgrade Belajara Premium
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                Buka seluruh modul kurikulum, generator latihan AI, dan evaluasi kuis terarah selamanya.
+                Buka seluruh modul kurikulum, generator latihan AI, dan kuis kompetensi AI selamanya.
               </p>
             </div>
 
