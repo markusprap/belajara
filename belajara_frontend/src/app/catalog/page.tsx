@@ -23,7 +23,8 @@ import {
   Search,
   Check,
   LogOut,
-  ArrowRight
+  ArrowRight,
+  ChevronDown
 } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
@@ -285,20 +286,25 @@ export default function CatalogPage() {
               className="pl-9 bg-white border-[#E8E5E9] text-xs font-semibold h-9 rounded-lg"
             />
           </div>
-          <div className="flex gap-2">
-            {["", "Informatika", "Sistem Informasi"].map((dept) => (
-              <button
-                key={dept}
-                onClick={() => setDepartment(dept)}
-                className={`h-9 px-3 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-                  department === dept
-                    ? "bg-[#060708] border-[#060708] text-white"
-                    : "bg-white hover:bg-slate-50 border-[#E8E5E9] text-slate-700"
-                }`}
-              >
-                {dept === "" ? "Semua Jurusan" : dept}
-              </button>
-            ))}
+          <div className="relative w-full sm:w-56 shrink-0">
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="w-full h-9 pl-3 pr-9 bg-white border border-[#E8E5E9] text-[10px] font-extrabold uppercase tracking-wider rounded-lg text-slate-700 focus:outline-none focus:border-[#060708] transition-colors cursor-pointer appearance-none"
+            >
+              <option value="">Semua Jurusan</option>
+              <option value="Informatika">Informatika</option>
+              <option value="Sistem Informasi">Sistem Informasi</option>
+              <option value="Teknik Komputer">Teknik Komputer</option>
+              <option value="Teknologi Informasi">Teknologi Informasi</option>
+              <option value="Sains Data">Sains Data</option>
+              <option value="Rekayasa Perangkat Lunak">Rekayasa Perangkat Lunak</option>
+              <option value="Teknik Elektro">Teknik Elektro</option>
+              <option value="Desain Komunikasi Visual">Desain Komunikasi Visual</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+              <ChevronDown className="h-3.5 w-3.5" />
+            </div>
           </div>
         </div>
       </div>
