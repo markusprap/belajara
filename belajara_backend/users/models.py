@@ -1,0 +1,22 @@
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+class User(AbstractUser):
+    """
+    Custom user model for Belajara.
+    """
+    is_mahasiswa = models.BooleanField(default=False)
+    
+    # Override groups and user_permissions if needed, or leave as default.
+    # AbstractUser provides username, first_name, last_name, email, password.
+
+class Mahasiswa(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='mahasiswa_profile')
+    nim = models.CharField(max_length=20, unique=True)
+    jurusan = models.CharField(max_length=100)
+    universitas = models.CharField(max_length=150)
+    semester = models.IntegerField(default=1)
+    active_courses = models.ManyToManyField('courses.Course', blank=True, related_name='students')
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} ({self.nim})"

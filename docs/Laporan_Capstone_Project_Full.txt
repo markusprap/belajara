@@ -1,0 +1,1123 @@
+PROPOSAL CAPSTONE PROJECT
+Mata Kuliah STSI4440 - Capstone Project Sistem Informasi
+
+Belajara
+Platform Pembelajaran Interaktif Berbasis AI dengan
+Sistem Rekomendasi Mata Kuliah untuk Mahasiswa Indonesia
+
+Disusun Oleh:
+Kelompok :
+1. Markus Prap Kurniawan - 048397016
+2. I Made Surya Dewata - 049649884
+3. Desra Yudi - 050544194
+4. Shabirah Apriani - 055093992
+
+Program Studi Sistem Informasi
+Fakultas Sains dan Teknologi
+Universitas Terbuka
+2025.2
+
+I. PENDAHULUAN
+1.1 Latar Belakang
+Perkembangan teknologi informasi yang pesat telah membawa perubahan
+signifikan dalam dunia pendidikan. Era digitalisasi mendorong institusi pendidikan untuk
+mengadopsi metode pembelajaran yang lebih efektif, interaktif, dan dapat diakses kapan
+saja maupun di mana saja. Namun demikian, di Indonesia, proses belajar-mengajar antara
+pengajar dan peserta didik masih menghadapi berbagai tantangan, mulai dari keterbatasan
+interaksi, kurangnya personalisasi pembelajaran, hingga sulitnya mahasiswa dalam
+menentukan arah studi yang sesuai dengan potensi mereka.
+Platform edukasi digital telah berkembang menjadi ekosistem yang beragam.
+Platform MOOC seperti Coursera dan Udemy menyediakan ribuan kursus terstruktur
+dengan jangkauan global, namun tidak memiliki fitur pembuatan konten AI maupun
+rekomendasi akademik yang personal. Platform kuis berbasis gamifikasi seperti Kahoot!
+dan Quizizz berhasil meningkatkan engagement peserta didik melalui interaksi real-time,
+tetapi tidak menyediakan modul pembelajaran lengkap. Platform adaptive learning seperti
+Duolingo berhasil mempersonalisasi pengalaman belajar dengan AI, namun hanya
+terbatas pada satu domain keilmuan. Sementara itu, Google Classroom sebagai LMS
+institusi yang populer di Indonesia pun tidak memiliki fitur AI untuk pembuatan konten
+maupun rekomendasi akademik.
+Berdasarkan
+
+kajian terhadap platform-platform tersebut, ditemukan tiga
+
+kesenjangan penelitian yang belum tertangani oleh solusi yang ada saat ini. Dari sisi
+metodologi, belum ada platform yang mampu mengintegrasikan kursus online terstruktur,
+pembuatan soal AI otomatis, dan rekomendasi akademik berbasis kurikulum unggahan
+dalam satu ekosistem yang utuh. Dari sisi populasi, seluruh platform global yang ada
+tidak dirancang untuk kebutuhan spesifik mahasiswa Indonesia yang memiliki sistem
+kurikulum dan struktur program studi tersendiri. Sementara dari sisi teoritis, penerapan
+Content-Based Filtering yang memanfaatkan LLM untuk mencocokkan profil akademik
+mahasiswa dengan dokumen kurikulum universitas berformat PDF atau Excel belum
+pernah diimplementasikan di platform edukasi manapun.
+Berdasarkan ketiga kesenjangan penelitian tersebut, kelompok kami mengusulkan
+pengembangan Belajara. Keaslian penelitian ini terletak pada kombinasi unik antara
+arsitektur enterprise yang mengadopsi teknologi terbukti seperti Udemy, integrasi LLM
+
+2
+
+untuk rekomendasi mata kuliah dari kurikulum yang diunggah pengguna, dan fokus pada
+pasar Indonesia. Dengan demikian, Belajara diharapkan menjadi solusi komprehensif
+yang meningkatkan kualitas dan efektivitas proses pembelajaran di perguruan tinggi
+Indonesia.
+1.2 Rumusan Masalah
+Berdasarkan latar belakang yang telah diuraikan, penelitian ini merumuskan tiga
+permasalahan utama yang menjadi dasar pengembangan Belajara.
+1.​ Belum tersedianya platform pembelajaran daring di Indonesia yang secara
+terintegrasi menggabungkan fitur kursus online terstruktur, pembuatan soal
+otomatis berbasis AI, dan sistem rekomendasi mata kuliah yang dipersonalisasi
+berdasarkan kurikulum universitas pengguna.
+2.​ Mahasiswa Indonesia kesulitan menentukan mata kuliah yang paling sesuai
+dengan kekuatan akademik dan jalur studi mereka karena tidak adanya sistem
+analisis dan rekomendasi yang memanfaatkan data kurikulum dan transkrip nilai
+secara otomatis.
+3.​ Pengajar membutuhkan waktu yang tidak sedikit dalam menyiapkan materi
+pembelajaran dan soal latihan, sementara belum ada platform lokal yang
+menyediakan fitur generasi konten edukatif otomatis berbasis AI secara
+menyeluruh.
+
+1.3 Tujuan
+Pengembangan Belajara dalam Capstone Project ini memiliki enam tujuan yang
+saling berkaitan dan bersifat bertahap.
+4.​ Membangun platform pembelajaran daring yang memfasilitasi interaksi antara
+guru/dosen dengan siswa/mahasiswa secara lebih interaktif, efektif, dan efisien.
+5.​ Mengembangkan fitur pembuatan soal dan materi pembelajaran otomatis berbasis
+AI yang dapat digunakan oleh pengajar untuk mempercepat proses penyiapan
+bahan ajar.
+6.​ Merancang dan mengimplementasikan sistem rekomendasi mata kuliah berbasis
+AI
+
+yang
+
+mampu
+
+menganalisis
+
+kekuatan
+
+akademik
+
+mahasiswa
+
+dan
+
+merekomendasikan mata kuliah yang sesuai berdasarkan kurikulum universitas
+yang telah diunggah.
+
+3
+
+7.​ Menghadirkan pengalaman belajar terstruktur layaknya platform Udemy, di mana
+pengajar dapat membuat dan mengelola kursus/modul pembelajaran secara
+mandiri.
+8.​ Mengimplementasikan model bisnis freemium dengan integrasi payment gateway
+Midtrans untuk mendukung keberlanjutan platform.
+9.​ Menghasilkan produk Minimum Viable Product (MVP) yang dapat diuji dan
+dievaluasi sebagai bukti konsep yang layak untuk dikembangkan lebih lanjut.
+
+1.4 Manfaat Penelitian
+Penelitian ini diharapkan memberikan manfaat baik secara teoritis maupun praktis
+bagi berbagai pihak yang terlibat dalam ekosistem pendidikan tinggi Indonesia.
+a. Manfaat Teoritis
+•​ Memberikan kontribusi pada pengembangan ilmu Sistem Informasi, khususnya
+dalam implementasi Large Language Model (LLM) untuk sistem rekomendasi
+akademik berbasis konten kurikulum.
+•​ Menjadi
+
+referensi
+
+bagi
+
+penelitian
+
+selanjutnya
+
+yang
+
+berkaitan
+
+dengan
+
+pengembangan platform e-learning berarsitektur enterprise (Django + PostgreSQL
++ Redis) dalam konteks pendidikan tinggi Indonesia.
+•​ Memperkaya kajian tentang penerapan Content-Based Filtering dalam konteks
+rekomendasi mata kuliah menggunakan data kurikulum universitas yang bersifat
+tidak terstruktur (PDF/Excel).
+b. Manfaat Praktis
+•​ Bagi mahasiswa, penelitian ini memberikan akses ke sistem rekomendasi mata
+kuliah yang dipersonalisasi berdasarkan kekuatan akademik dan kurikulum
+program studi mereka, sehingga perencanaan jalur studi menjadi lebih terarah dan
+efisien.
+•​ Bagi pengajar dan dosen, fitur generasi konten AI otomatis membantu menghemat
+waktu penyiapan materi dan soal latihan sehingga mereka dapat berfokus pada
+kualitas pengajaran dan interaksi langsung dengan mahasiswa.
+•​ Bagi institusi pendidikan, platform ini menyediakan data analitik pembelajaran
+yang
+
+dapat
+
+digunakan
+
+untuk
+
+mengevaluasi efektivitas
+
+mengidentifikasi area yang memerlukan perbaikan.
+
+4
+
+kurikulum dan
+
+•​ Bagi industri EdTech Indonesia, Belajara menjadi bukti nyata bahwa platform
+e-learning berstandar enterprise dengan fitur AI rekomendasi akademik dapat
+dibangun oleh tim pengembang lokal menggunakan teknologi yang terbukti
+handal.
+
+1.5 Ruang Lingkup
+Ruang lingkup Belajara dibatasi pada fitur-fitur yang dapat diselesaikan dalam
+batas waktu Capstone Project sekaligus membentuk produk MVP yang fungsional dan
+dapat diuji.
+a. Fitur yang Dikembangkan dalam MVP
+•​ Autentikasi pengguna dengan dua peran, yaitu Pengajar (Guru/Dosen) dan Peserta
+Didik (Siswa/Mahasiswa), menggunakan JWT.
+•​ Manajemen kursus dan modul pembelajaran oleh pengajar, termasuk unggah
+materi dalam format teks, PDF, dan video.
+•​ Pembuatan soal latihan dan kuis otomatis berbasis LLM API berdasarkan materi
+yang diunggah pengajar.
+•​ Rekomendasi mata kuliah berbasis AI, di mana mahasiswa mengunggah transkrip
+nilai atau data akademik, kemudian sistem menganalisis pola kekuatan akademik
+dan merekomendasikan mata kuliah dari kurikulum yang diunggah dalam format
+PDF atau Excel, disertai alasan singkat untuk setiap rekomendasi.
+•​ Forum diskusi sederhana per kursus antara pengajar dan peserta didik.
+•​ Dashboard pengguna dengan ringkasan aktivitas belajar dan progres kursus.
+•​ Model freemium dengan tier Gratis (akses terbatas) dan tier Premium (akses
+penuh) yang terintegrasi dengan payment gateway Midtrans.
+b. Batasan Sistem
+•​ Fitur live streaming atau video conference real-time tidak termasuk dalam lingkup
+pengembangan.
+•​ Platform difokuskan pada antarmuka web responsif dan tidak mencakup aplikasi
+mobile native iOS maupun Android.
+•​ Integrasi langsung dengan Sistem Informasi Akademik (SIAK) universitas tidak
+dilakukan pada tahap ini.
+
+5
+
+•​ Sertifikat penyelesaian kursus yang terakreditasi secara formal belum tersedia
+pada versi MVP.
+•​ Arsitektur yang dibangun menggunakan pendekatan monolith modular, bukan
+microservices penuh, dengan rancangan yang memungkinkan pemecahan ke
+microservices pada iterasi berikutnya.
+
+1.6 Jadwal Kegiatan
+Pengembangan Belajara direncanakan berlangsung selama delapan minggu
+dengan pembagian kegiatan sebagai berikut.
+
+No
+
+Kegiatan
+
+Mgg 1
+
+Mgg 2
+
+1
+
+Studi Literatur & Analisis
+Kebutuhan
+
+✓
+
+✓
+
+2
+
+Perancangan Sistem &
+Desain UI/UX
+
+3
+
+Pengembangan Backend
+& Database
+
+4
+
+Pengembangan Frontend
+& Integrasi AI
+
+5
+
+Integrasi Midtrans & Fitur
+Premium
+
+6
+
+Pengujian & Debugging
+
+7
+
+Dokumentasi &
+Penyusunan Laporan
+
+Mgg 3
+
+✓
+
+Mgg 4
+
+Mgg 5
+
+Mgg 6
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+✓
+
+Mgg 7
+
+Mgg 8
+
+✓
+✓
+
+✓
+
+✓
+✓
+
+✓
+
+Keterangan: Jadwal di atas merupakan estimasi dan dapat disesuaikan berdasarkan perkembangan
+pengerjaan di lapangan.
+
+6
+
+II. TINJAUAN PUSTAKA
+2.1 Platform Pembelajaran Online (E-Learning)
+E-learning atau pembelajaran elektronik merupakan suatu proses pembelajaran
+yang memanfaatkan teknologi informasi dan komunikasi, khususnya internet, sebagai
+media utama dalam penyampaian konten pendidikan (Rosenberg, 2001). Menurut Ally
+(2008), e-learning dapat didefinisikan sebagai penggunaan internet untuk mengakses
+materi pembelajaran, berinteraksi dengan konten, instruktur, dan peserta didik lain, serta
+memperoleh dukungan selama proses pembelajaran.
+Model e-learning telah berkembang pesat dari sekadar distribusi konten statis
+menjadi ekosistem pembelajaran yang interaktif dan adaptif. Menurut Liu et al. (2020),
+keunggulan utama platform pembelajaran online mencakup kebebasan akses yang lebih
+besar, harga pendidikan yang lebih terjangkau, fleksibilitas pembagian konten ke dalam
+modul-modul, serta kemampuan menyesuaikan dengan ritme kehidupan modern.
+2.2 Kecerdasan Buatan dalam Pendidikan
+Penerapan Artificial Intelligence (AI) dalam dunia pendidikan, yang sering
+disebut sebagai AI in Education (AIEd), telah membuka peluang baru dalam personalisasi
+pembelajaran. Menurut Holmes et al. (2019), AIEd merujuk pada teknologi yang dapat
+memberikan dukungan pembelajaran yang fleksibel dan responsif terhadap kebutuhan
+individu peserta didik.
+Large Language Model (LLM) telah menunjukkan kemampuan luar biasa dalam
+pembuatan konten edukatif, pembuatan soal otomatis, dan analisis teks. Penelitian oleh
+Kasneci et al. (2023) menunjukkan bahwa LLM memiliki potensi besar dalam
+mempersonalisasi pengalaman belajar, mengotomatiskan penilaian, dan memberikan
+umpan balik yang konstruktif. Berbagai penyedia LLM tersedia di pasar saat ini,
+termasuk OpenAI (GPT-4), Anthropic (Claude), dan Google (Gemini), masing-masing
+dengan keunggulan dan model harga yang berbeda. Pemilihan provider LLM dalam
+Belajara akan dilakukan berdasarkan evaluasi kualitas output, biaya operasional, dan
+ketersediaan layanan.
+2.3 Sistem Rekomendasi (Recommender System)
+Sistem rekomendasi adalah sebuah sistem yang bertujuan untuk memprediksi
+preferensi atau ketertarikan pengguna terhadap suatu item tertentu (Ricci et al., 2011).
+
+7
+
+Dalam konteks pendidikan, sistem rekomendasi mata kuliah berperan penting dalam
+membantu mahasiswa merencanakan jalur studi yang optimal.
+Secara umum dikenal tiga pendekatan dalam sistem rekomendasi. Pertama,
+Collaborative Filtering yang merekomendasikan item berdasarkan kesamaan preferensi
+antar pengguna. Kedua, Content-Based Filtering yang bekerja berdasarkan karakteristik
+item dan profil pengguna. Ketiga, Hybrid Approach yang menggabungkan keduanya
+untuk hasil yang lebih akurat. Coursera telah mengimplementasikan AI-driven course
+recommendation yang memandu pengguna menuju jalur pembelajaran relevan
+berdasarkan tujuan dan kesenjangan keterampilan mereka. Belajara menggunakan
+pendekatan Content-Based dengan LLM untuk mencocokkan profil akademik mahasiswa
+dengan kurikulum yang tersedia.
+2.4 Tinjauan Platform Sejenis
+Enam platform edukasi digital dianalisis secara komparatif guna mengidentifikasi
+posisi Belajara di antara solusi yang sudah ada dan menentukan keunggulan
+kompetitifnya.
+a. Kahoot!
+Kahoot! adalah platform game-based learning dengan format kuis interaktif
+real-time yang kompetitif. Platform ini telah mengintegrasikan Kahoot! EDU AI Question
+Generator berbasis GPT-4 yang memungkinkan pendidik menghasilkan soal dari
+unggahan PDF secara otomatis. Kahoot! juga terintegrasi dengan Microsoft Teams dan
+Zoom, namun tidak menyediakan modul kursus komprehensif maupun rekomendasi
+akademik.
+b. Quizizz
+Quizizz mendukung 20 format pertanyaan termasuk video. Fitur AI Studio-nya
+mampu menghasilkan kuis dari dokumen, URL, maupun prompt teks secara instan.
+Quizizz juga memiliki Adaptive Question Bank dengan spaced repetition. Meski lebih
+komprehensif dari Kahoot!, Quizizz masih tidak memiliki rekomendasi mata kuliah
+berbasis AI atau fokus pasar Indonesia.
+c. Coursera
+
+8
+
+Coursera menyediakan kursus dari universitas ternama dunia seperti Stanford dan
+Yale. Platform ini telah mengimplementasikan AI-driven recommendation untuk
+memandu pengguna berdasarkan tujuan karier dan kesenjangan keterampilan. Namun,
+rekomendasi Coursera berfokus pada katalog kursus mereka sendiri, bukan kurikulum
+akademik universitas pengguna.
+d. Udemy
+Udemy adalah marketplace kursus online dengan lebih dari 200.000 kursus dari
+instruktur independen. Platform ini menggunakan Django (Python) dan React sebagai
+tech stack utama, didukung infrastruktur AWS. Udemy menyediakan kuis per modul dan
+sertifikat penyelesaian, namun tidak memiliki fitur pembuatan konten AI otomatis
+maupun rekomendasi akademik yang dipersonalisasi.
+e. Duolingo
+Duolingo mendeklarasikan strategi AI-first dengan mengintegrasikan GPT-4
+melalui Duolingo Max. Sistem AI-nya mempersonalisasi level kesulitan dan format
+latihan secara real-time berdasarkan performa pengguna. Strategi gamifikasi Duolingo
+terbukti efektif meningkatkan retensi, namun platform ini terbatas pada domain
+pembelajaran bahasa.
+f. Google Classroom
+Google Classroom adalah LMS institusi yang terintegrasi dengan Google
+Workspace, banyak digunakan sekolah dan universitas di Indonesia karena tersedia gratis.
+Platform ini memfasilitasi distribusi tugas, penilaian, dan komunikasi guru-siswa, namun
+tidak memiliki fitur AI untuk pembuatan konten otomatis maupun rekomendasi
+akademik.
+Perbandingan fitur keenam platform tersebut dengan Belajara dirangkum dalam
+tabel berikut.
+
+Platform
+
+Tipe
+
+Kursu
+s
+Online
+
+Fitur Utama
+
+9
+
+Soal
+AI
+
+Reko
+menda
+si AI
+
+Gamif
+ikasi
+
+Diskus
+i
+
+Freem
+ium
+
+Loka
+l ID
+
+Kahoot!
+
+Game-based
+Quiz
+
+Kuis real-time interaktif, AI
+Question Generator
+(GPT-4/PDF), leaderboard,
+integrasi Zoom & Teams
+
+✗
+
+✓
+(AI)
+
+✗
+
+✓
+
+✗
+
+✓
+
+✗
+
+Quizizz
+
+Assessment +
+LMS
+
+20 format soal, AI Studio
+(doc/link/prompt), Adaptive
+Question Bank (spaced
+repetition), kursus & video
+
+✓
+(terbat
+as)
+
+✓
+(AI)
+
+✗
+
+✓
+
+✗
+
+✓
+
+✗
+
+Coursera
+
+MOOC
+Platform
+
+Kursus dari universitas top, AI
+recommendation berdasarkan
+skill gaps & goals, sertifikasi
+terakreditasi
+
+✓
+
+✓
+
+✓
+(kursu
+s)
+
+✗
+
+✓
+
+✓
+
+✗
+
+Udemy
+
+Course
+Marketplace
+
+Marketplace instruktur mandiri,
+video on-demand, kuis per
+modul, sertifikat penyelesaian,
+200k+ kursus
+
+✓
+
+✓
+
+✗
+
+✗
+
+✓
+(Q&A)
+
+✓
+
+✗
+
+Duolingo
+
+Language
+Learning
+
+AI-first (GPT-4 Duolingo Max),
+adaptive learning real-time,
+streak & gamifikasi, roleplay
+percakapan
+
+✓
+(bahas
+a)
+
+✓
+
+✓
+(adapti
+f)
+
+✓
+
+✗
+
+✓
+
+✗
+
+Google
+Classroom
+
+LMS Institusi
+
+Integrasi Google Workspace,
+manajemen tugas & nilai,
+komunikasi guru-siswa, gratis
+untuk institusi
+
+✗
+
+✓
+(manu
+al)
+
+✗
+
+✗
+
+✓
+
+✓
+(gratis)
+
+✗
+
+Belajara
+
+AI-First
+E-Learning
+
+Kursus online + materi
+terstruktur, soal AI otomatis,
+rekomendasi MK dari upload
+kurikulum, forum diskusi
+
+✓
+
+✓
+(AI)
+
+✓
+(MK)
+
+✗
+
+✓
+
+✓
+
+✓
+
+Tabel 1. Perbandingan Komprehensif Fitur Platform Edukasi Digital
+
+Dari analisis di atas, tidak ada satu pun platform yang secara bersamaan
+menggabungkan sistem kursus online terstruktur, pembuatan soal AI otomatis,
+rekomendasi mata kuliah dari kurikulum universitas yang diunggah pengguna, dan fokus
+pada pasar Indonesia. Belajara hadir untuk mengisi celah tersebut secara menyeluruh.
+2.5 Teknologi yang Digunakan
+Pemilihan teknologi Belajara didasarkan pada studi mendalam terhadap tech stack
+yang digunakan oleh platform edukasi berskala enterprise seperti Udemy dan Coursera,
+bukan sekadar tren popularitas di kalangan developer independen. Pendekatan ini
+memastikan bahwa arsitektur yang dipilih terbukti mampu menangani beban kerja
+produksi jangka panjang.
+
+Layer
+
+Teknologi
+
+Justifikasi & Referensi Industri
+
+Frontend
+
+React.js + Vite + TypeScript
+
+Digunakan Udemy (React), Coursera (React). Vite
+menggantikan CRA untuk build yang lebih cepat.
+TypeScript meningkatkan maintainability jangka panjang.
+
+10
+
+Backend API
+
+Django REST Framework (Python)
+
+Digunakan Udemy sebagai salah satu backend utama.
+Mature, battle-tested, ORM kuat, ekosistem luas, cocok
+untuk rapid development sekaligus production-grade.
+
+Database Utama
+
+PostgreSQL (self-managed via
+Docker)
+
+Digunakan Udemy & Coursera. Relational database paling
+andal untuk data transaksional. Mendukung pgvector untuk
+AI embedding (fitur rekomendasi).
+
+Caching & Session
+
+Redis
+
+Digunakan Udemy & Coursera. Wajib untuk caching query
+berat, session management, rate limiting API, dan antrian
+task AI asinkron.
+
+Message Queue /
+Async
+
+Celery + Redis Broker
+
+Standar industri untuk memproses task berat secara
+asinkron: generasi soal AI, proses PDF kurikulum,
+pengiriman notifikasi, tanpa memblokir request utama.
+
+File & Media Storage
+
+AWS S3 / Cloudflare R2
+
+Digunakan Udemy (AWS S3 + CloudFront CDN). Untuk
+menyimpan video materi, file PDF kurikulum, dan
+thumbnail kursus secara scalable.
+
+AI Integration
+
+LLM API (provider TBD: OpenAI /
+Anthropic / Google Gemini)
+
+Diintegrasikan via REST API standar. Provider dipilih
+berdasarkan evaluasi kualitas, biaya, dan ketersediaan.
+Logika AI dienkapsulasi di service layer agar mudah
+diganti.
+
+Autentikasi
+
+JWT (via
+djangorestframework-simplejwt)
+
+Stateless authentication yang cocok untuk SPA + API.
+Tidak bergantung pada vendor/BaaS tertentu sehingga lebih
+kontrol penuh.
+
+Containerisasi
+
+Docker + Docker Compose
+
+Digunakan Udemy (Docker, Kubernetes). Untuk
+development environment yang konsisten dan deployment
+yang reproducible ke VPS manapun.
+
+Web Server / Reverse
+Proxy
+
+NGINX
+
+Digunakan Udemy. Reverse proxy, static file serving, SSL
+termination, dan load balancing standar industri.
+
+Payment Gateway
+
+Midtrans (Snap API)
+
+Satu-satunya payment gateway enterprise yang mendukung
+metode pembayaran lokal Indonesia (transfer bank, GoPay,
+OVO, QRIS, kartu kredit) secara lengkap.
+
+CI/CD
+
+GitHub Actions
+
+Otomatisasi testing dan deployment. Standar industri untuk
+tim kecil hingga besar, terintegrasi langsung dengan
+GitHub repository.
+
+Tabel 2. Tech Stack Belajara dan Justifikasi Industri
+
+Stack yang dipilih mengadopsi pola yang sama dengan Udemy (Django + React +
+PostgreSQL + Redis + AWS) dengan penyesuaian skala untuk konteks MVP Capstone
+Project. Penggunaan Docker Compose memungkinkan seluruh stack dijalankan secara
+konsisten di berbagai environment dan dapat ditingkatkan ke Kubernetes bila platform
+berkembang ke skala produksi.
+
+11
+
+III. METODOLOGI
+3.1 Metode Pengembangan
+Pengembangan Belajara menggunakan metodologi Agile Development dengan
+pendekatan iteratif dan incremental. Metodologi ini dipilih karena memungkinkan tim
+untuk beradaptasi dengan perubahan kebutuhan secara cepat, menghasilkan deliverable
+yang dapat diuji pada setiap akhir sprint, dan memaksimalkan kolaborasi antar anggota
+tim. Proses pengembangan dibagi menjadi empat sprint utama dengan durasi dua minggu
+per sprint.
+3.2 Arsitektur Sistem
+Belajara dirancang dengan arsitektur berlapis yang memisahkan concern antara
+presentation layer, application layer, dan data layer. Arsitektur ini terinspirasi dari
+pendekatan yang digunakan oleh Udemy, yakni Django sebagai application layer dengan
+React sebagai presentation layer yang terpisah, serta PostgreSQL dan Redis sebagai data
+layer. Rincian setiap komponen disajikan pada tabel berikut.
+
+Komponen
+
+Detail
+
+Presentation Layer
+
+React.js + TypeScript (SPA, diakses melalui browser)
+
+API Gateway
+
+NGINX sebagai reverse proxy ke Django REST API
+
+Application Layer
+
+Django REST Framework — menangani business logic, autentikasi JWT, dan routing ke service
+
+AI Service Layer
+
+Celery Workers yang memproses task AI secara asinkron (generasi soal, proses kurikulum,
+rekomendasi MK)
+
+Data Layer
+
+PostgreSQL (data primer) + Redis (cache & task queue) + AWS S3 (file storage)
+
+AI API
+
+LLM API eksternal (provider TBD) dipanggil dari Celery Workers, tidak langsung dari request
+cycle
+
+Infrastructure
+
+Docker Compose untuk development, single VPS + NGINX untuk deployment MVP
+
+Tabel 3. Arsitektur Sistem Belajara
+
+Keputusan menggunakan arsitektur monolith modular untuk MVP merupakan
+pilihan yang disengaja. Udemy sendiri memulai sebagai monolith Django sebelum
+berevolusi ke arsitektur microservices seiring pertumbuhan skala. Pendekatan ini
+memudahkan development dan debugging pada tahap awal, sekaligus mempersiapkan
+codebase untuk decomposition di masa depan melalui penerapan prinsip separation of
+concerns yang ketat sejak awal.
+3.3 Alur Kerja Fitur Rekomendasi Mata Kuliah
+12
+
+Fitur rekomendasi mata kuliah merupakan fitur unggulan Belajara yang
+membedakannya dari platform lain. Pemrosesan dilakukan secara asinkron menggunakan
+Celery agar tidak memblokir request utama. Alur kerjanya berlangsung dalam tujuh tahap
+berurutan.
+1.​ Mahasiswa mengunggah file kurikulum program studi (PDF/Excel) dan data
+akademik (transkrip nilai) melalui dashboard.
+2.​ Django API menerima file, menyimpannya ke AWS S3, dan mendelegasikan
+pemrosesan ke Celery task queue (Redis broker).
+3.​ Celery worker mengekstrak teks dari file kurikulum menggunakan library parser
+PDF/Excel.
+4.​ Data kurikulum dan profil akademik mahasiswa dikirimkan ke LLM API untuk
+dianalisis.
+5.​ LLM menganalisis pola nilai dan kekuatan akademik mahasiswa, lalu
+mencocokkannya dengan mata kuliah dalam kurikulum.
+6.​ LLM menghasilkan daftar rekomendasi mata kuliah beserta alasan singkat yang
+dipersonalisasi.
+7.​ Hasil rekomendasi disimpan ke PostgreSQL dan ditampilkan ke mahasiswa
+melalui dashboard.
+
+3.4 Desain Database
+Skema
+
+database
+
+Belajara
+
+dirancang
+
+menggunakan PostgreSQL dengan
+
+pendekatan normalisasi yang mengikuti best practice Django ORM. Tabel-tabel utama
+yang digunakan beserta fungsinya masing-masing disajikan di bawah ini.
+
+Tabel
+
+Primary Fields
+
+Deskripsi
+
+users
+
+id, email, role, full_name,
+university, created_at
+
+Data profil pengguna. Role: instructor atau student.
+
+courses
+
+id, title, description,
+instructor_id, price,
+is_premium, thumbnail
+
+Data kursus yang dibuat instruktur.
+
+modules
+
+id, course_id, title, content_url,
+content_type, order_index
+
+Modul/bab di dalam kursus (video, PDF, teks).
+
+enrollments
+
+id, student_id, course_id,
+progress_pct, enrolled_at
+
+Relasi mahasiswa dengan kursus yang diikuti.
+
+quizzes
+
+id, module_id, questions_json,
+generated_by_ai, created_at
+
+Soal kuis per modul, bisa manual atau AI-generated.
+
+curricula
+
+id, user_id, university, program,
+file_url, parsed_courses_json
+
+Data kurikulum yang diunggah mahasiswa (PDF/Excel).
+
+13
+
+recommendations
+
+id, student_id, curriculum_id,
+result_json, generated_at
+
+Hasil rekomendasi mata kuliah dari AI per mahasiswa.
+
+discussions
+
+id, course_id, user_id, content,
+parent_id, created_at
+
+Pesan forum diskusi per kursus (mendukung reply).
+
+Tabel 4. Skema Database Utama Belajara
+
+14
+
+DAFTAR PUSTAKA
+Ally, M. 2008. "Foundations of Educational Theory for Online Learning". Dalam T.
+Anderson (Ed.), The Theory and Practice of Online Learning. Edisi ke-2. hlm. 15–44.
+Athabasca University Press. Alberta.
+Coursera. 2024. "Adaptive Learning Platforms: How AI Powers Personalized Education".
+[https://www.coursera.org/articles/adaptive-learning-platforms]. Diakses tanggal 26 April
+2026.
+Himalayas.
+
+2024.
+
+"Udemy
+
+Tech
+
+Stack".
+
+[https://himalayas.app/companies/udemy/tech-stack]. Diakses tanggal 26 April 2026.
+Holmes, W., Bialik, M., & Fadel, C. 2019. Artificial Intelligence in Education: Promises
+and Implications for Teaching and Learning. Center for Curriculum Redesign. Boston.
+Kahoot!
+
+2024.
+
+"How
+
+to
+
+Use
+
+Kahoot!
+
+AI
+
+Tools".
+
+[https://support.kahoot.com/hc/en-us/articles/kahoot-ai-tools]. Diakses tanggal 26 April
+2026.
+Kasneci, E., Sessler, K., Küchemann, S., Bannert, M., Dementieva, D., Fischer, F., &
+Kasneci, G. 2023. "ChatGPT for Good? On Opportunities and Challenges of Large
+Language Models for Education". Computers and Education: Artificial Intelligence. Vol.
+4. Artikel 100133.
+Liu, Z. Y., Lomovtseva, N., & Korobeynikova, E. 2020. "Online Learning Platforms:
+Reconstructing Modern Higher Education". International Journal of Emerging
+Technologies in Learning. Vol. 15. No. 13. pp. 4–21.
+Ricci, F., Rokach, L., & Shapira, B. 2011. "Introduction to Recommender Systems
+Handbook". Dalam F. Ricci, L. Rokach, B. Shapira, & P. B. Kantor (Eds.), Recommender
+Systems Handbook. hlm. 1–35. Springer. New York.
+
+15
+
+Rosenberg, M. J. 2001. E-Learning: Strategies for Delivering Knowledge in the Digital
+Age. McGraw-Hill. New York.
+StackShare.
+
+2024.
+
+"Coursera
+
+Tech
+
+Stack
+
+[https://stackshare.io/coursera/coursera]. Diakses tanggal 26 April 2026.
+
+16
+
+and
+
+Tools".
+
+LAMPIRAN
+Lampiran 1. Surat Pernyataan
+
+SURAT PERNYATAAN
+Kami yang bertanda tangan di bawah ini:
+Nama: Markus Prap Kurniawan
+NIM: 048397016
+Nama: I Made Surya Dewata
+NIM: 049649884
+Nama: Desra Yudi
+NIM: 050544194
+Nama: Shabirah Apriani
+NIM: 055093992
+Dengan ini menyatakan bahwa produk yang kami buat dan ajukan dalam
+Capstone Project dengan judul Belajara: Platform Pembelajaran Interaktif Berbasis AI
+dengan Sistem Rekomendasi Mata Kuliah untuk Mahasiswa Indonesia adalah hasil
+orisinal yang dibuat oleh tim kami. Produk ini bukan merupakan plagiat dan tidak
+melanggar hak cipta pihak manapun. Semua ide, desain, dan implementasi yang terdapat
+dalam produk ini sepenuhnya merupakan karya asli kami.
+Demikian surat pernyataan ini kami buat dengan sebenar-benarnya untuk dapat
+dipergunakan sebagaimana mestinya.
+
+Sidoarjo, April 2026
+Hormat kami,
+
+Anggota 1
+
+Anggota 2
+
+Anggota 3
+
+17
+
+Anggota 4
+
+Markus Prap
+Kurniawan
+048397016
+
+I Made Surya Dewata
+049649884
+
+18
+
+Desra Yudi
+050544194
+
+Shabirah Apriani
+055093992
+
+Lampiran 2. Berita Acara Kerja Kelompok
+Berita Acara Kerja Kelompok Capstone Project
+Judul
+
+:
+
+Belajara: Platform Pembelajaran Interaktif Berbasis AI dengan Sistem
+Rekomendasi Mata Kuliah untuk Mahasiswa Indonesia
+
+Hari dan Tanggal
+
+:
+
+Selasa, 21 April 2026
+
+Waktu
+
+:
+
+20:00 - Selesai
+
+Lokasi Luring/Daring
+
+:
+
+Chat dan Call Grup Whatsapp
+
+Nama Anggota Kelompok
+
+Anggota yang Hadir
+
+1. Markus Prap Kurniawan
+
+1. Markus Prap Kurniawan
+
+2. I Made Surya Dewata
+
+2. I Made Surya Dewata
+
+3. Desra Yudi
+
+3. Desra Yudi
+
+4. Shabirah Apriani
+
+4. Shabirah Apriani
+
+Aktivitas
+
+Luaran
+
+Anggota yang Tidak Hadir
+
+Nama Penanggung
+Jawab
+
+Catatan/Ken
+dala
+
+1. Penentuan topik yang
+akan dipilih
+
+Topik: Pendidikan
+
+Semua Anggota
+Kelompok
+
+-
+
+2. Penentuan judul yang
+akan dipilih
+
+Judul: Belajara: Platform
+Pembelajaran Interaktif Berbasis
+AI dengan Sistem Rekomendasi
+Mata Kuliah untuk Mahasiswa
+Indonesia
+
+Semua Anggota
+Kelompok
+
+-
+
+Tanda Tangan Anggota
+yang Hadir
+
+Markus Prap
+Kurniawan048397016
+
+Desra Yudi050544194
+
+I Made Surya
+Dewata049649884
+
+19
+
+Shabirah
+Apriani055093992
+
+
