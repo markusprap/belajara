@@ -18,6 +18,9 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, Trophy, Sparkles, AlertCircle } from "lucide-react"
 
+import { useRouter } from "next/navigation"
+import { getToken } from "@/lib/api"
+
 interface Student {
   name: string
   nim: string
@@ -65,6 +68,7 @@ interface DashboardData {
 }
 
 export default function Page() {
+  const router = useRouter()
   const [data, setData] = React.useState<DashboardData | null>(null)
   const [loading, setLoading] = React.useState<boolean>(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -72,7 +76,15 @@ export default function Page() {
   const fetchDashboardData = () => {
     setLoading(true)
     setError(null)
-    fetch("http://localhost:8001/api/dashboard/")
+    const token = getToken()
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    fetch("http://localhost:8001/api/dashboard/", { headers })
       .then((res) => {
         if (!res.ok) {
           throw new Error("Gagal mengambil data dashboard")
@@ -90,8 +102,13 @@ export default function Page() {
   }
 
   React.useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    const token = getToken()
+    if (!token) {
+      router.push("/login")
+    } else {
+      fetchDashboardData()
+    }
+  }, [router])
 
   return (
     <SidebarProvider>
