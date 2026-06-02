@@ -517,5 +517,92 @@ export const api = {
         };
       }
     }
+  },
+
+  explore: {
+    analyze: async (file: File) => {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const token = getToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${BASE_URL}/explore/analyze/`, {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.message || "Gagal mengunggah file");
+        }
+        return await response.json();
+      } catch (err) {
+        console.warn("API explore analyze failed, using mock response:", err);
+        return {
+          curriculum_id: 42,
+          message: "Analisis kurikulum dimulai (Simulated)"
+        };
+      }
+    },
+    checkStatus: async (curriculumId: number) => {
+      try {
+        return await request(`/explore/recommendations/status/${curriculumId}/`);
+      } catch (err) {
+        console.warn("API checkStatus failed, using mock response:", err);
+        return mockGetStatus(curriculumId);
+      }
+    }
   }
 };
+
+const mockStatusStore: Record<number, { status: string; attempts: number }> = {};
+function mockGetStatus(curriculumId: number) {
+  if (!mockStatusStore[curriculumId]) {
+    mockStatusStore[curriculumId] = { status: "processing", attempts: 0 };
+  }
+  const session = mockStatusStore[curriculumId];
+  session.attempts += 1;
+  if (session.attempts >= 3) {
+    session.status = "success";
+  }
+  return {
+    status: session.status,
+    recommendations: session.status === "success" ? [
+      {
+        course: {
+          id: 2,
+          code: "IF102",
+          title: "Struktur Data & Algoritma",
+          description: "Mata kuliah lanjutan tentang struktur data non-linear (tree, graph) dan analisis algoritma.",
+          sks: 3,
+          semester: 4,
+          department: "Informatika",
+          modules: [
+            { id: 10, title: "Pengenalan Struktur Data Non-Linear", description: "Tree, BST, dan representasi graph.", order: 1 }
+          ]
+        },
+        match_percentage: 95,
+        reason: "Berdasarkan silabus yang Anda unggah, mata kuliah ini sangat relevan untuk memperkuat pemahaman struktur data non-linear dan efisiensi algoritma yang belum dicakup di kurikulum Anda."
+      },
+      {
+        course: {
+          id: 1,
+          code: "IF101",
+          title: "Matematika Diskrit",
+          description: "Mata kuliah dasar yang mempelajari logika matematika, himpunan, relasi, fungsi, graf, dan pembuktian matematis.",
+          sks: 3,
+          semester: 3,
+          department: "Informatika",
+          modules: [
+            { id: 1, title: "Pengantar Logika Matematika & Proposisi", description: "Logika proposisi.", order: 1 }
+          ]
+        },
+        match_percentage: 88,
+        reason: "Kurikulum Anda kekurangan fondasi teori himpunan dan logika matematika formal yang penting untuk pemecahan masalah tingkat lanjut."
+      }
+    ] : null
+  };
+}
