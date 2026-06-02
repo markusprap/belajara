@@ -252,7 +252,10 @@ export default function Page() {
                       {data.today_recommendation.module_description}
                     </p>
                   </div>
-                  <Button className="bg-destructive hover:bg-destructive/90 text-white cursor-pointer w-full md:w-auto">
+                  <Button
+                    onClick={() => router.push(`/courses/${data.today_recommendation.course_code}`)}
+                    className="bg-destructive hover:bg-destructive/90 text-white cursor-pointer w-full md:w-auto"
+                  >
                     Mulai Belajar
                   </Button>
                 </div>
@@ -276,10 +279,19 @@ export default function Page() {
                             </span>
                             <span className="text-xs text-muted-foreground">{course.sks} SKS | Sem {course.semester}</span>
                           </div>
-                          <h4 className="font-heading text-lg font-bold text-primary mb-1">
-                            {course.title}
-                          </h4>
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-heading text-lg font-bold text-primary mb-1">
+                              {course.title}
+                            </h4>
+                            <Button
+                              onClick={() => router.push(`/courses/${course.code}`)}
+                              size="sm"
+                              className="bg-primary hover:bg-primary/95 text-white text-xs h-7 px-3 cursor-pointer shrink-0"
+                            >
+                              Masuk Kelas
+                            </Button>
+                          </div>
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4 mt-1">
                             {course.description}
                           </p>
                         </div>
