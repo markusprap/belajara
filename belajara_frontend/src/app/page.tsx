@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, Trophy, Sparkles, AlertCircle } from "lucide-react"
 
 import { useRouter } from "next/navigation"
-import { getToken } from "@/lib/api"
+import { getToken, clearToken } from "@/lib/api"
 
 interface Student {
   name: string
@@ -86,6 +86,11 @@ export default function Page() {
 
     fetch("http://localhost:8001/api/dashboard/", { headers })
       .then((res) => {
+        if (res.status === 401) {
+          clearToken()
+          router.push("/login")
+          throw new Error("Sesi telah berakhir. Silakan login kembali.")
+        }
         if (!res.ok) {
           throw new Error("Gagal mengambil data dashboard")
         }
