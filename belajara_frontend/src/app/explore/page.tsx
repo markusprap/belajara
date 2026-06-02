@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check } from "lucide-react"
+import { api } from "@/lib/api"
 
 interface Module {
   id: number
@@ -49,6 +50,7 @@ export default function ExplorePage() {
   const [activeCourseCodes, setActiveCourseCodes] = React.useState<string[]>([])
   const [error, setError] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const pollingIntervalRef = React.useRef<any>(null)
 
   // Cycle loading messages for a premium dynamic UX
   React.useEffect(() => {
@@ -90,6 +92,11 @@ export default function ExplorePage() {
 
   React.useEffect(() => {
     fetchActiveCourses()
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
   }, [])
 
   const checkFileSupport = (file: File): boolean => {
@@ -149,28 +156,47 @@ export default function ExplorePage() {
     setError(null)
     setRecommendations([])
 
-    const formData = new FormData()
-    formData.append("file", file)
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+    }
 
-    fetch("http://localhost:8001/api/explore/analyze/", {
-      method: "POST",
-      body: formData,
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then((data) => {
-            throw new Error(data.detail || "Gagal menganalisis dokumen.")
-          })
+    api.explore.analyze(file)
+      .then((data: any) => {
+        const curriculumId = data.curriculum_id
+        if (!curriculumId) {
+          throw new Error("Gagal mendapatkan ID kurikulum dari server.")
         }
-        return res.json()
+
+        pollingIntervalRef.current = setInterval(() => {
+          api.explore.checkStatus(curriculumId)
+            .then((statusData: any) => {
+              if (statusData.status === "success") {
+                setRecommendations(statusData.recommendations || [])
+                setLoading(false)
+                fetchActiveCourses() // Refresh active list to reflect current status
+                if (pollingIntervalRef.current) {
+                  clearInterval(pollingIntervalRef.current)
+                  pollingIntervalRef.current = null
+                }
+              } else if (statusData.status === "processing") {
+                // do nothing (continue polling)
+              } else {
+                throw new Error(statusData.detail || "Terjadi kesalahan saat memproses kurikulum.")
+              }
+            })
+            .catch((err: any) => {
+              setError(err.message || "Gagal memeriksa status rekomendasi.")
+              setLoading(false)
+              if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current)
+                pollingIntervalRef.current = null
+              }
+            })
+        }, 2000)
       })
-      .then((data: Recommendation[]) => {
-        setRecommendations(data)
-        setLoading(false)
-        fetchActiveCourses() // Refresh active list to reflect current status
-      })
-      .catch((err) => {
-        setError(err.message || "Gagal menghubungi backend.")
+      .catch((err: any) => {
+        setError(err.message || "Gagal mengunggah file kurikulum.")
         setLoading(false)
       })
   }
