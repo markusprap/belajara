@@ -41,7 +41,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   const studentNav = [
-    { title: "Dashboard", url: "/", icon: Home },
+    { title: "Dashboard", url: "/dashboard", icon: Home },
     { title: "Mata Kuliah", url: "/courses", icon: BookOpen },
     { title: "Eksplorasi (AI)", url: "/explore", icon: Compass },
     { title: "Profil", onClick: () => setProfileOpen(true), icon: User },

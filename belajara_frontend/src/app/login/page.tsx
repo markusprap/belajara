@@ -33,7 +33,7 @@ export default function LoginPage() {
       if (user?.is_instructor) {
         router.push('/instructor')
       } else {
-        router.push('/')
+        router.push('/dashboard')
       }
     } catch (err: any) {
       setError(err.message || "Gagal masuk. Silakan periksa kembali username dan password Anda.")
@@ -137,9 +137,11 @@ export default function LoginPage() {
         <div className="text-center p-3 bg-secondary/50 rounded-lg border border-border text-[11px] text-muted-foreground">
           <p className="font-semibold text-primary flex items-center justify-center gap-1">
             <Sparkles className="h-3.5 w-3.5 text-destructive" />
-            Mode Demo / Integrasi Terhubung
+            Integrasi Backend Terhubung
           </p>
-          <p className="mt-0.5">Dapat login dengan username <strong>mahasiswa</strong> & password bebas untuk pengetesan offline.</p>
+          <p className="mt-0.5">
+            Gunakan username <strong>mahasiswa</strong> (untuk student) atau <strong>pengajar</strong> (untuk instructor) dengan password <strong>password123</strong>.
+          </p>
         </div>
       </div>
     </div>

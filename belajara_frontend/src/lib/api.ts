@@ -241,9 +241,28 @@ export const api = {
           body: JSON.stringify({ username, password }),
         });
         setToken(data.token || data.access);
-        setUser(data.user);
+        
+        // Fetch real user details after successful login
+        try {
+          const userProfile = await request("/auth/me/");
+          setUser(userProfile);
+          data.user = userProfile;
+        } catch (profileErr) {
+          console.warn("Failed retrieving user profile after login:", profileErr);
+        }
+        
         return data;
-      } catch (err) {
+      } catch (err: any) {
+        // If the backend is running and explicitly rejects credentials, throw the error
+        if (err.message && (
+          err.message.includes("No active account") || 
+          err.message.includes("credentials") || 
+          err.message.includes("401") || 
+          err.message.includes("Request failed")
+        )) {
+          throw err;
+        }
+
         console.warn("API login failed, using mock auth session:", err);
         if (username.length >= 3) {
           const mockUser = {
