@@ -24,4 +24,4 @@ class DiscussionPostSerializer(serializers.ModelSerializer):
         read_only_fields = ('user', 'created_at', 'parent', 'course')
 
     def get_replies_count(self, obj):
-        return obj.replies.count()
+        return getattr(obj, 'replies_count', None) if getattr(obj, 'replies_count', None) is not None else obj.replies.count()

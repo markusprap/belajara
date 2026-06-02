@@ -190,3 +190,53 @@ def test_analyze_curriculum_task(mock_analyze):
         rec = recs.first()
         assert len(rec.recommendations_data) == 1
         assert rec.recommendations_data[0]["code"] == "IF101"
+
+@pytest.mark.django_db
+def test_cleanup_old_curriculums():
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+    from datetime import timedelta
+    from explore.models import Curriculum
+    from explore.tasks import cleanup_old_curriculums
+
+    User = get_user_model()
+    user = User.objects.create_user(username="cleanupuser", password="password123")
+
+    old_time = timezone.now() - timedelta(days=8)
+    new_time = timezone.now() - timedelta(days=2)
+
+    uploaded_file_old = SimpleUploadedFile("old_cur.pdf", b"old content")
+    cur_old = Curriculum.objects.create(
+        user=user,
+        file_name="old_cur.pdf",
+        file_url=uploaded_file_old
+    )
+    Curriculum.objects.filter(id=cur_old.id).update(uploaded_at=old_time)
+
+    uploaded_file_new = SimpleUploadedFile("new_cur.pdf", b"new content")
+    cur_new = Curriculum.objects.create(
+        user=user,
+        file_name="new_cur.pdf",
+        file_url=uploaded_file_new
+    )
+    Curriculum.objects.filter(id=cur_new.id).update(uploaded_at=new_time)
+
+    # Reload to ensure the updated field takes effect
+    cur_old.refresh_from_db()
+    cur_new.refresh_from_db()
+
+    assert cur_old.file_url.storage.exists(cur_old.file_url.name)
+    assert cur_new.file_url.storage.exists(cur_new.file_url.name)
+
+    cleanup_old_curriculums()
+
+    assert not Curriculum.objects.filter(id=cur_old.id).exists()
+    assert Curriculum.objects.filter(id=cur_new.id).exists()
+
+    assert not cur_old.file_url.storage.exists(cur_old.file_url.name)
+    assert cur_new.file_url.storage.exists(cur_new.file_url.name)
+
+    # Cleanup test files from storage
+    if cur_new.file_url:
+        cur_new.file_url.delete(save=False)

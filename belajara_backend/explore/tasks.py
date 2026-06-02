@@ -93,3 +93,25 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
     except Exception as e:
         logger.exception(f"Error processing curriculum recommendation task: {str(e)}")
         raise
+
+@shared_task
+def cleanup_old_curriculums():
+    """Delete curriculum files and database entries older than 7 days to save storage."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from explore.models import Curriculum
+
+    cutoff = timezone.now() - timedelta(days=7)
+    old = Curriculum.objects.filter(uploaded_at__lt=cutoff)
+    count = old.count()
+    
+    for cur in old:
+        if cur.file_url:
+            try:
+                cur.file_url.delete(save=False)
+            except Exception as e:
+                logger.error(f"Error deleting file for curriculum {cur.id}: {str(e)}")
+    
+    old.delete()
+    logger.info(f"Deleted {count} old curriculum records.")
+    return f"Deleted {count} old curriculum records."

@@ -1,3 +1,4 @@
+import logging
 import hashlib
 import os
 from rest_framework.views import APIView
@@ -10,6 +11,8 @@ from users.selectors import get_mahasiswa_by_user
 from payments.models import Transaction
 from payments.serializers import CheckoutSerializer, TransactionSerializer
 from payments.services import create_snap_transaction
+
+logger = logging.getLogger(__name__)
 
 class CheckoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -92,8 +95,22 @@ class MidtransWebhookView(APIView):
         status_code = data.get('status_code')
         gross_amount = data.get('gross_amount')
 
+        logger.info(f"Received Midtrans webhook: order_id={order_id}, status={transaction_status}, amount={gross_amount}")
+
         if not order_id or not transaction_status:
+            logger.warning("Invalid webhook payload received (missing order_id or transaction_status)")
             return Response({"detail": "Data tidak lengkap."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            tx = Transaction.objects.get(order_id=order_id)
+        except Transaction.DoesNotExist:
+            logger.error(f"Transaction not found in DB for order_id: {order_id}")
+            return Response({"detail": "Transaksi tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Idempotency check: check if already in final state
+        if tx.status in ['success', 'failed']:
+            logger.info(f"Idempotency Triggered: Transaction {order_id} is already in a final state: {tx.status}")
+            return Response({"status": "ok", "message": "Transaction already processed"}, status=status.HTTP_200_OK)
 
         # Signature validation
         server_key = os.environ.get("MIDTRANS_SERVER_KEY", "")
@@ -101,13 +118,20 @@ class MidtransWebhookView(APIView):
             input_str = f"{order_id}{status_code}{gross_amount}{server_key}"
             calculated_signature = hashlib.sha512(input_str.encode('utf-8')).hexdigest()
             if calculated_signature != signature_key:
-                print(f"Signature mismatch! Calculated: {calculated_signature}, Received: {signature_key}")
+                logger.error(f"Signature mismatch! Calculated: {calculated_signature}, Received: {signature_key}")
                 return Response({"detail": "Tanda tangan tidak valid."}, status=status.HTTP_400_BAD_REQUEST)
+        elif not server_key or server_key == "your-midtrans-server-key":
+            logger.warning("MIDTRANS_SERVER_KEY is default or empty. Webhook signature verification bypassed.")
 
-        try:
-            tx = Transaction.objects.get(order_id=order_id)
-        except Transaction.DoesNotExist:
-            return Response({"detail": "Transaksi tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+        # Amount validation
+        if gross_amount:
+            try:
+                if float(gross_amount) != float(tx.amount):
+                    logger.error(f"Gross amount mismatch for order {order_id}! DB amount: {tx.amount}, Webhook amount: {gross_amount}")
+                    return Response({"detail": "Jumlah pembayaran tidak sesuai."}, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError) as e:
+                logger.error(f"Failed to parse gross_amount {gross_amount}: {str(e)}")
+                return Response({"detail": "Format jumlah tidak valid."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Handle status logic
         success_statuses = ['settlement']
@@ -122,10 +146,13 @@ class MidtransWebhookView(APIView):
                 mahasiswa = tx.mahasiswa
                 mahasiswa.active_courses.add(tx.course)
                 mahasiswa.save()
+                logger.info(f"Transaction {order_id} marked success. Student {mahasiswa.nim} enrolled in {tx.course.code}")
             elif transaction_status in ['deny', 'cancel', 'expire', 'failure']:
                 tx.status = 'failed'
+                logger.info(f"Transaction {order_id} marked failed due to status: {transaction_status}")
             else:
                 tx.status = transaction_status
+                logger.info(f"Transaction {order_id} updated to status: {transaction_status}")
             
             tx.save()
 

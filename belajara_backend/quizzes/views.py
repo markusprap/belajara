@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from courses.models import CourseModule
+from courses.permissions import IsInstructor
 from quizzes.models import Quiz, QuizSubmission
 from quizzes.serializers import QuizSerializer, QuizStudentSerializer, QuizSubmissionSerializer
 from quizzes.services import generate_quiz_for_module
@@ -10,6 +11,7 @@ from users.selectors import get_mahasiswa_by_user
 
 class QuizGenerateView(APIView):
     permission_classes = [IsAuthenticated]
+
 
     def post(self, request, module_id):
         try:

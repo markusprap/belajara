@@ -35,3 +35,7 @@ media/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Project-specific uploads and logs
+curricula/
+belajara_backend/logs/

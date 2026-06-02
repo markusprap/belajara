@@ -519,6 +519,16 @@ export const api = {
     }
   },
 
+  instructor: {
+    createCourse: async (data: any) => { try { return await request('/courses/create/', { method: 'POST', body: JSON.stringify(data) }); } catch(e) { throw e; } },
+    updateCourse: async (code: string, data: any) => { try { return await request(`/courses/${code}/manage/`, { method: 'PUT', body: JSON.stringify(data) }); } catch(e) { throw e; } },
+    deleteCourse: async (code: string) => { try { return await request(`/courses/${code}/manage/`, { method: 'DELETE' }); } catch(e) { throw e; } },
+    createModule: async (courseCode: string, data: any) => { try { return await request(`/courses/${courseCode}/modules/create/`, { method: 'POST', body: JSON.stringify(data) }); } catch(e) { throw e; } },
+    updateModule: async (moduleId: number, data: any) => { try { return await request(`/modules/${moduleId}/manage/`, { method: 'PUT', body: JSON.stringify(data) }); } catch(e) { throw e; } },
+    deleteModule: async (moduleId: number) => { try { return await request(`/modules/${moduleId}/manage/`, { method: 'DELETE' }); } catch(e) { throw e; } },
+    generateQuiz: async (moduleId: number) => { try { return await request(`/modules/${moduleId}/quizzes/generate/`, { method: 'POST' }); } catch(e) { throw e; } },
+  },
+
   explore: {
     analyze: async (file: File) => {
       try {

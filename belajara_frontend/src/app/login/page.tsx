@@ -28,8 +28,13 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      await api.auth.login(username, password)
-      router.push("/")
+      const res = await api.auth.login(username, password)
+      const user = res?.user || api.auth.getUser()
+      if (user?.is_instructor) {
+        router.push('/instructor')
+      } else {
+        router.push('/')
+      }
     } catch (err: any) {
       setError(err.message || "Gagal masuk. Silakan periksa kembali username dan password Anda.")
     } finally {
