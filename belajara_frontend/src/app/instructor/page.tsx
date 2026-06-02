@@ -58,7 +58,7 @@ export default function InstructorPage() {
       })
       if (res.ok) {
         const data = await res.json()
-        setCourses(data)
+        setCourses(Array.isArray(data) ? data : (data.results || []))
       } else {
         setError("Gagal memuat daftar kelas.")
       }

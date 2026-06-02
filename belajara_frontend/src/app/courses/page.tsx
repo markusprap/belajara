@@ -147,8 +147,9 @@ export default function CoursesPage() {
         }
         return res.json()
       })
-      .then((data: Course[]) => {
-        setCourses(data)
+      .then((data: any) => {
+        const list = Array.isArray(data) ? data : (data.results || [])
+        setCourses(list)
         setLoading(false)
       })
       .catch((err) => {

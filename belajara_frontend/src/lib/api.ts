@@ -315,7 +315,8 @@ export const api = {
         try {
           const res = await fetch(`${BASE_URL}/courses/`);
           if (res.ok) {
-            const list = await res.json();
+            const data = await res.json();
+            const list = Array.isArray(data) ? data : (data.results || []);
             const match = list.find((c: any) => c.code === code);
             if (match) return match;
           }

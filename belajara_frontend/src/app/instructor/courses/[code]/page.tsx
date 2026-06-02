@@ -76,7 +76,8 @@ export default function CourseManagePage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {
-        const all: Course[] = await res.json()
+        const data = await res.json()
+        const all: Course[] = Array.isArray(data) ? data : (data.results || [])
         const found = all.find(c => c.code === code) || null
         setCourse(found)
       }
