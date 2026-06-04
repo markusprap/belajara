@@ -49,7 +49,7 @@ PENTING: Hanya gunakan kode mata kuliah yang ada di daftar mata kuliah yang ters
 
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-flash-latest')
         response = model.generate_content(prompt)
         response_text = response.text.strip()
         

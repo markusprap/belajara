@@ -101,7 +101,7 @@ Format output HARUS berupa valid JSON array of objects dengan struktur persis se
 """
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-flash-latest')
         response = model.generate_content(prompt)
         response_text = response.text.strip()
         

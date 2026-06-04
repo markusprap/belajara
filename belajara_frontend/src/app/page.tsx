@@ -158,19 +158,15 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#FAF9FB] text-[#060708] flex flex-col font-sans selection:bg-[#C6B5BF]/30">
       
       {/* 1. Header (Navbar) */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-[#FAF9FB]/90 border-b border-[#E8E5E9] px-6 py-4 flex items-center justify-between">
-        <div className="max-w-7xl w-full mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-50 backdrop-blur-md bg-[#FAF9FB]/80 border-b border-[#E8E5E9] px-6 py-4 transition-all">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-12">
-            {/* ed-tech Logo */}
-            <Link href="/" className="flex items-center gap-1.5 group select-none">
-              <span className="font-heading text-2xl font-black tracking-tight text-[#060708]">
-                Belajara
-              </span>
-              <span className="w-2.5 h-2.5 bg-[#CF3A1F] rounded-full group-hover:scale-125 transition-transform" />
+            <Link href="/" className="font-heading text-2xl font-bold tracking-tight text-[#060708] select-none hover:text-[#CF3A1F] transition-colors">
+              Belajara.
             </Link>
             
             {/* Desktop Navbar Menu */}
-            <nav className="hidden lg:flex items-center gap-8 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+            <nav className="hidden lg:flex items-center gap-8 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
               <a href="#formula" className="hover:text-[#060708] transition-colors">About Us</a>
               <a href="#benefits" className="hover:text-[#060708] transition-colors">Program</a>
               <a href="#harga" className="hover:text-[#060708] transition-colors">Pricing</a>
@@ -178,9 +174,9 @@ export default function LandingPage() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
             {isLoggedIn ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <Button
                   onClick={() => {
                     if (currentUser?.is_instructor) {
@@ -189,29 +185,29 @@ export default function LandingPage() {
                       router.push("/dashboard")
                     }
                   }}
-                  className="bg-[#060708] hover:bg-[#060708]/90 text-white text-[10px] font-bold uppercase tracking-wider h-9 px-4 rounded-lg cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
+                  className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs uppercase tracking-wider font-semibold h-9 px-4 rounded shadow-sm cursor-pointer transition-all flex items-center gap-1.5"
                 >
-                  Dashboard <ArrowRight className="h-3.5 w-3.5" />
+                  Dashboard <ArrowRight className="h-4 w-4" />
                 </Button>
                 <Button
                   onClick={handleLogout}
                   variant="ghost"
-                  className="text-[#CF3A1F] hover:bg-[#CF3A1F]/10 text-[10px] font-bold uppercase tracking-wider h-9 px-3 rounded-lg cursor-pointer"
+                  className="text-[#CF3A1F] hover:bg-[#CF3A1F]/10 text-xs uppercase tracking-wider font-semibold h-9 px-3 rounded cursor-pointer"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
+                  <LogOut className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <Link
                   href="/login"
-                  className="text-[10px] uppercase tracking-wider font-extrabold text-slate-500 hover:text-[#060708] transition-colors px-3 py-2"
+                  className="text-xs uppercase tracking-wider font-semibold text-muted-foreground hover:text-[#060708] transition-colors px-3 py-2"
                 >
                   Masuk
                 </Link>
                 <Link
                   href="/register"
-                  className="bg-[#060708] hover:bg-[#060708]/90 text-white text-[10px] uppercase tracking-wider font-extrabold px-4 py-2.5 rounded-lg shadow-sm transition-all"
+                  className="bg-[#060708] hover:bg-[#060708]/90 text-[#FAF9FB] text-xs uppercase tracking-wider font-semibold px-4 py-2 rounded shadow-sm transition-all"
                 >
                   Daftar
                 </Link>
