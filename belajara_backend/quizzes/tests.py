@@ -66,3 +66,68 @@ def test_quiz_lifecycle():
     assert history_response.status_code == status.HTTP_200_OK
     assert len(history_response.data) == 1
     assert history_response.data[0]["score"] == 100.0
+
+
+@pytest.mark.django_db
+def test_quiz_time_limits_and_premium_gating():
+    free_course = Course.objects.create(code="IF203", title="Advanced Data Structures", sks=3, semester=4, department="Informatika", is_premium=False)
+    premium_course = Course.objects.create(code="IF204", title="Premium Data Structures", sks=3, semester=4, department="Informatika", is_premium=True)
+    free_module = CourseModule.objects.create(course=free_course, title="Introduction to Trees", description="Free intro", order=1)
+    premium_module = CourseModule.objects.create(course=premium_course, title="Red-Black Trees", description="Premium chapter", order=2)
+
+    free_student = create_mahasiswa(
+        username="free_student",
+        password="studentpass123",
+        email="free@example.com",
+        nim="11111111",
+        jurusan="Informatika",
+        universitas="UI"
+    )
+    premium_student = create_mahasiswa(
+        username="premium_student",
+        password="studentpass123",
+        email="premium@example.com",
+        nim="22222222",
+        jurusan="Informatika",
+        universitas="UI"
+    )
+    # Mark premium student as premium
+    premium_student.user.is_premium = True
+    premium_student.user.save()
+
+    client_free = APIClient()
+    login_url = reverse('token_obtain_pair')
+    r = client_free.post(login_url, {"username": "free_student", "password": "studentpass123"}, format='json')
+    client_free.credentials(HTTP_AUTHORIZATION=f'Bearer {r.data["access"]}')
+
+    client_premium = APIClient()
+    r_prem = client_premium.post(login_url, {"username": "premium_student", "password": "studentpass123"}, format='json')
+    client_premium.credentials(HTTP_AUTHORIZATION=f'Bearer {r_prem.data["access"]}')
+
+    # 1. Free student gets 600s on free quiz
+    gen_url_free = reverse('quiz_generate', kwargs={'module_id': free_module.id})
+    res_free = client_free.post(gen_url_free, format='json')
+    assert res_free.status_code == status.HTTP_201_CREATED
+    assert res_free.data["time_limit"] == 600
+
+    quiz_free_id = res_free.data["id"]
+    detail_url_free = reverse('quiz_detail', kwargs={'quiz_id': quiz_free_id})
+    res_detail_free = client_free.get(detail_url_free)
+    assert res_detail_free.status_code == status.HTTP_200_OK
+    assert res_detail_free.data["time_limit"] == 600
+
+    # 2. Premium student gets 900s on same free quiz
+    res_detail_prem = client_premium.get(detail_url_free)
+    assert res_detail_prem.status_code == status.HTTP_200_OK
+    assert res_detail_prem.data["time_limit"] == 900
+
+    # 3. Free student is blocked from premium quiz generation
+    gen_url_prem = reverse('quiz_generate', kwargs={'module_id': premium_module.id})
+    res_blocked = client_free.post(gen_url_prem, format='json')
+    assert res_blocked.status_code == status.HTTP_403_FORBIDDEN
+
+    # 4. Premium student generates and accesses premium quiz
+    res_allowed = client_premium.post(gen_url_prem, format='json')
+    assert res_allowed.status_code == status.HTTP_201_CREATED
+    assert res_allowed.data["time_limit"] == 900
+

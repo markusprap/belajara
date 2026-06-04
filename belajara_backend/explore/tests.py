@@ -33,7 +33,8 @@ def test_llm_service_fallback():
 
 @pytest.mark.django_db
 @patch('explore.views.analyze_curriculum_task.delay')
-def test_pdf_analyze_api(mock_task_delay):
+def test_pdf_analyze_api(mock_task_delay, settings):
+    settings.DEBUG = True
     client = APIClient()
     # Create courses in test DB
     Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
@@ -94,7 +95,8 @@ def test_curriculum_upload_api(mock_extract):
     assert db_course.modules.count() == 3
 
 @pytest.mark.django_db
-def test_course_enroll_api():
+def test_course_enroll_api(settings):
+    settings.DEBUG = True
     client = APIClient()
     # Ensure test user 'mahasiswa' and course are created in DB
     Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
@@ -144,6 +146,7 @@ def test_ai_recommendation_status_success():
     )
     
     url = reverse('ai-recommendation-status', kwargs={'curriculum_id': curriculum.id})
+    client.force_authenticate(user=user)
     response = client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert response.data["status"] == "success"
@@ -240,3 +243,139 @@ def test_cleanup_old_curriculums():
     # Cleanup test files from storage
     if cur_new.file_url:
         cur_new.file_url.delete(save=False)
+
+
+@pytest.mark.django_db
+@patch('explore.views.analyze_curriculum_task.delay')
+def test_pdf_analyze_api_rate_limiting_free_user(mock_task_delay):
+    client = APIClient()
+    from users.models import Mahasiswa
+    from django.contrib.auth import get_user_model
+    from explore.models import Curriculum, AIRecommendation
+    
+    User = get_user_model()
+    user = User.objects.create_user(username="freeuser", password="password123", is_premium=False)
+    mahasiswa = Mahasiswa.objects.create(user=user, nim="2201010099", jurusan="Informatika")
+    
+    # 1. First upload (no recommendations exist yet)
+    url = reverse('pdf-analyze')
+    client.force_authenticate(user=user)
+    
+    pdf_file = io.BytesIO(b"fake PDF bytes")
+    pdf_file.name = "curriculum1.pdf"
+    
+    response = client.post(url, {'file': pdf_file}, format='multipart')
+    assert response.status_code == status.HTTP_200_OK
+    cur_id = response.data["curriculum_id"]
+    
+    # Simulate recommendation generation
+    curriculum = Curriculum.objects.get(id=cur_id)
+    AIRecommendation.objects.create(
+        mahasiswa=mahasiswa,
+        curriculum=curriculum,
+        recommendations_data=[]
+    )
+    
+    # 2. Second upload (should be blocked by rate limit)
+    pdf_file2 = io.BytesIO(b"fake PDF bytes 2")
+    pdf_file2.name = "curriculum2.pdf"
+    
+    response_blocked = client.post(url, {'file': pdf_file2}, format='multipart')
+    assert response_blocked.status_code == status.HTTP_403_FORBIDDEN
+    assert "batas rekomendasi AI gratis" in response_blocked.data["detail"]
+
+
+@pytest.mark.django_db
+@patch('explore.views.analyze_curriculum_task.delay')
+def test_pdf_analyze_api_no_rate_limiting_premium_user(mock_task_delay):
+    client = APIClient()
+    from users.models import Mahasiswa
+    from django.contrib.auth import get_user_model
+    from explore.models import Curriculum, AIRecommendation
+    
+    User = get_user_model()
+    user = User.objects.create_user(username="premiumuser", password="password123", is_premium=True)
+    mahasiswa = Mahasiswa.objects.create(user=user, nim="2201010098", jurusan="Informatika")
+    
+    url = reverse('pdf-analyze')
+    client.force_authenticate(user=user)
+    
+    # Create an existing recommendation
+    curriculum = Curriculum.objects.create(user=user, file_name="curriculum1.pdf")
+    AIRecommendation.objects.create(
+        mahasiswa=mahasiswa,
+        curriculum=curriculum,
+        recommendations_data=[]
+    )
+    
+    # Premium user should bypass rate limit
+    pdf_file2 = io.BytesIO(b"fake PDF bytes 2")
+    pdf_file2.name = "curriculum2.pdf"
+    
+    response = client.post(url, {'file': pdf_file2}, format='multipart')
+    assert response.status_code == status.HTTP_200_OK
+
+
+# --- Hardening Security Tests ---
+
+@pytest.mark.django_db
+def test_unauthenticated_explore_api_rejected_in_production(settings):
+    """Unauthenticated requests to pdf-analyze should return 401 in production (DEBUG=False)."""
+    settings.DEBUG = False
+    client = APIClient()
+    url = reverse('pdf-analyze')
+    pdf_file = io.BytesIO(b"fake PDF bytes")
+    pdf_file.name = "curriculum.pdf"
+    
+    response = client.post(url, {'file': pdf_file}, format='multipart')
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert "Authentication credentials" in response.data["detail"]
+
+
+@pytest.mark.django_db
+def test_pdf_analyze_large_file_rejected():
+    """Uploading a curriculum file larger than 10MB should return 400."""
+    client = APIClient()
+    url = reverse('pdf-analyze')
+    
+    # 11MB file
+    large_file = io.BytesIO(b"x" * (11 * 1024 * 1024))
+    large_file.name = "large_curriculum.pdf"
+    
+    response = client.post(url, {'file': large_file}, format='multipart')
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "melebihi batas maksimum" in response.data["detail"]
+
+
+@pytest.mark.django_db
+def test_ai_recommendation_status_ownership_protection():
+    """An authenticated user cannot read AI recommendations created for another user."""
+    client = APIClient()
+    from users.models import Mahasiswa
+    from django.contrib.auth import get_user_model
+    from explore.models import Curriculum, AIRecommendation
+    
+    User = get_user_model()
+    
+    # User A (Owner)
+    user_a = User.objects.create_user(username="usera", password="password123")
+    mahasiswa_a = Mahasiswa.objects.create(user=user_a, nim="11111", jurusan="Informatika")
+    curriculum_a = Curriculum.objects.create(user=user_a, file_name="curriculum_a.pdf")
+    
+    AIRecommendation.objects.create(
+        mahasiswa=mahasiswa_a,
+        curriculum=curriculum_a,
+        recommendations_data=[]
+    )
+    
+    # User B (Attacker)
+    user_b = User.objects.create_user(username="userb", password="password123")
+    
+    url = reverse('ai-recommendation-status', kwargs={'curriculum_id': curriculum_a.id})
+    
+    # Authenticate as User B and request User A's status
+    client.force_authenticate(user=user_b)
+    response = client.get(url)
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert "tidak memiliki akses" in response.data["detail"]
+

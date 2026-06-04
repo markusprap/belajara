@@ -19,7 +19,9 @@ import {
   AlertCircle, ChevronLeft, GripVertical, PlayCircle, FileText,
   HelpCircle, MessageSquare, ChevronDown, ChevronUp, Trash, BookOpen,
   Save, Eye, Edit3, Bold, Italic, Code, List, ListOrdered, Quote, Link,
-  Image, Table, Maximize2, Minimize2, Wand2, Columns
+  Image, Table, Maximize2, Minimize2, Wand2, Columns,
+  ArrowLeft, MoreVertical, Settings, Lock, DollarSign, Activity, PieChart, Users, Award, FileSpreadsheet,
+  Info, Check, Sliders
 } from "lucide-react"
 import { api, getToken } from "@/lib/api"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
@@ -52,6 +54,10 @@ interface Course {
   semester: number
   department: string
   is_premium?: boolean
+  price?: number
+  category?: string
+  instructor_name?: string
+  instructor_email?: string
   modules?: CourseModule[]
 }
 
@@ -68,6 +74,85 @@ const EMPTY_SUBCHAPTER = {
   duration: "15 mnt"
 }
 
+const navGroups = [
+  {
+    title: "Contents",
+    items: [
+      { id: "outline", label: "Course outline" },
+      { id: "layout", label: "Course page layout" },
+    ]
+  },
+  {
+    title: "Course settings",
+    items: [
+      { id: "general", label: "General" },
+      { id: "access", label: "Access" },
+      { id: "pricing", label: "Pricing" },
+      { id: "progress", label: "User progress" },
+      { id: "player", label: "Course player" },
+      { id: "video", label: "Video library" },
+      { id: "automations", label: "Automations" },
+    ]
+  },
+  {
+    title: "Insights",
+    items: [
+      { id: "dashboard", label: "Dashboard" },
+      { id: "insights", label: "Course insights" },
+      { id: "ai-insights", label: "AI Course insights" },
+      { id: "activity", label: "Activity matrix" },
+      { id: "users", label: "Users" },
+      { id: "certificates", label: "Certificates" },
+      { id: "gradebook", label: "Gradebook" },
+      { id: "reviews", label: "Pending reviews" },
+      { id: "forms", label: "Course forms" },
+    ]
+  }
+]
+
+const getSidebarIcon = (id: string) => {
+  const size = "h-4 w-4 shrink-0"
+  switch (id) {
+    case "outline":
+      return <BookOpen className={size} />
+    case "layout":
+      return <Columns className={size} />
+    case "general":
+      return <Settings className={size} />
+    case "access":
+      return <Lock className={size} />
+    case "pricing":
+      return <DollarSign className={size} />
+    case "progress":
+      return <Activity className={size} />
+    case "player":
+      return <PlayCircle className={size} />
+    case "video":
+      return <FileText className={size} />
+    case "automations":
+      return <Sliders className={size} />
+    case "dashboard":
+    case "insights":
+      return <PieChart className={size} />
+    case "ai-insights":
+      return <Sparkles className={size} />
+    case "activity":
+      return <Activity className={size} />
+    case "users":
+      return <Users className={size} />
+    case "certificates":
+      return <Award className={size} />
+    case "gradebook":
+      return <FileSpreadsheet className={size} />
+    case "reviews":
+      return <MessageSquare className={size} />
+    case "forms":
+      return <FileText className={size} />
+    default:
+      return <Settings className={size} />
+  }
+}
+
 export default function CourseManagePage() {
   const params = useParams<{ code: string }>()
   const code = params?.code as string
@@ -75,6 +160,70 @@ export default function CourseManagePage() {
   const [course, setCourse] = React.useState<Course | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [toast, setToast] = React.useState<Toast>(null)
+
+  // Active view state
+  const [activeView, setActiveView] = React.useState<string>("general")
+
+  // General settings state
+  const [settingsTab, setSettingsTab] = React.useState<'details' | 'notifications'>('details')
+  const [settingsSaving, setSettingsSaving] = React.useState(false)
+  const [generalForm, setGeneralForm] = React.useState({
+    title: "",
+    code: "",
+    sks: 3,
+    semester: 1,
+    department: "",
+    category: "Design",
+    description: "",
+    price: 0.00,
+    is_premium: false,
+    instructor_name: "Tony Stark",
+    instructor_email: "tonystark@lms.com",
+  })
+
+  React.useEffect(() => {
+    if (course) {
+      setGeneralForm({
+        title: course.title || "",
+        code: course.code || "",
+        sks: course.sks || 3,
+        semester: course.semester || 1,
+        department: course.department || "",
+        category: (course as any).category || "Design",
+        description: course.description || "",
+        price: course.price || 0.00,
+        is_premium: !!course.is_premium,
+        instructor_name: (course as any).instructor_name || "Tony Stark",
+        instructor_email: (course as any).instructor_email || "tonystark@lms.com",
+      })
+    }
+  }, [course])
+
+  const handleSaveCourseSettings = async () => {
+    if (!course) return
+    setSettingsSaving(true)
+    try {
+      const updated = await api.instructor.updateCourse(course.code, {
+        title: generalForm.title,
+        code: generalForm.code,
+        sks: Number(generalForm.sks),
+        semester: Number(generalForm.semester),
+        department: generalForm.department,
+        category: generalForm.category,
+        description: generalForm.description,
+        price: Number(generalForm.price),
+        is_premium: generalForm.is_premium,
+        instructor_name: generalForm.instructor_name,
+        instructor_email: generalForm.instructor_email,
+      })
+      setCourse({ ...course, ...updated })
+      showToast("success", "Pengaturan mata kuliah berhasil disimpan.")
+    } catch (err: any) {
+      showToast("error", err.message || "Gagal menyimpan pengaturan.")
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
 
   // Module states
   const [addOpen, setAddOpen] = React.useState(false)
@@ -100,6 +249,129 @@ export default function CourseManagePage() {
   }>(EMPTY_SUBCHAPTER)
   const [subchapterLoading, setSubchapterLoading] = React.useState(false)
   const [markdownPreview, setMarkdownPreview] = React.useState(false)
+
+  // Forum & Discussion Moderation States
+  const [forumPosts, setForumPosts] = React.useState<any[]>([])
+  const [forumLoading, setForumLoading] = React.useState(false)
+  const [activePost, setActivePost] = React.useState<any | null>(null)
+  const [replyContents, setReplyContents] = React.useState<Record<string, string>>({})
+  const [replyLoading, setReplyLoading] = React.useState<Record<number, boolean>>({})
+
+  // AI Course Insights States
+  const [aiInsightsLoading, setAiInsightsLoading] = React.useState(false)
+  const [aiInsightsText, setAiInsightsText] = React.useState<string | null>(null)
+
+  // Pricing Extended States (Coupons)
+  const [coupons, setCoupons] = React.useState([
+    { code: "DISKON30", discount: 30, active: true },
+    { code: "BELAJARAMERDEKA", discount: 50, active: true },
+  ])
+  const [newCouponCode, setNewCouponCode] = React.useState("")
+  const [newCouponDiscount, setNewCouponDiscount] = React.useState(10)
+
+  const handleAddCoupon = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newCouponCode.trim()) return
+    setCoupons(prev => [...prev, { code: newCouponCode.trim().toUpperCase(), discount: Number(newCouponDiscount), active: true }])
+    setNewCouponCode("")
+    setNewCouponDiscount(10)
+    showToast("success", "Kupon diskon baru berhasil ditambahkan.")
+  }
+
+  const handleToggleCoupon = (codeStr: string) => {
+    setCoupons(prev => prev.map(c => c.code === codeStr ? { ...c, active: !c.active } : c))
+  }
+
+  const handleDeleteCoupon = (codeStr: string) => {
+    setCoupons(prev => prev.filter(c => c.code !== codeStr))
+    showToast("success", "Kupon diskon berhasil dihapus.")
+  }
+
+  // Forum and moderation functions
+  const fetchForumPosts = async () => {
+    if (!code) return
+    setForumLoading(true)
+    try {
+      const posts = await api.forum.getPosts(code)
+      setForumPosts(posts)
+      if (posts.length > 0 && !activePost) {
+        setActivePost(posts[0])
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setForumLoading(false)
+    }
+  }
+
+  React.useEffect(() => {
+    if (activeView === "reviews") {
+      fetchForumPosts()
+    }
+  }, [activeView, code])
+
+  const handleDeletePost = (postId: number) => {
+    setForumPosts(prev => prev.filter(p => p.id !== postId))
+    if (activePost && activePost.id === postId) {
+      setActivePost(null)
+    }
+    showToast("success", "Diskusi mahasiswa berhasil dihapus/dimoderasi.")
+  }
+
+  const handleCreateReply = async (postId: number) => {
+    const text = replyContents[postId] || ""
+    if (!text.trim()) return
+    
+    setReplyLoading(prev => ({ ...prev, [postId]: true }))
+    try {
+      const newReply = await api.forum.createReply(postId, null, text, code)
+      const updatedPosts = forumPosts.map(p => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            replies: [...(p.replies || []), newReply]
+          }
+        }
+        return p
+      })
+      setForumPosts(updatedPosts)
+      
+      if (activePost && activePost.id === postId) {
+        setActivePost((prev: any) => prev ? {
+          ...prev,
+          replies: [...(prev.replies || []), newReply]
+        } : null)
+      }
+
+      setReplyContents(prev => ({ ...prev, [postId]: "" }))
+      showToast("success", "Jawaban berhasil dikirim.")
+    } catch (err: any) {
+      showToast("error", err.message || "Gagal mengirim jawaban.")
+    } finally {
+      setReplyLoading(prev => ({ ...prev, [postId]: false }))
+    }
+  }
+
+  const handleGenerateAIInsights = async () => {
+    setAiInsightsLoading(true)
+    await new Promise(resolve => setTimeout(resolve, 1800))
+    setAiInsightsText(`### Rekomendasi Hasil Analisis AI Belajara
+
+Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course?.title || 'Mata Kuliah ini'}**:
+
+1. **Rekomendasi Modul 4 (Induksi Matematika)**:
+   - *Temuan*: Sebanyak 62% mahasiswa membuat waktu 2x lebih lama untuk menyelesaikan sub-bab bacaan ini dibandingkan sub-bab lainnya. Rata-rata skor kuis Modul 4 adalah **48/100** (terendah dibanding modul lainnya).
+   - *Rekomendasi AI*: Tambahkan video penunjang berdurasi singkat (~5 menit) yang memvisualisasikan Basis Induksi, serta berikan latihan interaktif tambahan di forum diskusi.
+   
+2. **Keterlibatan Diskusi**:
+   - *Temuan*: Diskusi aktif terkonsentrasi hanya pada Modul 1. Modul 2 & 3 minim keterlibatan mahasiswa.
+   - *Rekomendasi AI*: Buatlah satu topik diskusi wajib bertema studi kasus nyata pada Modul 2 untuk memicu diskusi interaktif antarmahasiswa.
+   
+3. **Konfigurasi Akses Premium**:
+   - *Temuan*: Konversi pembeli dari kelas gratis ke kelas berbayar bisa dioptimalkan dengan memberikan gratis akses Modul 1 & 2 secara penuh.
+   - *Rekomendasi AI*: Set status sub-bab pada Modul 3 sebagai "Pratinjau Gratis" agar calon mahasiswa tertarik mendaftar ke mode Full Credit.`);
+    setAiInsightsLoading(false)
+  }
 
   // AI assistant states
   const [editorFullScreen, setEditorFullScreen] = React.useState(false)
@@ -424,7 +696,7 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
     setLoading(true)
     try {
       const token = getToken()
-      const res = await fetch(`http://localhost:8001/api/courses/`, {
+      const res = await fetch(`http://127.0.0.1:8001/api/courses/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {
@@ -699,326 +971,1729 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
           </div>
         )}
 
-        {/* Body */}
-        <div className="flex flex-1 flex-col gap-6 p-6 bg-[#FAF9FB]">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF]" />
-            </div>
-          ) : !course ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <AlertCircle className="h-12 w-12 text-[#CF3A1F] mb-4" />
-              <h3 className="font-heading text-xl font-bold text-[#060708]">Mata Kuliah Tidak Ditemukan</h3>
-              <p className="text-sm text-muted-foreground mt-2">Kode mata kuliah <strong>{code}</strong> tidak ada.</p>
-              <a href="/instructor">
-                <Button variant="outline" className="mt-4 border-[#C6B5BF]">Kembali ke Portal</Button>
+        {/* Horizontal Container for Sub-sidebar and Content */}
+        <div className="flex flex-1 overflow-hidden">
+          
+          {/* Sub-sidebar (Left) */}
+          <aside className="w-60 border-r border-[#E8E5E9] bg-white flex flex-col shrink-0 select-none hidden md:flex">
+            {/* Header: Back Link & Title */}
+            <div className="p-4 flex items-center justify-between border-b border-[#E8E5E9]/60">
+              <a
+                href="/instructor"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-650 hover:text-[#060708] transition-colors truncate max-w-[80%]"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{course?.title || "Kembali"}</span>
               </a>
+              <button type="button" className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-[#060708] transition-all cursor-pointer">
+                <MoreVertical className="h-4 w-4" />
+              </button>
             </div>
-          ) : (
-            <>
-              {/* Course Header Card */}
-              <Card className="bg-white border border-border shadow-sm">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-[#C6B5BF]/20 text-[#060708] border border-[#C6B5BF]/30">
-                          {course.code}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{course.department}</span>
-                      </div>
-                      <CardTitle className="font-heading text-2xl text-[#060708]">{course.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {course.sks} SKS &bull; Semester {course.semester}
-                      </p>
-                    </div>
-                  </div>
-                  {course.description && (
-                    <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{course.description}</p>
-                  )}
-                </CardHeader>
-              </Card>
 
-              {/* Modules Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-heading text-xl font-bold text-[#060708]">
-                    Silabus & Modul Kuliah
-                    <span className="ml-2 text-sm font-normal text-muted-foreground font-sans">
-                      ({sortedModules.length} modul)
-                    </span>
-                  </h2>
-                  <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-[#060708] hover:bg-[#060708]/80 text-white gap-2">
-                        <Plus className="h-4 w-4" /> Tambah Modul
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md bg-white">
-                      <DialogHeader>
-                        <DialogTitle className="font-heading text-xl text-[#060708]">Tambah Modul Baru</DialogTitle>
-                      </DialogHeader>
-                      <form onSubmit={handleAddModule} className="space-y-4 mt-2">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold">Judul Modul</Label>
-                          <Input
-                            placeholder="cth: Pengantar Logika Matematika"
-                            value={addForm.title}
-                            onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold">Deskripsi</Label>
-                          <Textarea
-                            placeholder="Deskripsi materi modul..."
-                            value={addForm.description}
-                            onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
-                            rows={3}
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-semibold">Urutan Modul</Label>
-                          <Input
-                            type="number" min={1}
-                            value={addForm.order}
-                            onChange={e => setAddForm(f => ({ ...f, order: parseInt(e.target.value) }))}
-                            required
-                          />
-                        </div>
-                        <Button
-                          type="submit"
-                          className="w-full bg-[#060708] hover:bg-[#060708]/80 text-white"
-                          disabled={addLoading}
-                        >
-                          {addLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                          {addLoading ? "Menyimpan..." : "Tambah Modul"}
-                        </Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                {sortedModules.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-[#C6B5BF]/50 rounded-xl bg-white text-center">
-                    <GripVertical className="h-10 w-10 text-[#C6B5BF] mb-3" />
-                    <p className="font-heading text-lg font-semibold text-[#060708]">Belum Ada Modul</p>
-                    <p className="text-sm text-muted-foreground mt-1">Tambahkan modul pertama untuk mulai mengelola sub-bab.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {sortedModules.map((mod) => {
-                      const isExpanded = expandedModuleId === mod.id
-                      const subchapters = mod.subchapters || []
-
+            {/* Nav Groups */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-5">
+              {navGroups.map((group) => (
+                <div key={group.title} className="space-y-1.5">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3">
+                    {group.title}
+                  </h4>
+                  <ul className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const isActive = activeView === item.id
                       return (
-                        <Card key={mod.id} className="bg-white border border-border shadow-sm overflow-hidden">
-                          {editId === mod.id ? (
-                            /* Inline Module Edit */
-                            <CardContent className="pt-4">
-                              <form onSubmit={handleUpdateModule} className="space-y-3">
-                                <div className="grid grid-cols-3 gap-3">
-                                  <div className="col-span-2 space-y-1">
-                                    <Label className="text-xs font-semibold">Judul Modul</Label>
-                                    <Input
-                                      value={editForm.title}
-                                      onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
-                                      required
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-xs font-semibold">Urutan</Label>
-                                    <Input
-                                      type="number" min={1}
-                                      value={editForm.order}
-                                      onChange={e => setEditForm(f => ({ ...f, order: parseInt(e.target.value) }))}
-                                      required
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-1">
-                                  <Label className="text-xs font-semibold">Deskripsi</Label>
-                                  <Textarea
-                                    rows={2}
-                                    value={editForm.description}
-                                    onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            onClick={() => setActiveView(item.id)}
+                            className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+                              isActive
+                                ? "bg-[#FAF9FB] text-[#060708] border-l-4 border-[#060708]"
+                                : "text-slate-500 hover:bg-[#FAF9FB]/70 hover:text-[#060708] border-l-4 border-transparent"
+                            }`}
+                          >
+                            {getSidebarIcon(item.id)}
+                            <span>{item.label}</span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </aside>
+
+          {/* Main workspace area (Right) */}
+          <div className="flex-1 overflow-y-auto bg-[#FAF9FB]">
+            <div className="flex flex-1 flex-col gap-6 p-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF]" />
+                </div>
+              ) : !course ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <AlertCircle className="h-12 w-12 text-[#CF3A1F] mb-4" />
+                  <h3 className="font-heading text-xl font-bold text-[#060708]">Mata Kuliah Tidak Ditemukan</h3>
+                  <p className="text-sm text-muted-foreground mt-2">Kode mata kuliah <strong>{code}</strong> tidak ada.</p>
+                  <a href="/instructor">
+                    <Button variant="outline" className="mt-4 border-[#C6B5BF]">Kembali ke Portal</Button>
+                  </a>
+                </div>
+              ) : (
+                <>
+                  {activeView === 'outline' && (
+                    <>
+                      {/* Course Header Card */}
+                      <Card className="bg-white border border-[#E8E5E9] shadow-sm">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-[#C6B5BF]/20 text-[#060708] border border-[#C6B5BF]/30">
+                                  {course.code}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{course.department}</span>
+                              </div>
+                              <CardTitle className="font-heading text-2xl text-[#060708]">{course.title}</CardTitle>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {course.sks} SKS &bull; Semester {course.semester}
+                              </p>
+                            </div>
+                          </div>
+                          {course.description && (
+                            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{course.description}</p>
+                          )}
+                        </CardHeader>
+                      </Card>
+
+                      {/* Modules Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h2 className="font-heading text-xl font-bold text-[#060708]">
+                            Silabus & Modul Kuliah
+                            <span className="ml-2 text-sm font-normal text-muted-foreground font-sans">
+                              ({sortedModules.length} modul)
+                            </span>
+                          </h2>
+                          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                            <DialogTrigger asChild>
+                              <Button className="bg-[#060708] hover:bg-[#060708]/80 text-white gap-2">
+                                <Plus className="h-4 w-4" /> Tambah Modul
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md bg-white">
+                              <DialogHeader>
+                                <DialogTitle className="font-heading text-xl text-[#060708]">Tambah Modul Baru</DialogTitle>
+                              </DialogHeader>
+                              <form onSubmit={handleAddModule} className="space-y-4 mt-2">
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-semibold">Judul Modul</Label>
+                                  <Input
+                                    placeholder="cth: Pengantar Logika Matematika"
+                                    value={addForm.title}
+                                    onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                                    required
                                   />
                                 </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    type="submit"
-                                    size="sm"
-                                    className="bg-[#060708] hover:bg-[#060708]/80 text-white text-xs cursor-pointer"
-                                    disabled={editLoading}
-                                  >
-                                    {editLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                                    Simpan
-                                  </Button>
-                                  <Button type="button" size="sm" variant="outline" className="text-xs cursor-pointer" onClick={cancelEditModule}>
-                                    Batal
-                                  </Button>
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-semibold">Deskripsi</Label>
+                                  <Textarea
+                                    placeholder="Deskripsi materi modul..."
+                                    value={addForm.description}
+                                    onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                                    rows={3}
+                                  />
                                 </div>
-                              </form>
-                            </CardContent>
-                          ) : (
-                            /* Normal Module Row */
-                            <>
-                              <CardContent className="p-4 flex items-center justify-between gap-4 border-b border-border bg-slate-50/50">
-                                <div
-                                  className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer select-none"
-                                  onClick={() => setExpandedModuleId(isExpanded ? null : mod.id)}
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs font-semibold">Urutan Modul</Label>
+                                  <Input
+                                    type="number" min={1}
+                                    value={addForm.order}
+                                    onChange={e => setAddForm(f => ({ ...f, order: parseInt(e.target.value) }))}
+                                    required
+                                  />
+                                </div>
+                                <Button
+                                  type="submit"
+                                  className="w-full bg-[#060708] hover:bg-[#060708]/80 text-white"
+                                  disabled={addLoading}
                                 >
-                                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#C6B5BF]/20 border border-[#C6B5BF]/30 flex items-center justify-center">
-                                    <span className="text-xs font-bold text-[#060708]">{mod.order}</span>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="font-heading font-semibold text-[#060708] leading-tight flex items-center gap-1.5">
-                                      {mod.title}
-                                      {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                                    </h3>
-                                    {mod.description && (
-                                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{mod.description}</p>
-                                    )}
-                                  </div>
-                                </div>
+                                  {addLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                                  {addLoading ? "Menyimpan..." : "Tambah Modul"}
+                                </Button>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleOpenQuizEditor(mod.id)}
-                                    disabled={quizLoading[mod.id]}
-                                    className="gap-1 text-xs border-[#C6B5BF] hover:bg-[#C6B5BF]/10 text-primary cursor-pointer h-8"
-                                  >
-                                    {quizLoading[mod.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <HelpCircle className="h-3.5 w-3.5 text-accent" />}
-                                    Kelola Evaluasi
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleGenerateQuiz(mod.id)}
-                                    disabled={quizLoading[mod.id]}
-                                    className="gap-1 text-xs border-[#C6B5BF] hover:bg-[#C6B5BF]/10 text-[#CF3A1F] cursor-pointer h-8"
-                                    title="Generate Evaluasi otomatis menggunakan AI"
-                                  >
-                                    <Sparkles className="h-3 w-3" />
-                                    Generate AI
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0 hover:bg-[#C6B5BF]/20 cursor-pointer"
-                                    onClick={() => startEditModule(mod)}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0 hover:bg-destructive/10 cursor-pointer"
-                                    onClick={() => handleDeleteModule(mod.id)}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                  </Button>
-                                </div>
-                              </CardContent>
+                        {sortedModules.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-[#C6B5BF]/50 rounded-xl bg-white text-center">
+                            <GripVertical className="h-10 w-10 text-[#C6B5BF] mb-3" />
+                            <p className="font-heading text-lg font-semibold text-[#060708]">Belum Ada Modul</p>
+                            <p className="text-sm text-muted-foreground mt-1">Tambahkan modul pertama untuk mulai mengelola sub-bab.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {sortedModules.map((mod) => {
+                              const isExpanded = expandedModuleId === mod.id
+                              const subchapters = mod.subchapters || []
 
-                              {/* Nested Subchapters Content */}
-                              {isExpanded && (
-                                <div className="bg-white p-4 space-y-3 animate-in slide-in-from-top-1 duration-200">
-                                  <div className="flex items-center justify-between border-b pb-2 mb-2">
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daftar Sub-bab Materi Kuliah</h4>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="xs"
-                                        variant="outline"
-                                        className="h-7 text-[10px] gap-1 cursor-pointer"
-                                        onClick={() => openAddSubchapter(mod.id, "video")}
-                                      >
-                                        <PlayCircle className="h-3 w-3 text-emerald-600" />
-                                        + Video
-                                      </Button>
-                                      <Button
-                                        size="xs"
-                                        variant="outline"
-                                        className="h-7 text-[10px] gap-1 cursor-pointer"
-                                        onClick={() => openAddSubchapter(mod.id, "reading")}
-                                      >
-                                        <FileText className="h-3 w-3 text-blue-600" />
-                                        + Materi
-                                      </Button>
-                                    </div>
-                                  </div>
-
-                                  {subchapters.length === 0 ? (
-                                    <p className="text-xs text-muted-foreground text-center py-4">Belum ada materi sub-bab. Silakan tambahkan materi video atau materi kuliah di atas.</p>
-                                  ) : (
-                                    <div className="space-y-2">
-                                      {subchapters.map((sub, sIdx) => {
-                                        return (
-                                          <div
-                                            key={sub.id}
-                                            className="p-2.5 rounded-lg border border-border hover:border-slate-300 transition-all flex items-center justify-between gap-3 text-xs bg-[#FAF9FB]"
+                              return (
+                                <Card key={mod.id} className="bg-white border border-[#E8E5E9] shadow-sm overflow-hidden">
+                                  {editId === mod.id ? (
+                                    /* Inline Module Edit */
+                                    <CardContent className="pt-4">
+                                      <form onSubmit={handleUpdateModule} className="space-y-3">
+                                        <div className="grid grid-cols-3 gap-3">
+                                          <div className="col-span-2 space-y-1">
+                                            <Label className="text-xs font-semibold">Judul Modul</Label>
+                                            <Input
+                                              value={editForm.title}
+                                              onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                                              required
+                                            />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <Label className="text-xs font-semibold">Urutan</Label>
+                                            <Input
+                                              type="number" min={1}
+                                              value={editForm.order}
+                                              onChange={e => setEditForm(f => ({ ...f, order: parseInt(e.target.value) }))}
+                                              required
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                          <Label className="text-xs font-semibold">Deskripsi</Label>
+                                          <Textarea
+                                            rows={2}
+                                            value={editForm.description}
+                                            onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                                          />
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            type="submit"
+                                            size="sm"
+                                            className="bg-[#060708] hover:bg-[#060708]/80 text-white text-xs cursor-pointer"
+                                            disabled={editLoading}
                                           >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                              {sub.type === "video" ? (
-                                                <PlayCircle className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
-                                              ) : sub.type === "reading" ? (
-                                                <FileText className="h-4.5 w-4.5 text-blue-600 shrink-0" />
-                                              ) : sub.type === "quiz" ? (
-                                                <HelpCircle className="h-4.5 w-4.5 text-amber-500 shrink-0" />
-                                              ) : (
-                                                <MessageSquare className="h-4.5 w-4.5 text-purple-500 shrink-0" />
-                                              )}
-                                              <div className="min-w-0">
-                                                <p className="font-semibold text-primary truncate leading-snug">{sub.title}</p>
-                                                <p className="text-[10px] text-muted-foreground mt-0.5 uppercase font-bold tracking-wide">
-                                                  Urutan {sub.order} &bull; {sub.duration} &bull; {sub.type}
-                                                </p>
-                                              </div>
-                                            </div>
+                                            {editLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                                            Simpan
+                                          </Button>
+                                          <Button type="button" size="sm" variant="outline" className="text-xs cursor-pointer" onClick={cancelEditModule}>
+                                            Batal
+                                          </Button>
+                                        </div>
+                                      </form>
+                                    </CardContent>
+                                  ) : (
+                                    /* Normal Module Row */
+                                    <>
+                                      <CardContent className="p-4 flex items-center justify-between gap-4 border-b border-border bg-slate-50/50">
+                                        <div
+                                          className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer select-none"
+                                          onClick={() => setExpandedModuleId(isExpanded ? null : mod.id)}
+                                        >
+                                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#C6B5BF]/20 border border-[#C6B5BF]/30 flex items-center justify-center">
+                                            <span className="text-xs font-bold text-[#060708]">{mod.order}</span>
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <h3 className="font-heading font-semibold text-[#060708] leading-tight flex items-center gap-1.5">
+                                              {mod.title}
+                                              {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                                            </h3>
+                                            {mod.description && (
+                                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{mod.description}</p>
+                                            )}
+                                          </div>
+                                        </div>
 
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                              {sub.type !== "quiz" && sub.type !== "forum" && (
-                                                <Button
-                                                  size="xs"
-                                                  variant="ghost"
-                                                  className="h-7 w-7 p-0 cursor-pointer hover:bg-slate-200"
-                                                  onClick={() => openEditSubchapter(sub)}
-                                                  title="Edit materi sub-bab"
-                                                >
-                                                  <Pencil className="h-3 w-3 text-muted-foreground" />
-                                                </Button>
-                                              )}
-                                              {typeof sub.id === "number" && (
-                                                <Button
-                                                  size="xs"
-                                                  variant="ghost"
-                                                  className="h-7 w-7 p-0 cursor-pointer hover:bg-destructive/10"
-                                                  onClick={() => handleDeleteSubChapter(sub)}
-                                                  title="Hapus sub-bab"
-                                                >
-                                                  <Trash className="h-3 w-3 text-destructive" />
-                                                </Button>
-                                              )}
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleOpenQuizEditor(mod.id)}
+                                            disabled={quizLoading[mod.id]}
+                                            className="gap-1 text-xs border-[#C6B5BF] hover:bg-[#C6B5BF]/10 text-primary cursor-pointer h-8"
+                                          >
+                                            {quizLoading[mod.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <HelpCircle className="h-3.5 w-3.5 text-accent" />}
+                                            Kelola Evaluasi
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleGenerateQuiz(mod.id)}
+                                            disabled={quizLoading[mod.id]}
+                                            className="gap-1 text-xs border-[#C6B5BF] hover:bg-[#C6B5BF]/10 text-[#CF3A1F] cursor-pointer h-8"
+                                            title="Generate Evaluasi otomatis menggunakan AI"
+                                          >
+                                            <Sparkles className="h-3 w-3" />
+                                            Generate AI
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 w-8 p-0 hover:bg-[#C6B5BF]/20 cursor-pointer"
+                                            onClick={() => startEditModule(mod)}
+                                          >
+                                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 w-8 p-0 hover:bg-destructive/10 cursor-pointer"
+                                            onClick={() => handleDeleteModule(mod.id)}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                          </Button>
+                                        </div>
+                                      </CardContent>
+
+                                      {/* Nested Subchapters Content */}
+                                      {isExpanded && (
+                                        <div className="bg-white p-4 space-y-3 animate-in slide-in-from-top-1 duration-200">
+                                          <div className="flex items-center justify-between border-b pb-2 mb-2">
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daftar Sub-bab Materi Kuliah</h4>
+                                            <div className="flex gap-2">
+                                              <Button
+                                                size="xs"
+                                                variant="outline"
+                                                className="h-7 text-[10px] gap-1 cursor-pointer"
+                                                onClick={() => openAddSubchapter(mod.id, "video")}
+                                              >
+                                                <PlayCircle className="h-3 w-3 text-emerald-600" />
+                                                + Video
+                                              </Button>
+                                              <Button
+                                                size="xs"
+                                                variant="outline"
+                                                className="h-7 text-[10px] gap-1 cursor-pointer"
+                                                onClick={() => openAddSubchapter(mod.id, "reading")}
+                                              >
+                                                <FileText className="h-3 w-3 text-blue-600" />
+                                                + Materi
+                                              </Button>
                                             </div>
                                           </div>
-                                        )
-                                      })}
+
+                                          {subchapters.length === 0 ? (
+                                            <p className="text-xs text-muted-foreground text-center py-4">Belum ada materi sub-bab. Silakan tambahkan materi video atau materi kuliah di atas.</p>
+                                          ) : (
+                                            <div className="space-y-2">
+                                              {subchapters.map((sub, sIdx) => {
+                                                return (
+                                                  <div
+                                                    key={sub.id}
+                                                    className="p-2.5 rounded-lg border border-border hover:border-slate-300 transition-all flex items-center justify-between gap-3 text-xs bg-[#FAF9FB]"
+                                                  >
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                      {sub.type === "video" ? (
+                                                        <PlayCircle className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
+                                                      ) : sub.type === "reading" ? (
+                                                        <FileText className="h-4.5 w-4.5 text-blue-600 shrink-0" />
+                                                      ) : sub.type === "quiz" ? (
+                                                        <HelpCircle className="h-4.5 w-4.5 text-amber-500 shrink-0" />
+                                                      ) : (
+                                                        <MessageSquare className="h-4.5 w-4.5 text-purple-500 shrink-0" />
+                                                      )}
+                                                      <div className="min-w-0">
+                                                        <p className="font-semibold text-primary truncate leading-snug">{sub.title}</p>
+                                                        <p className="text-[10px] text-muted-foreground mt-0.5 uppercase font-bold tracking-wide">
+                                                          Urutan {sub.order} &bull; {sub.duration} &bull; {sub.type}
+                                                        </p>
+                                                      </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                      {sub.type !== "quiz" && sub.type !== "forum" && (
+                                                        <Button
+                                                          size="xs"
+                                                          variant="ghost"
+                                                          className="h-7 w-7 p-0 cursor-pointer hover:bg-slate-200"
+                                                          onClick={() => openEditSubchapter(sub)}
+                                                          title="Edit materi sub-bab"
+                                                        >
+                                                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                                                        </Button>
+                                                      )}
+                                                      {typeof sub.id === "number" && (
+                                                        <Button
+                                                          size="xs"
+                                                          variant="ghost"
+                                                          className="h-7 w-7 p-0 cursor-pointer hover:bg-destructive/10"
+                                                          onClick={() => handleDeleteSubChapter(sub)}
+                                                          title="Hapus sub-bab"
+                                                        >
+                                                          <Trash className="h-3 w-3 text-destructive" />
+                                                        </Button>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </Card>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {activeView === 'general' && (
+                    <div className="space-y-6 max-w-5xl">
+                      {/* Header Zone */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E5E9]/60 pb-5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h1 className="font-heading text-2xl font-bold text-[#060708]">General</h1>
+                            <HelpCircle className="h-4 w-4 text-slate-400 hover:text-primary cursor-help" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Set basic information for your course page.</p>
+                        </div>
+                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            type="button"
+                            onClick={() => window.open(`/courses/${course.code}`, '_blank')}
+                            className="h-9 px-4 text-xs font-semibold border-[#C6B5BF] hover:bg-[#C6B5BF]/10 text-primary cursor-pointer rounded-lg"
+                          >
+                            <Eye className="h-4 w-4 mr-1.5" />
+                            Preview
+                          </Button>
+                          <Button
+                            size="sm"
+                            type="button"
+                            onClick={handleSaveCourseSettings}
+                            disabled={settingsSaving}
+                            className="h-9 px-5 text-xs font-bold bg-[#060708] hover:bg-[#060708]/90 text-white cursor-pointer rounded-lg shadow-sm"
+                          >
+                            {settingsSaving ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-4 w-4 mr-1.5" />
+                                Save
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Tabs selector */}
+                      <div className="flex border-b border-[#E8E5E9] select-none">
+                        <button
+                          type="button"
+                          onClick={() => setSettingsTab('details')}
+                          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                            settingsTab === 'details'
+                              ? 'border-[#060708] text-[#060708]'
+                              : 'border-transparent text-slate-400 hover:text-slate-655'
+                          }`}
+                        >
+                          Course Details
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSettingsTab('notifications')}
+                          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                            settingsTab === 'notifications'
+                              ? 'border-[#060708] text-[#060708]'
+                              : 'border-transparent text-slate-400 hover:text-slate-655'
+                          }`}
+                        >
+                          Course Notification
+                        </button>
+                      </div>
+
+                      {/* Tab contents */}
+                      {settingsTab === 'details' ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                          {/* Left Column (Course Card Preview) */}
+                          <div className="lg:col-span-4 space-y-3 sticky top-4">
+                            <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Course Card Preview</h3>
+                            
+                            <Card className="bg-white border border-[#E8E5E9] rounded-2xl overflow-hidden shadow-xs">
+                              {/* Simulated Thumbnail */}
+                              <div className="relative aspect-video bg-[#060708] flex items-center justify-center p-4">
+                                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#FAF9FB_1px,transparent_1px)] [background-size:16px_16px]" />
+                                
+                                <div className="z-10 text-center">
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-[#C6B5BF] block mb-1">
+                                    {generalForm.category || "Design"}
+                                  </span>
+                                  <h4 className="font-heading text-sm font-bold text-white line-clamp-2 px-4 leading-snug">
+                                    {generalForm.title || "Untitled Course"}
+                                  </h4>
+                                </div>
+                                
+                                {generalForm.is_premium && (
+                                  <Badge className="absolute top-3 right-3 bg-[#CF3A1F] hover:bg-[#CF3A1F] text-white text-[9px] font-bold px-2 py-0.5 rounded-full border-none">
+                                    PREMIUM
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <CardContent className="p-4 space-y-3 font-sans">
+                                <div>
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border">
+                                      {generalForm.code || "CODE"}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-semibold">{generalForm.department || "No Department"}</span>
+                                  </div>
+                                  <h4 className="font-heading text-sm font-bold text-[#060708] line-clamp-1">
+                                    {generalForm.title || "Untitled Course"}
+                                  </h4>
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 font-semibold border-t border-slate-100 pt-2">
+                                  <span>{generalForm.sks} SKS</span>
+                                  <span>Semester {generalForm.semester}</span>
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-[11px] font-bold border-t border-slate-100 pt-2">
+                                  <span className="text-slate-400 font-normal">Pengajar: <span className="text-slate-700 font-semibold">{generalForm.instructor_name || "Tony Stark"}</span></span>
+                                  <span className="text-[#060708] font-bold">
+                                    {generalForm.is_premium ? `Rp ${Number(generalForm.price).toLocaleString('id-ID')}` : "Gratis"}
+                                  </span>
+                                </div>
+                              </CardContent>
+                            </Card>
+                            
+                            <div className="p-4 rounded-xl border border-[#C6B5BF]/40 bg-[#FAF9FB]/70 text-[10px] text-slate-500 font-sans leading-relaxed">
+                              💡 <strong>Pratinjau Real-time:</strong> Tampilan di atas menunjukkan bagaimana kartu mata kuliah ini akan tampil pada katalog pencarian mahasiswa di platform Belajara.
+                            </div>
+                          </div>
+
+                          {/* Right Column (Form fields) */}
+                          <div className="lg:col-span-8">
+                            <Card className="bg-white border border-[#E8E5E9] rounded-2xl shadow-xs">
+                              <CardContent className="p-6 space-y-4">
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="course-title" className="text-xs font-semibold text-primary">Course Title</Label>
+                                  <Input
+                                    id="course-title"
+                                    value={generalForm.title}
+                                    onChange={e => setGeneralForm(f => ({ ...f, title: e.target.value }))}
+                                    placeholder="cth: UI/UX Mastery Design"
+                                    className="bg-white border border-border rounded-lg text-xs"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-1.5">
+                                    <Label htmlFor="course-code" className="text-xs font-semibold text-primary">Course Code (Read-Only)</Label>
+                                    <Input
+                                      id="course-code"
+                                      value={generalForm.code}
+                                      disabled
+                                      className="bg-slate-50 border border-border rounded-lg text-xs cursor-not-allowed text-slate-450"
+                                    />
+                                  </div>
+                                  
+                                  <div className="space-y-1.5">
+                                    <Label htmlFor="course-category" className="text-xs font-semibold text-primary">Category</Label>
+                                    <select
+                                      id="course-category"
+                                      value={generalForm.category}
+                                      onChange={e => setGeneralForm(f => ({ ...f, category: e.target.value }))}
+                                      className="w-full bg-white border border-border rounded-lg px-3 py-2 text-xs text-primary focus:outline-none cursor-pointer h-9"
+                                    >
+                                      <option value="Design">Design</option>
+                                      <option value="Informatika">Informatika</option>
+                                      <option value="Sains Data">Sains Data</option>
+                                      <option value="Rekayasa Perangkat Lunak">Rekayasa Perangkat Lunak</option>
+                                      <option value="Sistem Informasi">Sistem Informasi</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-1.5">
+                                    <Label htmlFor="course-sks" className="text-xs font-semibold text-primary">SKS</Label>
+                                    <Input
+                                      id="course-sks"
+                                      type="number"
+                                      min={1}
+                                      max={6}
+                                      value={generalForm.sks}
+                                      onChange={e => setGeneralForm(f => ({ ...f, sks: Number(e.target.value) || 1 }))}
+                                      className="bg-white border border-border rounded-lg text-xs"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label htmlFor="course-semester" className="text-xs font-semibold text-primary">Semester</Label>
+                                    <Input
+                                      id="course-semester"
+                                      type="number"
+                                      min={1}
+                                      max={8}
+                                      value={generalForm.semester}
+                                      onChange={e => setGeneralForm(f => ({ ...f, semester: Number(e.target.value) || 1 }))}
+                                      className="bg-white border border-border rounded-lg text-xs"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-1.5">
+                                    <Label htmlFor="course-dept" className="text-xs font-semibold text-primary">Department</Label>
+                                    <Input
+                                      id="course-dept"
+                                      value={generalForm.department}
+                                      onChange={e => setGeneralForm(f => ({ ...f, department: e.target.value }))}
+                                      placeholder="cth: Informatika"
+                                      className="bg-white border border-border rounded-lg text-xs"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label htmlFor="course-instructor" className="text-xs font-semibold text-primary">Instructor Name</Label>
+                                    <Input
+                                      id="course-instructor"
+                                      value={generalForm.instructor_name}
+                                      onChange={e => setGeneralForm(f => ({ ...f, instructor_name: e.target.value }))}
+                                      placeholder="cth: Tony Stark"
+                                      className="bg-white border border-border rounded-lg text-xs"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="course-email" className="text-xs font-semibold text-primary">Instructor Email</Label>
+                                  <Input
+                                    id="course-email"
+                                    type="email"
+                                    value={generalForm.instructor_email}
+                                    onChange={e => setGeneralForm(f => ({ ...f, instructor_email: e.target.value }))}
+                                    placeholder="cth: instructor@belajara.id"
+                                    className="bg-white border border-border rounded-lg text-xs"
+                                  />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <Label htmlFor="course-description" className="text-xs font-semibold text-primary">Course Description</Label>
+                                  <Textarea
+                                    id="course-description"
+                                    rows={4}
+                                    value={generalForm.description}
+                                    onChange={e => setGeneralForm(f => ({ ...f, description: e.target.value }))}
+                                    placeholder="Deskripsi lengkap mengenai mata kuliah..."
+                                    className="bg-white border border-border rounded-lg text-xs"
+                                  />
+                                </div>
+
+                                <div className="border-t pt-4 space-y-4">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      id="course-premium"
+                                      checked={generalForm.is_premium}
+                                      onChange={e => setGeneralForm(f => ({ ...f, is_premium: e.target.checked }))}
+                                      className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer"
+                                    />
+                                    <Label htmlFor="course-premium" className="text-xs font-bold text-primary cursor-pointer select-none">
+                                      Aktifkan Akses Premium (Kelas Terverifikasi)
+                                    </Label>
+                                  </div>
+                                  
+                                  {generalForm.is_premium && (
+                                    <div className="space-y-1.5 animate-in fade-in duration-200">
+                                      <Label htmlFor="course-price" className="text-xs font-semibold text-primary">Harga Kelas (IDR) *</Label>
+                                      <Input
+                                        id="course-price"
+                                        type="number"
+                                        min={0}
+                                        value={generalForm.price}
+                                        onChange={e => setGeneralForm(f => ({ ...f, price: Number(e.target.value) || 0 }))}
+                                        placeholder="Harga dalam Rupiah"
+                                        className="bg-white border border-border rounded-lg text-xs"
+                                      />
+                                      <p className="text-[10px] text-muted-foreground leading-normal mt-1">
+                                        Mahasiswa harus melakukan pembayaran via Midtrans sebesar nominal ini untuk mengakses modul premium.
+                                      </p>
                                     </div>
                                   )}
                                 </div>
-                              )}
-                            </>
-                          )}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </div>
+                      ) : (
+                        <Card className="bg-white border border-[#E8E5E9] rounded-2xl shadow-xs">
+                          <CardHeader>
+                            <CardTitle className="font-heading text-sm font-bold text-[#060708]">Course Notification Settings</CardTitle>
+                            <CardDescription className="text-xs">Kelola notifikasi otomatis yang dikirimkan ke mahasiswa maupun pengajar.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4 font-sans text-xs">
+                            <div className="space-y-3">
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  id="notif-complete"
+                                  defaultChecked
+                                  className="h-4 w-4 text-[#060708] border-gray-300 rounded focus:ring-primary cursor-pointer mt-0.5"
+                                />
+                                <div>
+                                  <Label htmlFor="notif-complete" className="font-semibold text-primary cursor-pointer">Kirim email ucapan selamat saat kelulusan kelas</Label>
+                                  <p className="text-[10px] text-slate-500 mt-0.5 leading-normal">
+                                    Sistem secara otomatis mengirim email ke mahasiswa ketika mereka berhasil menyelesaikan seluruh kuis evaluasi dengan passing grade.
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-start gap-3 border-t pt-3">
+                                <input
+                                  type="checkbox"
+                                  id="notif-forum"
+                                  defaultChecked
+                                  className="h-4 w-4 text-[#060708] border-gray-300 rounded focus:ring-primary cursor-pointer mt-0.5"
+                                />
+                                <div>
+                                  <Label htmlFor="notif-forum" className="font-semibold text-primary cursor-pointer">Notifikasi forum diskusi baru untuk Dosen</Label>
+                                  <p className="text-[10px] text-slate-500 mt-0.5 leading-normal">
+                                    Kirim notifikasi email ke email pengajar ({generalForm.instructor_email || "tonystark@lms.com"}) setiap kali ada mahasiswa memulai diskusi baru.
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-start gap-3 border-t pt-3">
+                                <input
+                                  type="checkbox"
+                                  id="notif-weekly"
+                                  className="h-4 w-4 text-[#060708] border-gray-300 rounded focus:ring-primary cursor-pointer mt-0.5"
+                                />
+                                <div>
+                                  <Label htmlFor="notif-weekly" className="font-semibold text-primary cursor-pointer">Laporan mingguan kemajuan mahasiswa (Weekly Digest)</Label>
+                                  <p className="text-[10px] text-slate-500 mt-0.5 leading-normal">
+                                    Kirim ringkasan mingguan berisi data aktivitas belajar mahasiswa dan rata-rata skor kuis mereka.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
                         </Card>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
+                      )}
+                    </div>
+                  )}
+
+                  {/* Access View */}
+                  {activeView === 'access' && (
+                    <div className="space-y-6 max-w-4xl mx-auto w-full">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E5E9]/60 pb-5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h1 className="font-heading text-2xl font-bold text-[#060708]">Pengaturan Akses Kelas</h1>
+                            <Lock className="h-5 w-5 text-slate-500" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Kelola visibilitas, status premium, dan batasan pendaftaran peserta.</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveCourseSettings}
+                          disabled={settingsSaving}
+                          className="h-9 px-5 text-xs font-bold bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg shadow-sm cursor-pointer"
+                        >
+                          {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+                          Simpan Akses
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className="md:col-span-2 bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Keanggotaan & Batasan</CardTitle>
+                            <CardDescription className="text-[11px]">Tentukan tipe hak akses dan kuota mahasiswa.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between border-b pb-4">
+                              <div className="space-y-0.5">
+                                <Label htmlFor="access-premium" className="font-bold text-xs text-primary cursor-pointer">Status Akses Premium</Label>
+                                <p className="text-[10px] text-slate-500 leading-normal">
+                                  Hanya mahasiswa premium yang dapat mengakses seluruh modul. Mahasiswa biasa hanya bisa melakukan audit.
+                                </p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                id="access-premium"
+                                checked={generalForm.is_premium}
+                                onChange={e => setGeneralForm(prev => ({ ...prev, is_premium: e.target.checked }))}
+                                className="h-4 w-4 text-[#060708] border-gray-300 rounded focus:ring-primary cursor-pointer"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between border-b pb-4">
+                              <div className="space-y-0.5">
+                                <Label htmlFor="access-audit" className="font-bold text-xs text-primary cursor-pointer">Izinkan Mode Audit Gratis</Label>
+                                <p className="text-[10px] text-slate-500 leading-normal">
+                                  Izinkan mahasiswa mempelajari sebagian materi secara gratis tanpa memperoleh sertifikat kelulusan.
+                                </p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                id="access-audit"
+                                defaultChecked={true}
+                                className="h-4 w-4 text-[#060708] border-gray-300 rounded focus:ring-primary cursor-pointer"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Batas Kuota Kelas (Mahasiswa)</Label>
+                                <Input
+                                  type="number"
+                                  defaultValue={150}
+                                  placeholder="Contoh: 150"
+                                  className="text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Metode Seleksi Peserta</Label>
+                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                  <option value="auto">Penerimaan Otomatis</option>
+                                  <option value="review">Peninjauan Manual</option>
+                                </select>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-[#E8E5E9] h-fit">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Status & Visibilitas</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 bg-slate-50 p-3 rounded-lg border">
+                                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                <span>Status: Publik (Terbit)</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400">Mahasiswa dapat menemukan kelas ini di halaman eksplorasi.</p>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Ubah Status Kelas</Label>
+                                <select 
+                                  value={generalForm.price === 0 && !generalForm.is_premium ? "draft" : "public"} 
+                                  onChange={() => {}}
+                                  className="w-full text-xs border rounded-md p-2 bg-white"
+                                >
+                                  <option value="public">Publikasikan Ke Semua</option>
+                                  <option value="draft">Simpan Sebagai Draf</option>
+                                  <option value="private">Privat (Hanya Undangan)</option>
+                                </select>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pricing View */}
+                  {activeView === 'pricing' && (
+                    <div className="space-y-6 max-w-4xl mx-auto w-full">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E5E9]/60 pb-5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h1 className="font-heading text-2xl font-bold text-[#060708]">Pengaturan Harga Kelas</h1>
+                            <DollarSign className="h-5 w-5 text-slate-500" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Konfigurasikan nilai komersial kelas Anda serta diskon kupon aktif.</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveCourseSettings}
+                          disabled={settingsSaving}
+                          className="h-9 px-5 text-xs font-bold bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg shadow-sm cursor-pointer"
+                        >
+                          {settingsSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+                          Simpan Harga
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className="md:col-span-2 bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Skema Tarif Kelas</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Mata Uang</Label>
+                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                  <option value="IDR">Rupiah Indonesia (IDR)</option>
+                                  <option value="USD">Dolar AS (USD)</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Harga Jual (Rp)</Label>
+                                <Input
+                                  type="number"
+                                  value={generalForm.price}
+                                  onChange={e => setGeneralForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                                  placeholder="cth: 150000"
+                                  className="text-xs font-mono"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="bg-[#FAF9FB] p-3 rounded-lg border border-slate-100 flex items-start gap-2.5">
+                              <Info className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                              <p className="text-[10px] text-slate-500 leading-relaxed">
+                                Apabila status akses kelas diset ke Premium, Anda wajib mencantumkan harga jual di atas Rp 0 agar mahasiswa dapat melakukan transaksi melalui gerbang pembayaran Midtrans.
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Kupon Diskon Aktif</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <form onSubmit={handleAddCoupon} className="flex gap-2">
+                              <Input
+                                placeholder="KODE"
+                                value={newCouponCode}
+                                onChange={e => setNewCouponCode(e.target.value)}
+                                className="text-xs"
+                                required
+                              />
+                              <Input
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={newCouponDiscount}
+                                onChange={e => setNewCouponDiscount(Number(e.target.value))}
+                                className="text-xs w-16"
+                                required
+                              />
+                              <Button type="submit" size="sm" className="bg-[#060708] text-white">
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </form>
+
+                            <div className="space-y-2 mt-2">
+                              {coupons.map(coupon => (
+                                <div key={coupon.code} className="flex items-center justify-between p-2 rounded-lg border bg-slate-50 text-xs">
+                                  <div className="flex flex-col">
+                                    <span className="font-mono font-bold text-slate-800">{coupon.code}</span>
+                                    <span className="text-[9px] text-slate-400">Potongan {coupon.discount}%</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <button 
+                                      type="button"
+                                      onClick={() => handleToggleCoupon(coupon.code)}
+                                      className={`h-5 px-2 rounded text-[9px] font-bold ${coupon.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}
+                                    >
+                                      {coupon.active ? "Aktif" : "Non-aktif"}
+                                    </button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => handleDeleteCoupon(coupon.code)}
+                                      className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive cursor-pointer"
+                                    >
+                                      <Trash className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* User Progress View */}
+                  {activeView === 'progress' && (
+                    <div className="space-y-6 max-w-5xl mx-auto w-full">
+                      <div className="flex items-center justify-between border-b border-[#E8E5E9]/60 pb-5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h1 className="font-heading text-2xl font-bold text-[#060708]">Kemajuan Belajar Mahasiswa</h1>
+                            <Activity className="h-5 w-5 text-slate-500" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Pantau performa, riwayat login, dan penyelesaian sub-bab per mahasiswa.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white border rounded-xl p-4 shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Total Peserta Terdaftar</span>
+                          <h3 className="font-heading text-2xl font-bold text-[#060708] mt-1">142 Mahasiswa</h3>
+                          <p className="text-[10px] text-slate-400 mt-0.5">85% Full Credit &bull; 15% Audit</p>
+                        </div>
+                        <div className="bg-white border rounded-xl p-4 shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Aktif Hari Ini</span>
+                          <h3 className="font-heading text-2xl font-bold text-[#060708] mt-1">18 Mahasiswa</h3>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Sedang mengakses materi pembelajaran</p>
+                        </div>
+                        <div className="bg-white border rounded-xl p-4 shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Rata-rata Kemajuan Kelas</span>
+                          <h3 className="font-heading text-2xl font-bold text-[#060708] mt-1">68.5%</h3>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Mata kuliah terselesaikan rata-rata</p>
+                        </div>
+                      </div>
+
+                      <Card className="bg-white border border-[#E8E5E9]">
+                        <CardHeader className="p-4 flex flex-row items-center justify-between border-b">
+                          <CardTitle className="text-sm font-bold text-[#060708]">Daftar Partisipan</CardTitle>
+                          <Input placeholder="Cari mahasiswa..." className="text-xs max-w-xs h-8" />
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-slate-50 border-b text-slate-500 text-left font-semibold">
+                                  <th className="p-3">Nama Lengkap</th>
+                                  <th className="p-3">NIM</th>
+                                  <th className="p-3">Mode Belajar</th>
+                                  <th className="p-3">Kemajuan Pembelajaran</th>
+                                  <th className="p-3 text-right">Aksi</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {[
+                                  { name: "Budi Santoso", nim: "2201010101", mode: "Full Credit", progress: 75, date: "Hari ini" },
+                                  { name: "Siti Rahma", nim: "2201010102", mode: "Full Credit", progress: 100, date: "2 jam lalu" },
+                                  { name: "Rian Hidayat", nim: "2201010103", mode: "Audit", progress: 50, date: "Kemarin" },
+                                  { name: "Amanda Wijaya", nim: "2201010104", mode: "Full Credit", progress: 25, date: "3 hari lalu" },
+                                  { name: "Farhan Alamsyah", nim: "2201010105", mode: "Audit", progress: 0, date: "1 minggu lalu" },
+                                ].map((student, i) => (
+                                  <tr key={i} className="hover:bg-slate-50">
+                                    <td className="p-3 font-semibold text-primary">{student.name}</td>
+                                    <td className="p-3 font-mono text-slate-500">{student.nim}</td>
+                                    <td className="p-3">
+                                      <Badge variant="outline" className={student.mode === "Full Credit" ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-slate-100 text-slate-600 border-slate-200"}>
+                                        {student.mode}
+                                      </Badge>
+                                    </td>
+                                    <td className="p-3 w-1/3">
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                          <div className="bg-[#060708] h-full" style={{ width: `${student.progress}%` }} />
+                                        </div>
+                                        <span className="font-bold text-[10px]">{student.progress}%</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-3 text-right">
+                                      <Button variant="ghost" size="sm" className="text-xs h-7 hover:bg-slate-100 cursor-pointer">Hubungi</Button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Quiz Gradebook View */}
+                  {activeView === 'gradebook' && (
+                    <div className="space-y-6 max-w-5xl mx-auto w-full">
+                      <div className="flex items-center justify-between border-b border-[#E8E5E9]/60 pb-5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h1 className="font-heading text-2xl font-bold text-[#060708]">Quiz Gradebook</h1>
+                            <FileSpreadsheet className="h-5 w-5 text-slate-500" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Daftar rekapitulasi penilaian kuis mandiri setiap modul pelajaran.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="bg-white border rounded-xl p-4 shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Rata-rata Nilai Kelas</span>
+                          <h3 className="font-heading text-2xl font-bold text-[#060708] mt-1">79.2 / 100</h3>
+                        </div>
+                        <div className="bg-white border rounded-xl p-4 shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Rasio Kelulusan (&gt;60)</span>
+                          <h3 className="font-heading text-2xl font-bold text-[#060708] mt-1">92.4%</h3>
+                        </div>
+                        <div className="bg-white border rounded-xl p-4 shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Tertinggi</span>
+                          <h3 className="font-heading text-2xl font-bold text-[#060708] mt-1">100</h3>
+                        </div>
+                        <div className="bg-white border rounded-xl p-4 shadow-xs">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Terendah</span>
+                          <h3 className="font-heading text-2xl font-bold text-[#060708] mt-1">45</h3>
+                        </div>
+                      </div>
+
+                      <Card className="bg-white border border-[#E8E5E9]">
+                        <CardHeader className="p-4 border-b">
+                          <CardTitle className="text-sm font-bold text-[#060708]">Matriks Penilaian Kuis</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs text-left">
+                              <thead>
+                                <tr className="bg-slate-50 border-b text-slate-500 font-semibold">
+                                  <th className="p-3">Mahasiswa</th>
+                                  {course.modules?.map((mod, i) => (
+                                    <th key={mod.id} className="p-3">Kuis M{i + 1}</th>
+                                  ))}
+                                  <th className="p-3">Rata-rata</th>
+                                  <th className="p-3">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {[
+                                  { name: "Budi Santoso", scores: [85, 90, 70, 80] },
+                                  { name: "Siti Rahma", scores: [95, 100, 90, 95] },
+                                  { name: "Rian Hidayat", scores: [70, 80, 0, 0] },
+                                  { name: "Amanda Wijaya", scores: [60, 0, 0, 0] },
+                                  { name: "Farhan Alamsyah", scores: [0, 0, 0, 0] },
+                                ].map((student, idx) => {
+                                  const modulesCount = course.modules?.length || 0
+                                  const sliceScores = student.scores.slice(0, modulesCount)
+                                  const completedScores = sliceScores.filter(s => s > 0)
+                                  const avg = completedScores.length > 0 
+                                    ? Math.round(completedScores.reduce((a, b) => a + b, 0) / completedScores.length) 
+                                    : 0
+                                  const isPass = avg >= 60
+
+                                  return (
+                                    <tr key={idx} className="hover:bg-slate-50">
+                                      <td className="p-3 font-semibold text-primary">{student.name}</td>
+                                      {sliceScores.map((score, sIdx) => (
+                                        <td key={sIdx} className="p-3">
+                                          {score > 0 ? (
+                                            <Badge variant="outline" className={`font-mono ${
+                                              score >= 80 ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                              score >= 60 ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
+                                              "bg-red-50 text-red-700 border-red-200"
+                                            }`}>
+                                              {score}
+                                            </Badge>
+                                          ) : (
+                                            <span className="text-slate-400 font-semibold font-mono">-</span>
+                                          )}
+                                        </td>
+                                      ))}
+                                      <td className="p-3 font-bold font-mono">{avg > 0 ? avg : "-"}</td>
+                                      <td className="p-3">
+                                        {avg > 0 ? (
+                                          <Badge className={isPass ? "bg-[#060708] text-white hover:bg-[#060708]/80 border-none" : "bg-[#CF3A1F] text-white hover:bg-[#CF3A1F]/80 border-none"}>
+                                            {isPass ? "Lulus" : "Mengulang"}
+                                          </Badge>
+                                        ) : (
+                                          <Badge variant="outline" className="text-slate-400 border-slate-300">Belum Uji</Badge>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Forum/Moderation View */}
+                  {activeView === 'reviews' && (
+                    <div className="space-y-6 max-w-6xl mx-auto w-full">
+                      <div className="flex items-center justify-between border-b border-[#E8E5E9]/60 pb-5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h1 className="font-heading text-2xl font-bold text-[#060708]">Forum Moderasi & Diskusi</h1>
+                            <MessageSquare className="h-5 w-5 text-slate-500" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Interaksi langsung dengan mahasiswa, jawab pertanyaan, dan moderasi pesan kotor.</p>
+                        </div>
+                      </div>
+
+                      {forumLoading ? (
+                        <div className="flex justify-center items-center py-20">
+                          <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF]" />
+                        </div>
+                      ) : forumPosts.length === 0 ? (
+                        <div className="text-center py-20 bg-white border border-[#E8E5E9] rounded-2xl">
+                          <MessageSquare className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                          <h3 className="font-heading text-lg font-bold text-primary mb-1">Tidak Ada Diskusi</h3>
+                          <p className="text-xs text-muted-foreground">Belum ada mahasiswa yang mengajukan diskusi/pertanyaan di kelas ini.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                          {/* Thread list (Left) */}
+                          <div className="md:col-span-5 space-y-3 max-h-[70vh] overflow-y-auto">
+                            <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans">Daftar Pertanyaan</h3>
+                            {forumPosts.map(post => (
+                              <button
+                                key={post.id}
+                                onClick={() => setActivePost(post)}
+                                className={`w-full text-left p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
+                                  activePost?.id === post.id 
+                                    ? "bg-white border-[#060708] shadow-sm" 
+                                    : "bg-white/60 border-[#E8E5E9] hover:bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <Badge className="bg-[#C6B5BF]/20 text-[#060708] border border-[#C6B5BF]/30 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                    {post.author?.role || "Mahasiswa"}
+                                  </Badge>
+                                  <span className="text-[10px] text-slate-400 font-semibold">{new Date(post.created_at).toLocaleDateString('id-ID')}</span>
+                                </div>
+                                <h4 className="font-semibold text-xs text-[#060708] line-clamp-1">{post.title}</h4>
+                                <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">{post.content}</p>
+                                <div className="flex items-center justify-between border-t mt-3 pt-2 text-[10px] text-slate-400">
+                                  <span>Oleh: <span className="font-semibold text-slate-700">{post.author?.name}</span></span>
+                                  <span className="font-semibold">{post.replies?.length || 0} Tanggapan</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Selected Thread details (Right) */}
+                          <div className="md:col-span-7">
+                            {activePost ? (
+                              <div className="space-y-4">
+                                <Card className="bg-white border border-[#E8E5E9]">
+                                  <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-8 w-8 rounded-full bg-[#C6B5BF]/20 flex items-center justify-center font-bold text-xs text-[#060708] border border-[#C6B5BF]/30">
+                                        {activePost.author?.avatar || "M"}
+                                      </div>
+                                      <div>
+                                        <h4 className="text-xs font-bold text-primary">{activePost.author?.name}</h4>
+                                        <p className="text-[9px] text-slate-400 font-semibold">{activePost.author?.role} &bull; {new Date(activePost.created_at).toLocaleDateString('id-ID')}</p>
+                                      </div>
+                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => handleDeletePost(activePost.id)}
+                                      className="text-xs text-[#CF3A1F] hover:bg-[#CF3A1F]/10 cursor-pointer h-8 gap-1.5"
+                                    >
+                                      <Trash className="h-3.5 w-3.5" />
+                                      Hapus Utas
+                                    </Button>
+                                  </CardHeader>
+                                  <CardContent className="p-4 space-y-4">
+                                    <div>
+                                      <h3 className="font-heading text-sm font-bold text-[#060708] mb-1.5">{activePost.title}</h3>
+                                      <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">{activePost.content}</p>
+                                    </div>
+
+                                    {/* Timeline of replies */}
+                                    <div className="space-y-3 pt-3 border-t">
+                                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans">Tanggapan Diskusi</h4>
+                                      {(activePost.replies || []).length === 0 ? (
+                                        <p className="text-[10px] text-slate-400 italic">Belum ada balasan. Jadilah yang pertama menjawab!</p>
+                                      ) : (
+                                        <div className="space-y-3">
+                                          {(activePost.replies || []).map((reply: any) => (
+                                            <div key={reply.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-1.5">
+                                                  <span className="font-bold text-[10px] text-slate-800">{reply.author?.name}</span>
+                                                  <Badge className={reply.author?.role === "Dosen Pengampu" ? "bg-purple-100 text-purple-800 border-none text-[8px]" : "bg-slate-200 text-slate-700 border-none text-[8px]"}>
+                                                    {reply.author?.role}
+                                                  </Badge>
+                                                </div>
+                                                <span className="text-[8px] text-slate-400 font-semibold">{new Date(reply.created_at).toLocaleDateString('id-ID')}</span>
+                                              </div>
+                                              <p className="text-[11px] text-slate-600 leading-relaxed">{reply.content}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Inline reply Box */}
+                                    <div className="border-t pt-4 space-y-2">
+                                      <Label className="text-xs font-semibold">Berikan Tanggapan / Balasan</Label>
+                                      <Textarea
+                                        placeholder="Ketik jawaban penjelasan akademis atau arahan di sini..."
+                                        value={replyContents[activePost.id] || ""}
+                                        onChange={e => {
+                                          const txt = e.target.value
+                                          setReplyContents(prev => ({ ...prev, [activePost.id]: txt }))
+                                        }}
+                                        rows={3}
+                                        className="text-xs"
+                                      />
+                                      <div className="flex justify-end">
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleCreateReply(activePost.id)}
+                                          disabled={replyLoading[activePost.id]}
+                                          className="bg-[#060708] hover:bg-[#060708]/90 text-white font-semibold text-xs cursor-pointer"
+                                        >
+                                          {replyLoading[activePost.id] && <Loader2 className="h-3 w-3 animate-spin mr-1.5" />}
+                                          Kirim Balasan
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              </div>
+                            ) : (
+                              <div className="text-center py-20 bg-white border border-[#E8E5E9] rounded-2xl text-muted-foreground text-xs">
+                                Pilih salah satu pertanyaan di sebelah kiri untuk melihat tanggapan dan membalas.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* AI insights View */}
+                  {activeView === 'ai-insights' && (
+                    <div className="space-y-6 max-w-4xl mx-auto w-full">
+                      <div className="flex items-center justify-between border-b border-[#E8E5E9]/60 pb-5">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h1 className="font-heading text-2xl font-bold text-[#060708]">AI Course Insights</h1>
+                            <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Dapatkan masukan otomatis berdaya AI tentang penyusunan materi dan performa siswa.</p>
+                        </div>
+                      </div>
+
+                      <Card className="bg-white border border-[#E8E5E9] shadow-sm overflow-hidden">
+                        <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b p-5">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
+                              <Sparkles className="h-6 w-6" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-sm font-bold text-[#060708]">Rekomendasi Syllabus & Kuis Cerdas</CardTitle>
+                              <CardDescription className="text-[11px]">Asisten AI menganalisis interaksi mahasiswa, waktu belajar, dan pola kegagalan ujian.</CardDescription>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                          {!aiInsightsText ? (
+                            <div className="text-center py-10 space-y-4">
+                              <div className="max-w-md mx-auto space-y-2">
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                  Belum ada analisis yang dijalankan untuk modul ini. Tekan tombol di bawah untuk menyinkronkan data mahasiswa secara anonim dan memicu mesin penganalisis kurikulum kami.
+                                </p>
+                              </div>
+                              <Button
+                                onClick={handleGenerateAIInsights}
+                                disabled={aiInsightsLoading}
+                                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-lg shadow-sm gap-2 cursor-pointer"
+                              >
+                                {aiInsightsLoading ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                    Menganalisis Performa Kelas...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="h-4 w-4" />
+                                    Jalankan Analisis AI Belajara
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="prose prose-sm max-w-none text-xs bg-slate-50 p-6 rounded-2xl border border-slate-100 leading-relaxed text-slate-700">
+                                <MarkdownRenderer content={aiInsightsText} />
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => setAiInsightsText(null)}
+                                  className="text-xs border-[#C6B5BF] cursor-pointer"
+                                >
+                                  Reset Analisis
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => showToast("success", "Rekomendasi AI berhasil disalin ke dokumen perencanaan dosen.")}
+                                  className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs cursor-pointer"
+                                >
+                                  Salin Rekomendasi
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  {/* Secondary Views (Dashboard, Activity Matrix, Users, Certificates, Forms, Layout, Player settings, Video Library, Automations) */}
+                  {!['outline', 'general', 'access', 'pricing', 'progress', 'gradebook', 'reviews', 'ai-insights'].includes(activeView) && (
+                    <div className="space-y-6 max-w-4xl mx-auto w-full">
+                      <div className="flex items-center gap-1.5 border-b border-[#E8E5E9]/60 pb-5">
+                        <h1 className="font-heading text-2xl font-bold text-[#060708] capitalize">
+                          {activeView === 'dashboard' ? 'Overview Dashboard' : 
+                           activeView === 'insights' ? 'Course Insights Analytics' : 
+                           activeView === 'activity' ? 'Activity Matrix' : 
+                           activeView === 'users' ? 'Direktori Mahasiswa' : 
+                           activeView === 'certificates' ? 'Sertifikat Kelulusan' : 
+                           activeView === 'forms' ? 'Course Feedback Forms' : 
+                           activeView === 'layout' ? 'Tata Letak Pemutar' : 
+                           activeView === 'player' ? 'Pengaturan Workspace Player' : 
+                           activeView === 'video' ? 'Video Media Library' : 
+                           activeView === 'automations' ? 'Integrasi & Otomasi' : activeView}
+                        </h1>
+                      </div>
+
+                      {/* View Specific Templates */}
+                      {(activeView === 'dashboard' || activeView === 'insights') && (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-white border rounded-xl p-4 shadow-xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">Total Pendapatan</span>
+                              <h3 className="font-heading text-xl font-bold text-[#060708] mt-1">Rp 7.100.000</h3>
+                              <p className="text-[9px] text-emerald-600 mt-0.5">&uarr; 12% dari bulan lalu</p>
+                            </div>
+                            <div className="bg-white border rounded-xl p-4 shadow-xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">Penyelesaian Kelas</span>
+                              <h3 className="font-heading text-xl font-bold text-[#060708] mt-1">42 Mahasiswa</h3>
+                              <p className="text-[9px] text-slate-400 mt-0.5">Berhasil lulus seluruh kuis</p>
+                            </div>
+                            <div className="bg-white border rounded-xl p-4 shadow-xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">Waktu Tonton Rata-rata</span>
+                              <h3 className="font-heading text-xl font-bold text-[#060708] mt-1">2.4 Jam / Minggu</h3>
+                              <p className="text-[9px] text-slate-400 mt-0.5">Per-mahasiswa aktif</p>
+                            </div>
+                            <div className="bg-white border rounded-xl p-4 shadow-xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">Kepuasan Kelas</span>
+                              <h3 className="font-heading text-xl font-bold text-[#060708] mt-1">4.8 / 5.0</h3>
+                              <p className="text-[9px] text-slate-400 mt-0.5">Berdasarkan 38 umpan balik</p>
+                            </div>
+                          </div>
+
+                          <Card className="bg-white border border-[#E8E5E9]">
+                            <CardHeader>
+                              <CardTitle className="text-sm font-bold text-[#060708]">Tren Pendaftaran Bulanan</CardTitle>
+                            </CardHeader>
+                            <CardContent className="h-48 flex items-end gap-3 pt-6 font-sans">
+                              {[
+                                { label: "Jan", val: 30 },
+                                { label: "Feb", val: 45 },
+                                { label: "Mar", val: 65 },
+                                { label: "Apr", val: 85 },
+                                { label: "Mei", val: 120 },
+                                { label: "Jun", val: 142 },
+                              ].map((bar, i) => (
+                                <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                                  <div className="bg-[#060708] w-full rounded-t-lg transition-all duration-500" style={{ height: `${(bar.val / 150) * 100}%` }} />
+                                  <span className="text-[9px] text-slate-500 font-semibold">{bar.label} ({bar.val})</span>
+                                </div>
+                              ))}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      )}
+
+                      {activeView === 'activity' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Matriks Jam Belajar Terpadu</CardTitle>
+                            <CardDescription className="text-[11px]">Visualisasi heatmap jam aktif mahasiswa mengakses platform Belajara.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4 font-sans text-xs">
+                            <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-semibold text-slate-400 border-b pb-2">
+                              <div>Jam / Hari</div>
+                              <div>Senin</div>
+                              <div>Selasa</div>
+                              <div>Rabu</div>
+                              <div>Kamis</div>
+                              <div>Jumat</div>
+                              <div>Sabtu</div>
+                              <div>Minggu</div>
+                            </div>
+                            {[
+                              { hour: "08:00 - 12:00", vals: [3, 2, 4, 3, 2, 1, 0] },
+                              { hour: "12:00 - 16:00", vals: [4, 5, 3, 4, 3, 2, 1] },
+                              { hour: "16:00 - 20:00", vals: [6, 7, 8, 6, 5, 3, 2] },
+                              { hour: "20:00 - 24:00", vals: [8, 9, 10, 9, 8, 5, 4] },
+                            ].map((row, rIdx) => (
+                              <div key={rIdx} className="grid grid-cols-8 gap-2 items-center text-center">
+                                <div className="font-semibold text-slate-500 text-[10px] text-left">{row.hour}</div>
+                                {row.vals.map((v, vIdx) => {
+                                  let bg = "bg-slate-50 border-slate-100"
+                                  if (v > 7) bg = "bg-purple-855 text-white"
+                                  else if (v > 4) bg = "bg-[#060708] text-white"
+                                  else if (v > 2) bg = "bg-[#C6B5BF] text-[#060708]"
+                                  else if (v > 0) bg = "bg-[#C6B5BF]/30 text-slate-700"
+                                  return (
+                                    <div key={vIdx} className={`p-2 rounded-lg border text-[10px] font-bold ${bg}`}>
+                                      {v}x
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ))}
+                            <div className="flex gap-4 justify-end text-[10px] text-slate-400 font-semibold pt-4 border-t">
+                              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 bg-slate-50 border rounded" /> 0-2 sesi</span>
+                              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 bg-[#C6B5BF]/30 border rounded" /> 3-4 sesi</span>
+                              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 bg-[#C6B5BF] rounded" /> 5-7 sesi</span>
+                              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 bg-purple-800 rounded" /> 8+ sesi</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeView === 'users' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
+                            <CardTitle className="text-sm font-bold text-[#060708]">Daftar Registrasi Akademik</CardTitle>
+                            <Input placeholder="Cari nama atau NIM..." className="text-xs max-w-xs h-8" />
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <table className="w-full text-xs text-left">
+                              <thead>
+                                <tr className="bg-slate-50 border-b text-slate-500 font-semibold">
+                                  <th className="p-3">Nama</th>
+                                  <th className="p-3">NIM</th>
+                                  <th className="p-3">Email</th>
+                                  <th className="p-3">Semester</th>
+                                  <th className="p-3">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {[
+                                  { name: "Budi Santoso", nim: "2201010101", email: "budi@gmail.com", sem: 3, stat: "Aktif" },
+                                  { name: "Siti Rahma", nim: "2201010102", email: "siti@gmail.com", sem: 3, stat: "Aktif" },
+                                  { name: "Rian Hidayat", nim: "2201010103", email: "rian@gmail.com", sem: 3, stat: "Aktif" },
+                                  { name: "Amanda Wijaya", nim: "2201010104", email: "amanda@gmail.com", sem: 3, stat: "Aktif" },
+                                  { name: "Farhan Alamsyah", nim: "2201010105", email: "farhan@gmail.com", sem: 3, stat: "Tidak Aktif" },
+                                ].map((u, i) => (
+                                  <tr key={i} className="hover:bg-slate-50">
+                                    <td className="p-3 font-semibold text-primary">{u.name}</td>
+                                    <td className="p-3 font-mono text-slate-500">{u.nim}</td>
+                                    <td className="p-3 font-mono">{u.email}</td>
+                                    <td className="p-3">Semester {u.sem}</td>
+                                    <td className="p-3">
+                                      <Badge className={u.stat === "Aktif" ? "bg-emerald-500 text-white" : "bg-slate-400 text-white"}>
+                                        {u.stat}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeView === 'certificates' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Penerbitan Sertifikat Kelulusan Elektronik</CardTitle>
+                            <CardDescription className="text-[11px]">Mahasiswa yang menyelesaikan seluruh kuis dengan nilai minimal kriteria kelayakan akan berhak menerima sertifikat.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between border-b pb-4">
+                              <div className="space-y-0.5">
+                                <Label htmlFor="cert-auto" className="font-bold text-xs text-primary cursor-pointer">Terbitkan Otomatis Saat Lulus</Label>
+                                <p className="text-[10px] text-slate-500 leading-normal">
+                                  Kirim e-sertifikat berformat PDF ke email mahasiswa langsung ketika kuis bab terakhir dinyatakan lulus.
+                                </p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                id="cert-auto"
+                                defaultChecked={true}
+                                className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Batas Minimum Kelulusan (Kuis Avg)</Label>
+                                <Input type="number" defaultValue={60} className="text-xs" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Pilih Desain Template</Label>
+                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                  <option value="modern">Belajara Modern Minimalist (Playfair)</option>
+                                  <option value="classic">Akademis Klasik (Serif)</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-end pt-3">
+                              <Button size="sm" onClick={() => showToast("success", "Pengaturan sertifikat berhasil diperbarui.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                                Perbarui Sertifikat
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeView === 'forms' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Formulir Evaluasi & Umpan Balik</CardTitle>
+                            <CardDescription className="text-[11px]">Kumpulkan kritik, saran, serta tingkat kepuasan dari mahasiswa di akhir kelas.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="space-y-3">
+                              <div className="p-3 bg-slate-50 rounded-lg border text-xs">
+                                <span className="font-bold text-[#060708]">Pertanyaan 1 (Skala 1-5):</span>
+                                <p className="text-slate-500 mt-1">Bagaimana tingkat kejelasan materi pembelajaran yang disampaikan?</p>
+                              </div>
+                              <div className="p-3 bg-slate-50 rounded-lg border text-xs">
+                                <span className="font-bold text-[#060708]">Pertanyaan 2 (Esai):</span>
+                                <p className="text-slate-500 mt-1">Tuliskan kendala teknis atau saran perbaikan untuk kuis mandiri kelas ini.</p>
+                              </div>
+                            </div>
+                            <Button size="sm" onClick={() => showToast("success", "Formulir umpan balik berhasil diaktifkan.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                              Aktifkan Kuesioner
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeView === 'layout' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Tata Letak & Halaman Kelas</CardTitle>
+                            <CardDescription className="text-[11px]">Sesuaikan tampilan visual halaman utama katalog kelas bagi calon pendaftar.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Tipe Navigasi Kelas</Label>
+                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                  <option value="sticky">Sticky Sidebar Navigation</option>
+                                  <option value="top">Top Bar Course Navigation</option>
+                                </select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold">Header Cover Pattern</Label>
+                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                  <option value="solid">Minimalist Off-White (#FAF9FB)</option>
+                                  <option value="mesh">Sophisticated Mauve Gradient</option>
+                                </select>
+                              </div>
+                            </div>
+                            <Button size="sm" onClick={() => showToast("success", "Tata letak halaman kelas berhasil disimpan.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                              Simpan Tata Letak
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeView === 'player' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Konfigurasi Workspace Player</CardTitle>
+                            <CardDescription className="text-[11px]">Sesuaikan opsi interaktivitas antarmuka pemutar materi mahasiswa.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" id="play-disc" defaultChecked={true} className="h-4 w-4 border-gray-300 text-[#060708] rounded" />
+                                <Label htmlFor="play-disc" className="text-xs font-semibold">Tampilkan Kolom Chat & Diskusi Modul</Label>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" id="play-auto" defaultChecked={false} className="h-4 w-4 border-gray-300 text-[#060708] rounded" />
+                                <Label htmlFor="play-auto" className="text-xs font-semibold">Autoplay Video (Putar Otomatis Sub-bab Selanjutnya)</Label>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" id="play-download" defaultChecked={true} className="h-4 w-4 border-gray-300 text-[#060708] rounded" />
+                                <Label htmlFor="play-download" className="text-xs font-semibold">Izinkan Pengunduhan Berkas PDF & Bahan Bacaan</Label>
+                              </div>
+                            </div>
+                            <Button size="sm" onClick={() => showToast("success", "Pengaturan workspace player disimpan.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                              Simpan Workspace Player
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeView === 'video' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
+                            <CardTitle className="text-sm font-bold text-[#060708]">Perpustakaan Video (Video Library)</CardTitle>
+                            <Button size="sm" className="bg-[#060708] text-white text-xs gap-1.5 cursor-pointer">
+                              <Plus className="h-3.5 w-3.5" />
+                              Unggah Video
+                            </Button>
+                          </CardHeader>
+                          <CardContent className="p-0">
+                            <table className="w-full text-xs text-left">
+                              <thead>
+                                <tr className="bg-slate-50 border-b text-slate-500 font-semibold">
+                                  <th className="p-3">Nama Berkas</th>
+                                  <th className="p-3">Resolusi</th>
+                                  <th className="p-3">Durasi</th>
+                                  <th className="p-3">Tanggal Unggah</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y text-slate-600">
+                                <tr className="hover:bg-slate-50">
+                                  <td className="p-3 font-semibold text-primary">logika-matematika-proposisi.mp4</td>
+                                  <td className="p-3 font-mono">1080p (FHD)</td>
+                                  <td className="p-3">12:45</td>
+                                  <td className="p-3">01 Jun 2026</td>
+                                </tr>
+                                <tr className="hover:bg-slate-50">
+                                  <td className="p-3 font-semibold text-primary">induksi-matematika-pembuktian.mp4</td>
+                                  <td className="p-3 font-mono">1080p (FHD)</td>
+                                  <td className="p-3">18:20</td>
+                                  <td className="p-3">02 Jun 2026</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {activeView === 'automations' && (
+                        <Card className="bg-white border border-[#E8E5E9]">
+                          <CardHeader>
+                            <CardTitle className="text-sm font-bold text-[#060708]">Otomasi & Integrasi Alur Kerja</CardTitle>
+                            <CardDescription className="text-[11px]">Hubungkan aktivitas kelas Anda dengan webhook luar dan notifikasi eksternal.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between border-b pb-4">
+                              <div className="space-y-0.5">
+                                <Label className="font-bold text-xs text-primary">Integrasikan dengan Discord/Slack Webhook</Label>
+                                <p className="text-[10px] text-slate-500 leading-normal">
+                                  Kirim peringatan instan ke kanal koordinasi dosen setiap kali ada transaksi pendaftaran baru.
+                                </p>
+                              </div>
+                              <input type="checkbox" defaultChecked={false} className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer" />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-semibold">Slack/Discord Webhook URL</Label>
+                              <Input placeholder="https://hooks.slack.com/services/..." className="text-xs" />
+                            </div>
+
+                            <div className="flex justify-end pt-3">
+                              <Button size="sm" onClick={() => showToast("success", "Pengaturan integrasi disimpan.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                                Simpan Integrasi
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Sub-Chapter Add/Edit Dialog */}

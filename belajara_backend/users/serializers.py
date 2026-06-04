@@ -20,17 +20,30 @@ class UserSerializer(serializers.ModelSerializer):
     mahasiswa_profile = MahasiswaProfileSerializer(read_only=True)
     instructor_profile = InstructorProfileSerializer(read_only=True)
     full_name = serializers.SerializerMethodField()
+    subscription_tier = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             'id', 'username', 'email', 'first_name', 'last_name', 
             'full_name', 'is_mahasiswa', 'is_premium', 'is_instructor', 
-            'mahasiswa_profile', 'instructor_profile'
+            'subscription_tier', 'mahasiswa_profile', 'instructor_profile'
         )
 
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+    def get_subscription_tier(self, obj):
+        if not obj.is_mahasiswa:
+            return "free"
+        try:
+            profile = obj.mahasiswa_profile
+            sub = getattr(profile, 'subscription', None)
+            if sub and sub.is_active:
+                return sub.tier
+        except Exception:
+            pass
+        return "scholar" if obj.is_premium else "free"
 
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)

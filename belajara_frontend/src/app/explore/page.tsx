@@ -77,7 +77,7 @@ export default function ExplorePage() {
   }, [loading])
 
   const fetchActiveCourses = () => {
-    fetch("http://localhost:8001/api/dashboard/")
+    fetch("http://127.0.0.1:8001/api/dashboard/")
       .then((res) => {
         if (res.ok) return res.json()
         throw new Error()
@@ -204,7 +204,7 @@ export default function ExplorePage() {
   }
 
   const handleEnroll = (courseCode: string) => {
-    fetch("http://localhost:8001/api/courses/enroll/", {
+    fetch("http://127.0.0.1:8001/api/courses/enroll/", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

@@ -9,10 +9,14 @@ class SubChapterSerializer(serializers.ModelSerializer):
 
 class CourseModuleSerializer(serializers.ModelSerializer):
     subchapters = SubChapterSerializer(many=True, read_only=True)
+    is_premium = serializers.SerializerMethodField()
 
     class Meta:
         model = CourseModule
-        fields = ['id', 'title', 'description', 'order', 'subchapters']
+        fields = ['id', 'title', 'description', 'order', 'subchapters', 'is_premium']
+
+    def get_is_premium(self, obj):
+        return obj.course.is_premium
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -83,6 +87,6 @@ class CourseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = ['id', 'code', 'title', 'description', 'sks', 'semester', 'department', 'price', 'is_premium', 'modules']
+        fields = ['id', 'code', 'title', 'description', 'sks', 'semester', 'department', 'price', 'is_premium', 'category', 'instructor_name', 'instructor_email', 'thumbnail_url', 'status', 'tags', 'level', 'modules']
 
 

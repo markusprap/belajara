@@ -24,11 +24,14 @@ import {
   Check,
   LogOut,
   ArrowRight,
-  ChevronDown
+  ChevronDown,
+  Star,
+  Users
 } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function CatalogPage() {
   const router = useRouter()
@@ -87,7 +90,7 @@ export default function CatalogPage() {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
     }
-    fetch("http://localhost:8001/api/dashboard/", { headers })
+    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
       .then((res) => {
         if (res.ok) return res.json()
         throw new Error()
@@ -114,7 +117,7 @@ export default function CatalogPage() {
     if (department) params.append("department", department)
     params.append("page", currentPage.toString())
     
-    fetch(`http://localhost:8001/api/courses/?${params.toString()}`)
+    fetch(`http://127.0.0.1:8001/api/courses/?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Gagal mengambil daftar mata kuliah")
         return res.json()
@@ -144,6 +147,21 @@ export default function CatalogPage() {
   }, [fetchActiveCourses])
 
   React.useEffect(() => {
+    if (!isLoggedIn) {
+      const root = window.document.documentElement
+      const hadDark = root.classList.contains("dark")
+      root.classList.remove("dark")
+      root.classList.add("light")
+      return () => {
+        if (hadDark) {
+          root.classList.remove("light")
+          root.classList.add("dark")
+        }
+      }
+    }
+  }, [isLoggedIn])
+
+  React.useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchCourses()
     }, 300)
@@ -168,7 +186,7 @@ export default function CatalogPage() {
       "Authorization": `Bearer ${token}`
     }
 
-    fetch("http://localhost:8001/api/courses/enroll/", {
+    fetch("http://127.0.0.1:8001/api/courses/enroll/", {
       method: "POST",
       headers,
       body: JSON.stringify({ course_code: courseCode, enrollment_mode: mode })
@@ -341,58 +359,72 @@ export default function CatalogPage() {
             {courses.map((course) => {
               const isEnrolled = activeCourseCodes.includes(course.code)
               return (
-                <Card key={course.id} className="border border-[#E8E5E9] hover:border-[#C6B5BF] bg-white rounded-xl shadow-2xs transition-all flex flex-col justify-between overflow-hidden group">
-                  <CardHeader className="p-4 border-b border-[#E8E5E9]/60 flex flex-row items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[9px] font-bold text-accent uppercase tracking-wider block">{course.department}</span>
-                      <CardTitle className="font-heading text-sm font-black text-primary mt-1 line-clamp-1 leading-snug">{course.title}</CardTitle>
+                <Card key={course.id} className="border border-[#E8E5E9] hover:border-[#C6B5BF] bg-white rounded-xl shadow-xs transition-all flex flex-col justify-between overflow-hidden group">
+                  
+                  {/* Course Thumbnail Image */}
+                  <div className="relative aspect-video w-full bg-slate-900 overflow-hidden border-b border-slate-100">
+                    <img 
+                      src={course.thumbnail_url || (course.department === "Matematika" ? "/images/asian_instructor_thumbnail.png" : "/images/daniel_scott_thumbnail.png")} 
+                      alt={course.title}
+                      className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
+                    />
+                    {/* Tag/Pricing Float badge */}
+                    <div className="absolute bottom-3 left-3 bg-black/60 text-white text-[9px] font-extrabold uppercase px-2.5 py-1 rounded-full border border-white/20">
+                      {course.sks} SKS | {course.is_premium && Number(course.price) > 0 ? "Premium" : "Gratis"}
                     </div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase shrink-0 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                      S{course.semester}
+                  </div>
+
+                  <CardHeader className="p-4 flex flex-row items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[9px] font-extrabold text-[#CF3A1F] uppercase tracking-wider block">{course.department}</span>
+                      <CardTitle className="font-heading text-sm font-black text-primary mt-1 line-clamp-1 leading-snug">
+                        <Link href={`/catalog/preview/${course.code}`} className="hover:text-[#CF3A1F] transition-colors">
+                          {course.title}
+                        </Link>
+                      </CardTitle>
+                    </div>
+                    <span className="text-[9px] font-extrabold text-slate-500 uppercase shrink-0 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                      Semester {course.semester}
                     </span>
                   </CardHeader>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
-                      <span>{course.sks} SKS</span>
-                      <span className="text-xs font-bold text-slate-800">
-                        {course.is_premium && Number(course.price) > 0 
-                          ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(course.price)) 
-                          : "Gratis"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed font-sans">
-                      {course.description || "Mata kuliah unggulan untuk membina dasar kompetensi akademik Anda."}
+                  
+                  <CardContent className="px-4 pb-4 space-y-3">
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed font-sans font-medium">
+                      {course.description || "Mata kuliah akademik pilihan untuk memperkuat logika keilmuan dan kompetensi profesional Anda."}
                     </p>
                     
-                    {course.modules && course.modules.length > 0 && (
-                      <button
-                        onClick={() => setActiveSyllabusCourse(course)}
-                        className="text-[10px] font-extrabold text-accent hover:text-[#060708] transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer pt-1"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" /> Lihat Silabus Kelas ({course.modules.length} Modul Belajar)
-                      </button>
-                    )}
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-[10px] font-semibold text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                        <strong>4.9</strong> (5.7k Reviews)
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        <strong>45</strong> Mhs
+                      </span>
+                    </div>
                   </CardContent>
-                  <CardFooter className="p-4 bg-slate-50/50 border-t border-[#E8E5E9]/60 flex items-center justify-end">
+
+                  <CardFooter className="p-4 bg-slate-50/50 border-t border-[#E8E5E9]/60 flex items-center justify-between gap-3 text-[10px] font-extrabold uppercase tracking-wider">
+                    <span className="text-slate-800 font-bold text-[11px]">
+                      {course.is_premium && Number(course.price) > 0 
+                        ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(course.price)) 
+                        : "Gratis"}
+                    </span>
+                    
                     {isEnrolled ? (
                       <Button
                         onClick={() => router.push(`/courses/${course.code}`)}
-                        className="bg-[#060708] hover:bg-[#060708]/90 text-white font-bold text-xs h-8 px-4 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        className="bg-[#060708] hover:bg-[#060708]/90 text-white text-[9px] font-bold uppercase tracking-wider h-8 px-4 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-sm"
                       >
                         Lanjut Belajar <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
                     ) : (
                       <Button
-                        onClick={() => {
-                          if (!isLoggedIn) {
-                            router.push("/login?redirect=catalog")
-                          } else {
-                            setSelectedEnrollCourse(course)
-                          }
-                        }}
-                        className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white font-bold text-xs h-8 px-4 rounded-lg cursor-pointer"
+                        onClick={() => router.push(`/catalog/preview/${course.code}`)}
+                        className="bg-white border border-slate-900 text-slate-900 hover:bg-slate-50 text-[9px] font-bold uppercase tracking-wider h-8 px-4 rounded-lg cursor-pointer"
                       >
-                        Ambil Kelas
+                        Detail Kelas
                       </Button>
                     )}
                   </CardFooter>
@@ -673,12 +705,15 @@ export default function CatalogPage() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <div className="font-heading text-sm font-semibold text-[#060708]">
-              Katalog Mata Kuliah
+          <header className="flex h-16 shrink-0 items-center justify-between border-b px-4 bg-white">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <div className="font-heading text-sm font-semibold text-[#060708]">
+                Katalog Mata Kuliah
+              </div>
             </div>
+            <ThemeToggle />
           </header>
           <div className="p-6 bg-[#FAF9FB] flex-1">
             <div className="max-w-7xl mx-auto">

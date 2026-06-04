@@ -20,6 +20,13 @@ class PDFAnalyzeView(APIView):
         if not uploaded_file:
             return Response({"detail": "File dokumen harus diunggah."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # File size validation (limit to 10MB)
+        if uploaded_file.size > 10 * 1024 * 1024:
+            return Response(
+                {"detail": "Ukuran file melebihi batas maksimum (10 MB)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         filename = uploaded_file.name.lower()
         if not (filename.endswith('.pdf') or filename.endswith(('.xlsx', '.xls'))):
             return Response({"detail": "File harus berupa dokumen PDF atau Excel."}, status=status.HTTP_400_BAD_REQUEST)
@@ -28,6 +35,13 @@ class PDFAnalyzeView(APIView):
             # 1. Fallback to default student if not authenticated
             user = request.user
             if not user or not user.is_authenticated:
+                from django.conf import settings
+                if not settings.DEBUG:
+                    return Response(
+                        {"detail": "Authentication credentials were not provided."},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+
                 User = get_user_model()
                 user, created = User.objects.get_or_create(
                     username="mahasiswa",
@@ -51,6 +65,21 @@ class PDFAnalyzeView(APIView):
                     "semester": 3
                 }
             )
+
+            # Rate limit check for free users: only 1 AI recommendation per 30 days
+            if not user.is_premium:
+                from django.utils import timezone
+                from datetime import timedelta
+                limit_time = timezone.now() - timedelta(days=30)
+                recent_recs = AIRecommendation.objects.filter(
+                    mahasiswa=mahasiswa,
+                    created_at__gte=limit_time
+                ).count()
+                if recent_recs >= 1:
+                    return Response(
+                        {"detail": "Anda telah mencapai batas rekomendasi AI gratis (1x/bulan). Silakan upgrade ke premium untuk rekomendasi tanpa batas."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
 
             # 2. Save uploaded file metadata to Curriculum model
             curriculum_obj = Curriculum.objects.create(
@@ -78,13 +107,29 @@ class AIRecommendationStatusView(APIView):
     permission_classes = []  # Allow open access for ease of integration
 
     def get(self, request, curriculum_id, *args, **kwargs):
-        recommendation = AIRecommendation.objects.filter(curriculum_id=curriculum_id).first()
+        recommendation = AIRecommendation.objects.select_related('mahasiswa__user').filter(curriculum_id=curriculum_id).first()
         if not recommendation:
             return Response({"status": "processing"}, status=status.HTTP_200_OK)
 
+        # Restrict access to owner in production / authenticated context
+        user = request.user
+        if user and user.is_authenticated:
+            if recommendation.mahasiswa.user != user:
+                return Response(
+                    {"detail": "Anda tidak memiliki akses ke rekomendasi ini."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            from django.conf import settings
+            if not settings.DEBUG:
+                return Response(
+                    {"detail": "Authentication credentials were not provided."},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+
         response_data = []
         codes = [item.get("code") for item in recommendation.recommendations_data if item.get("code")]
-        courses = Course.objects.filter(code__in=codes).prefetch_related('modules')
+        courses = Course.objects.filter(code__in=codes).prefetch_related('modules__subchapters')
         course_map = {c.code: c for c in courses}
 
         for item in recommendation.recommendations_data:
@@ -117,6 +162,13 @@ class CurriculumUploadView(APIView):
 
         if not uploaded_file:
             return Response({"detail": "File kurikulum harus diunggah."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # File size validation (limit to 10MB)
+        if uploaded_file.size > 10 * 1024 * 1024:
+            return Response(
+                {"detail": "Ukuran file melebihi batas maksimum (10 MB)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             saved_courses = parse_curriculum_and_save(uploaded_file, uploaded_file.name, department)

@@ -53,7 +53,7 @@ export default function InstructorPage() {
     setError(null)
     try {
       const token = getToken()
-      const res = await fetch("http://localhost:8001/api/courses/", {
+      const res = await fetch("http://127.0.0.1:8001/api/courses/", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {

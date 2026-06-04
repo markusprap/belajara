@@ -55,11 +55,16 @@ def get_student_dashboard_data(user) -> dict:
 
 
     # 3. Calculate stats from DB
+    from quizzes.models import QuizSubmission
+    from django.db.models import Avg
     active_classes_count = active_courses_qs.count()
     ai_recs_count = AIRecommendation.objects.filter(mahasiswa=mahasiswa).count()
     
     # Calculate achievement level dynamically based on active courses (e.g. level = 1 + 2 per course)
     achievement_level = 1 + (active_classes_count * 2)
+
+    submissions = QuizSubmission.objects.filter(mahasiswa=mahasiswa)
+    average_quiz_score = round(submissions.aggregate(Avg('score'))['score__avg'] or 0.0, 1)
 
     # 4. Generate today's study recommendation dynamically based on active courses
     today_recommendation = None
@@ -89,6 +94,7 @@ def get_student_dashboard_data(user) -> dict:
             "active_classes_count": active_classes_count,
             "ai_recommendations_count": ai_recs_count,
             "achievement_level": achievement_level,
+            "average_quiz_score": average_quiz_score,
         },
         "today_recommendation": today_recommendation or {
             "course_code": "N/A",

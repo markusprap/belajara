@@ -19,15 +19,30 @@ class QuizQuestionsStudentField(serializers.Field):
 
 class QuizStudentSerializer(serializers.ModelSerializer):
     questions = QuizQuestionsStudentField(source='questions_json')
+    time_limit = serializers.SerializerMethodField()
 
     class Meta:
         model = Quiz
-        fields = ('id', 'module', 'questions', 'generated_by_ai', 'created_at')
+        fields = ('id', 'module', 'questions', 'generated_by_ai', 'time_limit', 'created_at')
+
+    def get_time_limit(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated and request.user.is_premium:
+            return 900  # 15 minutes for premium / competency exams
+        return 600  # 10 minutes standard duration for free users
 
 class QuizSerializer(serializers.ModelSerializer):
+    time_limit = serializers.SerializerMethodField()
+
     class Meta:
         model = Quiz
-        fields = ('id', 'module', 'questions_json', 'generated_by_ai', 'created_at')
+        fields = ('id', 'module', 'questions_json', 'generated_by_ai', 'time_limit', 'created_at')
+
+    def get_time_limit(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated and request.user.is_premium:
+            return 900
+        return 600
 
 class QuizSubmissionSerializer(serializers.ModelSerializer):
     class Meta:

@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from users.views import StudentDashboardView, RegisterView, MeView, GoogleOAuthView
+from users.views import StudentDashboardView, RegisterView, MeView, GoogleOAuthView, ChangePasswordView
 from courses.views import (
     CourseListView, CourseEnrollView, CourseDetailView,
     CourseCreateView, CourseUpdateDeleteView,
@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/auth/google/', GoogleOAuthView.as_view(), name='auth_google'),
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/me/', MeView.as_view(), name='auth_me'),
+    path('api/auth/change-password/', ChangePasswordView.as_view(), name='auth_change_password'),
 
     # Student endpoints
     path('api/dashboard/', StudentDashboardView.as_view(), name='student-dashboard'),

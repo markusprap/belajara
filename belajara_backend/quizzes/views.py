@@ -15,8 +15,16 @@ class QuizGenerateView(APIView):
 
     def post(self, request, module_id):
         try:
+            from courses.models import CourseModule
+            module = CourseModule.objects.select_related('course').get(pk=module_id)
+            if module.course.is_premium and not request.user.is_premium:
+                return Response({"detail": "Evaluasi modul premium ini hanya dapat diakses oleh pengguna premium."}, status=status.HTTP_403_FORBIDDEN)
+        except CourseModule.DoesNotExist:
+            return Response({"detail": "Modul tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
             quiz = generate_quiz_for_module(module_id)
-            serializer = QuizSerializer(quiz)
+            serializer = QuizSerializer(quiz, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValueError as ve:
             return Response({"detail": str(ve)}, status=status.HTTP_404_NOT_FOUND)
@@ -28,16 +36,19 @@ class QuizDetailView(APIView):
 
     def get(self, request, quiz_id):
         try:
-            quiz = Quiz.objects.get(pk=quiz_id)
+            quiz = Quiz.objects.select_related('module__course').get(pk=quiz_id)
         except Quiz.DoesNotExist:
             return Response({"detail": "Quiz tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        if quiz.module.course.is_premium and not request.user.is_premium:
+            return Response({"detail": "Evaluasi modul premium ini hanya dapat diakses oleh pengguna premium."}, status=status.HTTP_403_FORBIDDEN)
 
         # Retrieve student profile. If they are an instructor, they can see the full keys.
         is_instructor = not getattr(request.user, 'is_mahasiswa', False)
         if is_instructor:
-            serializer = QuizSerializer(quiz)
+            serializer = QuizSerializer(quiz, context={'request': request})
         else:
-            serializer = QuizStudentSerializer(quiz)
+            serializer = QuizStudentSerializer(quiz, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class QuizSubmitView(APIView):
@@ -45,9 +56,12 @@ class QuizSubmitView(APIView):
 
     def post(self, request, quiz_id):
         try:
-            quiz = Quiz.objects.get(pk=quiz_id)
+            quiz = Quiz.objects.select_related('module__course').get(pk=quiz_id)
         except Quiz.DoesNotExist:
             return Response({"detail": "Quiz tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        if quiz.module.course.is_premium and not request.user.is_premium:
+            return Response({"detail": "Evaluasi modul premium ini hanya dapat diakses oleh pengguna premium."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             mahasiswa = get_mahasiswa_by_user(user=request.user)

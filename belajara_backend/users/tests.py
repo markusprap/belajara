@@ -168,3 +168,140 @@ def test_register_student_missing_nim():
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "nim" in response.data
 
+@pytest.mark.django_db
+def test_google_oauth_new_instructor():
+    client = APIClient()
+    url = reverse('auth_google')
+    data = {
+        "email": "newinstructor@example.com",
+        "first_name": "Google",
+        "last_name": "Instructor",
+        "google_id": "1234567890",
+        "role": "instructor"
+    }
+    response = client.post(url, data, format='json')
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["user"]["email"] == "newinstructor@example.com"
+    assert response.data["user"]["is_instructor"] is True
+    assert response.data["user"]["instructor_profile"]["nidn"] is not None
+
+@pytest.mark.django_db
+def test_profile_update_api():
+    # 1. Test update for student
+    mahasiswa = create_mahasiswa(
+        username="updatestudent",
+        password="password123",
+        email="updatestudent@example.com",
+        nim="55554444",
+        jurusan="Informatika",
+        universitas="UI"
+    )
+    client = APIClient()
+    client.force_authenticate(user=mahasiswa.user)
+    
+    url = reverse('auth_me')
+    update_data = {
+        "first_name": "UpdatedName",
+        "mahasiswa_profile": {
+            "jurusan": "Sistem Informasi",
+            "universitas": "ITS",
+            "semester": 4
+        }
+    }
+    response = client.put(url, update_data, format='json')
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["first_name"] == "UpdatedName"
+    assert response.data["mahasiswa_profile"]["jurusan"] == "Sistem Informasi"
+    assert response.data["mahasiswa_profile"]["universitas"] == "ITS"
+    assert response.data["mahasiswa_profile"]["semester"] == 4
+    
+    # 2. Test unique NIM validation during update
+    other_mahasiswa = create_mahasiswa(
+        username="otherstudent",
+        password="password123",
+        email="other@example.com",
+        nim="11112222",
+        jurusan="Informatika",
+        universitas="UI"
+    )
+    response = client.put(url, {"mahasiswa_profile": {"nim": "11112222"}}, format='json')
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "NIM sudah terdaftar" in response.data["detail"]
+
+
+@pytest.mark.django_db
+def test_user_serializer_subscription_tier():
+    from users.serializers import UserSerializer
+    from payments.models import Subscription
+    from django.utils import timezone
+    from datetime import timedelta
+
+    mahasiswa = create_mahasiswa(
+        username="tierstudent",
+        password="password123",
+        email="tierstudent@example.com",
+        nim="99887766",
+        jurusan="Informatika",
+        universitas="UI"
+    )
+
+    # 1. Initially Free
+    serializer = UserSerializer(mahasiswa.user)
+    assert serializer.data["subscription_tier"] == "free"
+
+    # 2. Legacy / test premium user without subscription row falls back to scholar
+    mahasiswa.user.is_premium = True
+    mahasiswa.user.save()
+    serializer = UserSerializer(mahasiswa.user)
+    assert serializer.data["subscription_tier"] == "scholar"
+
+    # 3. Premium user with active "pro" subscription
+    Subscription.objects.create(
+        mahasiswa=mahasiswa,
+        tier="pro",
+        status="active",
+        current_period_start=timezone.now(),
+        current_period_end=timezone.now() + timedelta(days=30)
+    )
+    serializer = UserSerializer(mahasiswa.user)
+    assert serializer.data["subscription_tier"] == "pro"
+
+
+@pytest.mark.django_db
+def test_change_password_api():
+    mahasiswa = create_mahasiswa(
+        username="pwdstudent",
+        password="oldpassword123",
+        email="pwd@example.com",
+        nim="99887755",
+        jurusan="Informatika",
+        universitas="UI"
+    )
+    client = APIClient()
+    client.force_authenticate(user=mahasiswa.user)
+
+    url = reverse('auth_change_password')
+    
+    # 1. Test missing fields
+    response = client.post(url, {"old_password": "oldpassword123"}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 2. Test wrong old password
+    response = client.post(url, {"old_password": "wrongpassword", "new_password": "newpassword123"}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 3. Test short new password
+    response = client.post(url, {"old_password": "oldpassword123", "new_password": "123"}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 4. Success password change
+    response = client.post(url, {"old_password": "oldpassword123", "new_password": "newpassword123"}, format="json")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["detail"] == "Password berhasil diubah."
+
+    # 5. Verify database user password updated
+    mahasiswa.user.refresh_from_db()
+    assert mahasiswa.user.check_password("newpassword123") is True
+
+
+

@@ -15,8 +15,11 @@ class CourseDiscussionListView(APIView):
         except Course.DoesNotExist:
             return Response({"detail": "Mata kuliah tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get only top-level posts (parent is None)
-        posts = DiscussionPost.objects.filter(course=course, parent=None)
+        from django.db.models import Count
+        posts = DiscussionPost.objects.filter(course=course, parent=None)\
+            .select_related('user')\
+            .annotate(replies_count_annotated=Count('replies'))\
+            .order_by('-user__is_premium', '-created_at')
         serializer = DiscussionPostSerializer(posts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -41,7 +44,10 @@ class DiscussionRepliesView(APIView):
         except DiscussionPost.DoesNotExist:
             return Response({"detail": "Diskusi utama tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
 
-        replies = DiscussionPost.objects.filter(parent=parent_post)
+        from django.db.models import Count
+        replies = DiscussionPost.objects.filter(parent=parent_post)\
+            .select_related('user')\
+            .annotate(replies_count_annotated=Count('replies'))
         serializer = DiscussionPostSerializer(replies, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

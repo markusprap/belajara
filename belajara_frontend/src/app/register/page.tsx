@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { api } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -57,13 +58,27 @@ export default function RegisterPage() {
     }
   }, [])
 
-  const handleGoogleLogin = async (email: string, firstName: string, lastName: string) => {
+  React.useEffect(() => {
+    const root = window.document.documentElement
+    const hadDark = root.classList.contains("dark")
+    root.classList.remove("dark")
+    root.classList.add("light")
+    return () => {
+      if (hadDark) {
+        root.classList.remove("light")
+        root.classList.add("dark")
+      }
+    }
+  }, [])
+
+  const handleGoogleLogin = async (email: string, firstName: string, lastName: string, roleParam?: string) => {
     setLoading(true)
     setError(null)
     setShowGoogleModal(false)
     setUseCustomGoogle(false)
     try {
-      const res = await api.auth.googleLogin(email, firstName, lastName)
+      const resolvedRole = roleParam || (googleRole === "instruktur" ? "instructor" : "student");
+      const res = await api.auth.googleLogin(email, firstName, lastName, "mock-google-id", resolvedRole)
       const user = res?.user || api.auth.getUser()
       if (user?.is_instructor) {
         router.push('/instructor')
@@ -145,7 +160,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#FAF9FB] font-sans overflow-hidden">
+    <div className="flex min-h-screen bg-[#FAF9FB] font-sans overflow-hidden relative">
+
       {/* Left promotional side panel - Hidden on Mobile */}
       <div className="hidden md:flex md:w-1/2 bg-[#060708] text-[#FAF9FB] flex-col justify-between p-16 relative overflow-hidden select-none">
         {/* Decorative elements / gradients */}
@@ -552,7 +568,7 @@ export default function RegisterPage() {
               <div className="space-y-2">
                 <button
                   type="button"
-                  onClick={() => handleGoogleLogin("budi@gmail.com", "Budi", "Santoso")}
+                  onClick={() => handleGoogleLogin("budi@gmail.com", "Budi", "Santoso", "student")}
                   className="w-full p-2.5 rounded-xl border border-border hover:bg-slate-50 flex items-center gap-3 transition-colors cursor-pointer text-left"
                 >
                   <div className="w-8 h-8 rounded-full bg-[#060708] text-white flex items-center justify-center font-bold text-xs select-none shrink-0">
@@ -566,7 +582,7 @@ export default function RegisterPage() {
 
                 <button
                   type="button"
-                  onClick={() => handleGoogleLogin("ahmad@gmail.com", "Ahmad", "Yani")}
+                  onClick={() => handleGoogleLogin("ahmad@gmail.com", "Ahmad", "Yani", "instructor")}
                   className="w-full p-2.5 rounded-xl border border-border hover:bg-slate-50 flex items-center gap-3 transition-colors cursor-pointer text-left"
                 >
                   <div className="w-8 h-8 rounded-full bg-[#C6B5BF] text-white flex items-center justify-center font-bold text-xs select-none shrink-0">

@@ -23,7 +23,7 @@ class CourseListView(APIView):
     permission_classes = []  # Allow open access for ease of local integration
 
     def get(self, request):
-        queryset = Course.objects.all().prefetch_related('modules')
+        queryset = Course.objects.all().prefetch_related('modules__subchapters')
 
         # Search query
         search_query = request.query_params.get('search', '')
@@ -77,6 +77,13 @@ class CourseEnrollView(APIView):
         # Fallback to test user if not authenticated
         user = request.user
         if not user or not user.is_authenticated:
+            from django.conf import settings
+            if not settings.DEBUG:
+                return Response(
+                    {"detail": "Authentication credentials were not provided."},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+
             user, created = User.objects.get_or_create(
                 username="mahasiswa",
                 defaults={
@@ -151,7 +158,7 @@ class CourseDetailView(APIView):
 
     def get(self, request, code):
         try:
-            course = Course.objects.prefetch_related('modules').get(code=code)
+            course = Course.objects.prefetch_related('modules__subchapters').get(code=code)
         except Course.DoesNotExist:
             return Response({"detail": "Mata kuliah tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
 

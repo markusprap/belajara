@@ -84,7 +84,7 @@ export default function Page() {
       headers["Authorization"] = `Bearer ${token}`
     }
 
-    fetch("http://localhost:8001/api/dashboard/", { headers })
+    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
       .then((res) => {
         if (res.status === 401) {
           clearToken()
@@ -164,7 +164,7 @@ export default function Page() {
               <div>
                 <h3 className="font-heading text-xl font-bold text-primary">Gagal Memuat Dashboard</h3>
                 <p className="text-sm text-muted-foreground mt-2">{error}</p>
-                <p className="text-xs text-muted-foreground mt-1">Pastikan server Django Anda berjalan di http://localhost:8001</p>
+                <p className="text-xs text-muted-foreground mt-1">Pastikan server Django Anda berjalan di http://127.0.0.1:8001</p>
               </div>
               <Button onClick={fetchDashboardData} className="bg-destructive text-white hover:bg-destructive/90 cursor-pointer mt-4">
                 Coba Hubungkan Kembali

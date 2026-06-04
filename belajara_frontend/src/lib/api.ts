@@ -1,5 +1,5 @@
 // Frontend API Client with JWT storage & mock fallbacks
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001/api";
 
 export function getToken(): string | null {
   if (typeof window !== "undefined") {
@@ -272,7 +272,8 @@ export const api = {
             first_name: username.charAt(0).toUpperCase() + username.slice(1),
             last_name: "Santoso",
             is_mahasiswa: true,
-            is_premium: username === "premium" ? true : false,
+            is_premium: (username === "premium" || username === "pro") ? true : false,
+            subscription_tier: username === "pro" ? "pro" : (username === "premium" ? "scholar" : "free"),
             nim: "2201010101",
             jurusan: "Informatika",
             universitas: "Universitas Indonesia",
@@ -289,11 +290,11 @@ export const api = {
         throw err;
       }
     },
-    googleLogin: async (email: string, firstName: string, lastName: string, googleId: string = "mock-google-id") => {
+    googleLogin: async (email: string, firstName: string, lastName: string, googleId: string = "mock-google-id", role?: string) => {
       try {
         const data = await request("/auth/google/", {
           method: "POST",
-          body: JSON.stringify({ email, first_name: firstName, last_name: lastName, google_id: googleId }),
+          body: JSON.stringify({ email, first_name: firstName, last_name: lastName, google_id: googleId, role }),
         });
         setToken(data.token || data.access);
         try {
@@ -307,7 +308,7 @@ export const api = {
       } catch (err: any) {
         console.warn("API Google login failed, using mock auth session:", err);
         const username = email.split('@')[0];
-        const isInstructor = email.includes("instructor") || email.includes("dosen") || email === "ahmad@gmail.com";
+        const isInstructor = role === "instructor" || email.includes("instructor") || email.includes("dosen") || email === "ahmad@gmail.com";
         const mockUser = {
           id: isInstructor ? 2 : 1,
           username: username,
@@ -317,6 +318,7 @@ export const api = {
           is_mahasiswa: !isInstructor,
           is_instructor: isInstructor,
           is_premium: false,
+          subscription_tier: "free",
           nim: isInstructor ? undefined : "2201010102",
           jurusan: isInstructor ? undefined : "Informatika",
           universitas: "Universitas Indonesia",
@@ -355,6 +357,52 @@ export const api = {
         };
       }
     },
+    updateProfile: async (profileData: any) => {
+      try {
+        const updatedUser = await request("/auth/me/", {
+          method: "PUT",
+          body: JSON.stringify(profileData),
+        });
+        setUser(updatedUser);
+        return updatedUser;
+      } catch (err) {
+        console.warn("API updateProfile failed, simulating mock update success:", err);
+        const currentUser = getUser() || {};
+        const isInst = currentUser.is_instructor;
+        const updatedUser = {
+          ...currentUser,
+          first_name: profileData.first_name !== undefined ? profileData.first_name : currentUser.first_name,
+          last_name: profileData.last_name !== undefined ? profileData.last_name : currentUser.last_name,
+          nim: !isInst ? (profileData.nim || profileData.mahasiswa_profile?.nim || currentUser.nim) : undefined,
+          jurusan: !isInst ? (profileData.jurusan || profileData.mahasiswa_profile?.jurusan || currentUser.jurusan) : undefined,
+          semester: !isInst ? (profileData.semester || profileData.mahasiswa_profile?.semester || currentUser.semester) : undefined,
+          nidn: isInst ? (profileData.nidn || profileData.instructor_profile?.nidn || currentUser.nidn) : undefined,
+          bidang_keahlian: isInst ? (profileData.bidang_keahlian || profileData.instructor_profile?.bidang_keahlian || currentUser.bidang_keahlian) : undefined,
+          universitas: profileData.universitas || profileData.mahasiswa_profile?.universitas || profileData.instructor_profile?.universitas || currentUser.universitas,
+          mahasiswa_profile: currentUser.is_mahasiswa ? {
+            ...currentUser.mahasiswa_profile,
+            ...(profileData.mahasiswa_profile || profileData),
+          } : undefined,
+          instructor_profile: currentUser.is_instructor ? {
+            ...currentUser.instructor_profile,
+            ...(profileData.instructor_profile || profileData),
+          } : undefined,
+        };
+        setUser(updatedUser);
+        return updatedUser;
+      }
+    },
+    changePassword: async (oldPassword: string, newPassword: string) => {
+      try {
+        return await request("/auth/change-password/", {
+          method: "POST",
+          body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+        });
+      } catch (err) {
+        console.warn("Failed changing password, generating mock response:", err);
+        return { detail: "Password berhasil diubah (Simulated)." };
+      }
+    },
     getUser: () => {
       return getUser();
     },
@@ -391,19 +439,36 @@ export const api = {
         } catch (e) {}
         
         // Final fallback data matching syllabus
+        const isMath = code === "IF101";
         return {
-          id: 1,
+          id: isMath ? 1 : 2,
           code: code,
-          title: code === "IF101" ? "Matematika Diskrit" : "Struktur Data & Algoritma",
-          description: "Mata kuliah dasar yang mempelajari struktur matematika diskrit, logika matematika, himpunan, relasi, fungsi, graf, dan pembuktian matematis.",
+          title: isMath ? "Matematika Diskrit" : "Struktur Data & Algoritma",
+          description: isMath 
+            ? "Mata kuliah dasar yang mempelajari struktur matematika diskrit, logika matematika, himpunan, relasi, fungsi, graf, dan pembuktian matematis. Membentuk pola pikir logis dan matematis yang fundamental bagi calon ilmuwan komputer."
+            : "Mata kuliah menengah yang mempelajari struktur data non-linear (tree, graph) serta teknik perancangan dan analisis kompleksitas algoritma untuk pemecahan masalah komputasi secara efisien dan optimal.",
           sks: 3,
-          semester: 3,
+          semester: isMath ? 3 : 4,
           department: "Informatika",
-          modules: [
+          price: isMath ? 0.00 : 150000.00,
+          is_premium: !isMath,
+          category: isMath ? "Mathematics" : "Programming",
+          instructor_name: isMath ? "Dr. Ir. Ahmad Yani" : "Daniel Scott",
+          instructor_email: isMath ? "ahmadyani@belajara.id" : "danielscott@belajara.id",
+          thumbnail_url: isMath ? "/images/asian_instructor_thumbnail.png" : "/images/daniel_scott_thumbnail.png",
+          status: "public",
+          tags: isMath ? "Logika,Himpunan,Matematika,Teori" : "Struktur Data,Algoritma,C++,SQL",
+          level: isMath ? "beginner" : "intermediate",
+          modules: isMath ? [
             { id: 1, title: "Pengantar Logika Matematika & Proposisi", description: "Logika matematika, tabel kebenaran proposisi majemuk, tautologi dan kontradiksi.", order: 1 },
             { id: 2, title: "Teori Himpunan & Operasi Himpunan", description: "Definisi himpunan, diagram Venn, himpunan bagian, kardinalitas, dan operasi.", order: 2 },
             { id: 3, title: "Relasi & Fungsi (Injektif, Surjektif, Bijektif)", description: "Relasi biner, sifat relasi ekuivalen, fungsi injektif, surjektif dan bijektif.", order: 3 },
             { id: 4, title: "Metode Pembuktian: Induksi Matematika [PREMIUM]", description: "Pembuktian dengan induksi matematika sederhana, induksi kuat, dan basis induksi.", order: 4, is_premium: true }
+          ] : [
+            { id: 10, title: "Pengenalan Struktur Data Non-Linear", description: "Mempelajari representasi pohon (tree), binary search tree (BST), dan graf secara formal.", order: 1 },
+            { id: 11, title: "Analisis Kompleksitas Algoritma", description: "Notasi Big-O, perhitungan runtime amortized, serta analisis best/average/worst case.", order: 2 },
+            { id: 12, title: "Algoritma Pencarian & Pengurutan Lanjut", description: "Merge Sort, Quick Sort, Heap Sort, dan implementasi rekursi tingkat lanjut.", order: 3 },
+            { id: 13, title: "Graph Traversal & Jalur Terpendek [PREMIUM]", description: "Implementasi BFS, DFS, algoritma Dijkstra, dan Bellman-Ford untuk problem nyata.", order: 4, is_premium: true }
           ]
         };
       }
@@ -570,6 +635,100 @@ export const api = {
         };
       }
     },
+
+    /**
+     * Initiate a subscription checkout via Midtrans Snap.
+     * tier: "scholar" | "pro"
+     */
+    subscribe: async (tier: "scholar" | "pro") => {
+      try {
+        return await request("/payments/subscribe/", {
+          method: "POST",
+          body: JSON.stringify({ tier })
+        });
+      } catch (err) {
+        console.warn("Failed initiating subscription, generating mock response:", err);
+        const prices = { scholar: 49000, pro: 99000 };
+        return {
+          snap_token: `mock-sub-snap-token-${tier}-${Date.now()}`,
+          snap_url: `https://sandbox.midtrans.com/snap/v2/vtweb/mock-sub-${tier}`,
+          order_id: `MOCK-SUB-${tier.toUpperCase()}-${Date.now()}`,
+          tier,
+          amount: prices[tier],
+          subscription: { tier, status: "suspended", is_active: false },
+        };
+      }
+    },
+
+    /**
+     * Get the current user's subscription status.
+     */
+    mySubscription: async () => {
+      try {
+        return await request("/payments/my-subscription/");
+      } catch (err) {
+        console.warn("Failed fetching subscription status:", err);
+        const user = getUser();
+        return {
+          has_subscription: user?.is_premium || false,
+          subscription: user?.is_premium ? {
+            tier: "scholar",
+            tier_display: "Scholar — Rp49.000/bulan",
+            status: "active",
+            status_display: "Aktif",
+            is_active: true,
+            monthly_price: 49000,
+            days_remaining: 15,
+          } : null,
+        };
+      }
+    },
+
+    /**
+     * Cancel the active subscription (access remains until period end).
+     */
+    cancelSubscription: async () => {
+      try {
+        return await request("/payments/cancel-subscription/", { method: "POST" });
+      } catch (err) {
+        console.warn("Failed cancelling subscription:", err);
+        return { detail: "Langganan berhasil dibatalkan (Simulated)." };
+      }
+    },
+
+    /**
+     * Get billing transactions history.
+     */
+    transactions: async () => {
+      try {
+        return await request("/payments/transactions/");
+      } catch (err) {
+        console.warn("Failed fetching billing transactions, using mock history:", err);
+        return [
+          {
+            id: 101,
+            order_id: "BLJR-SUB-SCHOLAR-123456",
+            transaction_type: "subscription_new",
+            transaction_type_display: "Langganan Baru (Scholar)",
+            amount: 49000.00,
+            status: "success",
+            status_display: "Berhasil",
+            created_at: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString()
+          },
+          {
+            id: 102,
+            order_id: "BLJR-IF201-987654",
+            transaction_type: "course_purchase",
+            transaction_type_display: "Pembelian Kursus",
+            amount: 150000.00,
+            status: "success",
+            status_display: "Berhasil",
+            created_at: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
+          }
+        ];
+      }
+    },
+
     verify: async (orderId: string, status: string) => {
       try {
         return await request("/payments/verify/", {

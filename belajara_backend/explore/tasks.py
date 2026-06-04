@@ -58,16 +58,17 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
         ]
 
         # Call LLM matching service
-        recommendations = analyze_curriculum_text(text, available_courses_list)
+        recommendations = analyze_curriculum_text(text, available_courses_list, is_premium=mahasiswa.user.is_premium)
 
-        # Build list of matching course details
+        # Build list of matching course details using in-memory lookup to prevent N+1 queries
+        existing_codes = {c.code for c in courses}
         saved_recommendations_list = []
         for rec in recommendations:
             code = rec.get("code")
             match_pct = rec.get("match_percentage", 80)
             reason = rec.get("reason", "")
             
-            if Course.objects.filter(code=code).exists():
+            if code in existing_codes:
                 saved_recommendations_list.append({
                     "code": code,
                     "match_percentage": match_pct,

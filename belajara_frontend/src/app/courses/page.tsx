@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, AlertTriangle, ArrowRight, Sparkles, Check } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 interface Module {
   id: number
@@ -39,6 +40,7 @@ interface Course {
   department: string
   modules: Module[]
   enrollment_mode?: "audit" | "verified"
+  thumbnail_url?: string
 }
 
 interface Student {
@@ -79,7 +81,7 @@ export default function CoursesPage() {
       "Authorization": `Bearer ${token}`,
     }
 
-    fetch("http://localhost:8001/api/dashboard/", { headers })
+    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
       .then((res) => {
         if (!res.ok) {
           throw new Error("Gagal mengambil data kelas terdaftar.")
@@ -125,6 +127,7 @@ export default function CoursesPage() {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <span className="text-xs font-semibold text-[#060708]">Mata Kuliah Saya</span>
           </div>
+          <ThemeToggle />
         </header>
 
         {/* Scrollable Container */}
@@ -183,43 +186,56 @@ export default function CoursesPage() {
                   return (
                     <Card
                       key={course.id}
-                      className="border border-[#E8E5E9] hover:border-[#C6B5BF] bg-white rounded-xl shadow-2xs transition-all flex flex-col justify-between overflow-hidden group"
+                      className="border border-[#E8E5E9] hover:border-[#C6B5BF] bg-white rounded-xl shadow-xs transition-all flex flex-col justify-between overflow-hidden group"
                     >
-                      <CardHeader className="p-4 border-b border-[#E8E5E9]/60">
+                      {/* Course Thumbnail Image */}
+                      <div className="relative aspect-video w-full bg-slate-900 overflow-hidden border-b border-slate-100">
+                        <img 
+                          src={course.thumbnail_url || "/images/daniel_scott_thumbnail.png"} 
+                          alt={course.title}
+                          className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {/* SKS & Semester Floating Badges */}
+                        <div className="absolute bottom-3 left-3 bg-black/60 text-white text-[9px] font-extrabold uppercase px-2.5 py-1 rounded-full border border-white/20">
+                          {course.sks} SKS
+                        </div>
+                        <div className="absolute bottom-3 right-3 bg-black/60 text-white text-[9px] font-extrabold uppercase px-2.5 py-1 rounded-full border border-white/20">
+                          Semester {course.semester}
+                        </div>
+                      </div>
+
+                      <CardHeader className="p-4 pb-2">
                         <div className="flex justify-between items-start gap-4">
-                          <span className="text-[9px] font-bold text-accent uppercase tracking-wider block">
+                          <span className="text-[9px] font-extrabold text-[#CF3A1F] uppercase tracking-wider block">
                             {course.department}
                           </span>
                           
                           {/* Enrollment Mode Badge */}
                           {isVerified ? (
-                            <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#060708] text-white border border-[#060708] flex items-center gap-0.5 shadow-2xs">
-                              <Sparkles className="h-2 w-2 text-[#C6B5BF]" /> Terverifikasi
+                            <span className="text-[8px] font-extrabold uppercase px-2 py-0.5 rounded bg-[#060708] text-white border border-[#060708] flex items-center gap-0.5 shadow-2xs">
+                              <Sparkles className="h-2.5 w-2.5 text-[#C6B5BF] fill-[#C6B5BF]" /> Terverifikasi
                             </span>
                           ) : (
-                            <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-250 flex items-center gap-0.5">
+                            <span className="text-[8px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-50 text-amber-850 border border-amber-200 flex items-center gap-0.5">
                               Mode Audit
                             </span>
                           )}
                         </div>
-                        <CardTitle className="font-heading text-sm font-black text-primary mt-2 line-clamp-1 leading-snug">
+                        <CardTitle className="font-heading text-sm font-black text-[#060708] mt-2 line-clamp-1 leading-snug">
                           {course.title}
                         </CardTitle>
-                        <CardDescription className="text-[10px] mt-0.5 font-semibold text-slate-500">
-                          {course.sks} SKS • Semester {course.semester}
-                        </CardDescription>
                       </CardHeader>
 
-                      <CardContent className="p-4 space-y-4">
+                      <CardContent className="px-4 pb-4 pt-0 space-y-4">
                         {/* Progress Bar */}
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 border-t border-slate-100 pt-3">
                           <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500 uppercase tracking-widest">
                             <span>Kemajuan Belajar</span>
                             <span>{progress}%</span>
                           </div>
-                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200">
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200">
                             <div
-                              className="bg-[#CF3A1F] h-full rounded-full transition-all duration-300 ease-out"
+                              className="bg-[#CF3A1F] h-full rounded-full transition-all duration-500 ease-out"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
@@ -229,7 +245,7 @@ export default function CoursesPage() {
                       <CardFooter className="p-4 bg-slate-50/50 border-t border-[#E8E5E9]/60 flex justify-end">
                         <Button
                           onClick={() => router.push(`/courses/${course.code}`)}
-                          className="bg-[#060708] hover:bg-[#060708]/90 text-white font-bold text-xs h-8 px-4 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-sm"
+                          className="bg-[#060708] hover:bg-[#060708]/90 text-white font-extrabold text-xs h-9 px-4 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-sm transition-all"
                         >
                           Masuk Kelas <ArrowRight className="h-3.5 w-3.5" />
                         </Button>

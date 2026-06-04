@@ -30,7 +30,17 @@ import {
   Menu,
   X,
   Play,
-  FileText
+  FileText,
+  Volume2,
+  Maximize2,
+  RotateCcw,
+  RotateCw,
+  Users,
+  Compass,
+  Download,
+  Trash2,
+  Paperclip,
+  Video
 } from "lucide-react"
 import { api, getUser } from "@/lib/api"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
@@ -322,6 +332,20 @@ export default function CourseDetailPage({ params }: PageProps) {
   const activeModule = activeSubChapter?.module || null
   const activeSubItem = activeSubChapter?.type || "video"
 
+  // Layout redesign states
+  const [activeSidebarTab, setActiveSidebarTab] = React.useState<"path" | "learners" | "discuss">("path")
+  const [activeVideoTab, setActiveVideoTab] = React.useState<"transcript" | "notes" | "resources">("transcript")
+  const [videoPlayTime, setVideoPlayTime] = React.useState("1:20")
+  const [videoDuration, setVideoDuration] = React.useState("12:40")
+  const [videoPlaying, setVideoPlaying] = React.useState(false)
+
+  const mockLearners = React.useMemo(() => [
+    { name: "Ahmad Fauzi", avatar: "AF", status: "online" },
+    { name: "Siti Rahmawati", avatar: "SR", status: "online" },
+    { name: "Budi Pratama", avatar: "BP", status: "offline" },
+    { name: "Dewi Lestari", avatar: "DL", status: "online" }
+  ], [])
+
 
   // Quiz states
   const [activeQuiz, setActiveQuiz] = React.useState<any | null>(null)
@@ -416,10 +440,10 @@ export default function CourseDetailPage({ params }: PageProps) {
   }, [courseCode])
 
   React.useEffect(() => {
-    if (activeSubItem === "forum") {
+    if (activeSidebarTab === "discuss" || activeSubItem === "forum") {
       fetchForumData()
     }
-  }, [activeSubItem, fetchForumData])
+  }, [activeSidebarTab, activeSubItem, fetchForumData])
 
   // Quiz Countdown Timer
   React.useEffect(() => {
@@ -632,6 +656,11 @@ export default function CourseDetailPage({ params }: PageProps) {
               }`}>
                 {reply.author.role}
               </span>
+              {reply.author.is_premium && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5">
+                  ★ Prioritas
+                </span>
+              )}
               <span className="text-[10px] text-muted-foreground">
                 {new Date(reply.created_at).toLocaleDateString("id-ID", { hour: "2-digit", minute: "2-digit" })}
               </span>
@@ -687,9 +716,9 @@ export default function CourseDetailPage({ params }: PageProps) {
     ))
   }
 
-  // Pre-calculate workspace dimensions/proportions (Coursera-style: 5 sub-chapters per module)
-  const totalSubChapters = (course?.modules?.length || 0) * 5
-  const completedCount = completedSubChapters.length
+  // Pre-calculate workspace dimensions/proportions (4 sub-chapters per module since Forum is a sidebar tab)
+  const totalSubChapters = (course?.modules?.length || 0) * 4
+  const completedCount = completedSubChapters.filter(id => !id.endsWith("_sub5")).length
   const progressPercent = totalSubChapters > 0 ? Math.min(100, Math.round((completedCount / totalSubChapters) * 100)) : 0
 
   // Flattened sequential sub-chapters list for sequential bottom navigation
@@ -697,15 +726,750 @@ export default function CourseDetailPage({ params }: PageProps) {
     if (!course) return []
     const items: SubChapter[] = []
     course.modules.forEach(mod => {
-      items.push(...getSubChaptersForModule(mod))
+      // Exclude forum sub-chapters from layout flow
+      const moduleSubs = getSubChaptersForModule(mod).filter(s => s.type !== "forum")
+      items.push(...moduleSubs)
     })
     return items
   }, [course])
 
   const activeIndex = flatSubChapters.findIndex(item => item.id === activeSubChapter?.id)
 
+  // Layout Redesign Render Helpers
+  const renderPremiumLocked = () => (
+    <Card className="border border-border bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[380px] mt-4">
+      <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
+        <Lock className="h-6 w-6" />
+      </div>
+      <h3 className="font-heading text-2xl font-bold text-primary">Modul Premium Terkunci</h3>
+      <p className="text-sm text-muted-foreground max-w-md mt-2 leading-relaxed">
+        Sub-bab ini merupakan bagian dari modul premium <strong>"{activeModule?.title}"</strong> yang berisi materi kuliah interaktif, bacaan mendalam, dan evaluasi pembelajaran.
+      </p>
+      <Button
+        onClick={handleCheckoutTrigger}
+        className="mt-6 bg-destructive hover:bg-destructive/90 text-white rounded-lg px-6 py-2.5 font-bold flex items-center gap-2 cursor-pointer shadow-sm"
+      >
+        <Sparkles className="h-4 w-4" />
+        Akses Premium Sekarang
+      </Button>
+    </Card>
+  )
+
+  const renderVideoView = () => (
+    <div className="space-y-6">
+      <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
+        <CardHeader className="border-b bg-white p-6">
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-bold text-[#7F56D9] uppercase tracking-wider">Modul {activeModule?.order} — Video</span>
+            {activeSubChapter && completedSubChapters.includes(activeSubChapter.id) && (
+              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                <Check className="h-2.5 w-2.5" />
+                Selesai Ditonton
+              </span>
+            )}
+          </div>
+          <CardTitle className="font-heading text-xl font-black text-primary mt-1">{activeSubChapter?.title}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          {activeSubChapter?.video_url ? (
+            <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border">
+              <iframe
+                className="w-full h-full"
+                src={activeSubChapter.video_url}
+                title={activeSubChapter.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border flex flex-col justify-between p-4 group">
+              <div className="absolute inset-0 z-0">
+                <img 
+                  src="/images/asian_instructor_thumbnail.png" 
+                  alt="Instructor" 
+                  className="w-full h-full object-cover opacity-80"
+                />
+              </div>
+              <div className="flex justify-between items-center text-white/80 text-[10px] font-semibold bg-gradient-to-b from-black/80 to-transparent p-3 absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <span>{activeSubChapter?.title}</span>
+                <span>{videoDuration}</span>
+              </div>
+              
+              <div className="absolute inset-0 flex items-center justify-center bg-black/15 group-hover:bg-black/25 transition-all p-4 z-10">
+                <div className="flex items-center justify-center gap-8 my-auto">
+                  <button className="h-10 w-10 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all cursor-pointer border-none">
+                    <RotateCcw className="h-5 w-5" />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setVideoPlaying(!videoPlaying)
+                      if (activeSubChapter) markSubChapterAsCompleted(activeSubChapter.id)
+                    }}
+                    className="h-16 w-16 bg-[#7F56D9] hover:bg-[#7F56D9]/90 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer border-none"
+                  >
+                    {videoPlaying ? <span className="text-xl font-bold font-sans">||</span> : <Play className="h-6 w-6 fill-white ml-1" />}
+                  </button>
+                  <button className="h-10 w-10 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-all cursor-pointer border-none">
+                    <RotateCw className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 w-full">
+                  <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden relative cursor-pointer group/seek">
+                    <div className="bg-[#7F56D9] h-full w-[25%] transition-all" />
+                    <div className="absolute top-1/2 -translate-y-1/2 left-[25%] h-2.5 w-2.5 rounded-full bg-white shadow-md" />
+                  </div>
+                  <div className="flex justify-between items-center text-white text-[10px] font-semibold">
+                    <div className="flex items-center gap-3">
+                      <span>Play</span>
+                      <Volume2 className="h-4 w-4" />
+                      <span>{videoPlayTime} / {videoDuration}</span>
+                    </div>
+                    <Maximize2 className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#FAF9FB] p-4 rounded-xl border border-border/60">
+            <div>
+              <h5 className="text-xs font-bold text-primary">Status Penayangan</h5>
+              <p className="text-[10px] text-slate-500 mt-0.5">Tonton video hingga selesai untuk melengkapi aktivitas ini.</p>
+            </div>
+            {activeSubChapter && (
+              <Button
+                size="sm"
+                onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
+                disabled={completedSubChapters.includes(activeSubChapter.id)}
+                className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
+                  completedSubChapters.includes(activeSubChapter.id)
+                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                    : "bg-[#060708] hover:bg-[#060708]/90 text-white"
+                }`}
+              >
+                {completedSubChapters.includes(activeSubChapter.id) ? (
+                  <span className="flex items-center justify-center gap-1">
+                    <Check className="h-3.5 w-3.5" />
+                    Sudah Ditonton
+                  </span>
+                ) : (
+                  "Tandai Selesai Menonton"
+                )}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-4">
+        {/* Sub-tabs under video */}
+        <div className="flex gap-2 border-b border-slate-100 pb-2">
+          <button
+            onClick={() => setActiveVideoTab("transcript")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border-none ${
+              activeVideoTab === "transcript"
+                ? "bg-[#7F56D9] text-white"
+                : "bg-slate-100 text-slate-650 hover:bg-slate-200"
+            }`}
+          >
+            Transcript
+          </button>
+          <button
+            onClick={() => setActiveVideoTab("notes")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border-none ${
+              activeVideoTab === "notes"
+                ? "bg-[#7F56D9] text-white"
+                : "bg-slate-100 text-slate-655 hover:bg-slate-200"
+            }`}
+          >
+            Notes
+          </button>
+          <button
+            onClick={() => setActiveVideoTab("resources")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border-none ${
+              activeVideoTab === "resources"
+                ? "bg-[#7F56D9] text-white"
+                : "bg-slate-100 text-slate-655 hover:bg-slate-200"
+            }`}
+          >
+            Resources
+          </button>
+        </div>
+
+        {/* Dynamic content card based on Video Sub-Tab */}
+        <Card className="border border-border bg-white rounded-2xl shadow-xs p-6 space-y-6">
+          {/* AI Banner sparkles */}
+          <div className="flex items-start gap-3 p-4 bg-[#7F56D9]/5 border border-[#7F56D9]/15 rounded-2xl">
+            <Sparkles className="h-5 w-5 text-[#7F56D9] shrink-0 mt-0.5 animate-pulse" />
+            <div>
+              <h6 className="text-xs font-bold text-[#7F56D9]">Ask the AI to generate advanced summaries of the video content and take notes</h6>
+              <button className="text-[10px] text-[#7F56D9] font-extrabold underline mt-1 block border-none bg-transparent">Try them out now!</button>
+            </div>
+          </div>
+
+          {activeVideoTab === "transcript" && (
+            <div className="space-y-4 text-xs">
+              <div 
+                onClick={() => setVideoPlayTime("0:00")}
+                className="p-3 border rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex gap-3 items-start"
+              >
+                <span className="font-mono font-bold text-[#7F56D9] bg-[#7F56D9]/10 px-1.5 py-0.5 rounded">00:00</span>
+                <p className="text-slate-700 leading-relaxed font-sans">
+                  Hi everyone, and welcome back to our course! I'm super excited to be here with you today, and in this session, we're going to talk about something really important: the fundamentals of UI and UX.
+                </p>
+              </div>
+              <div 
+                onClick={() => setVideoPlayTime("1:20")}
+                className="p-3 border rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex gap-3 items-start bg-slate-50/50"
+              >
+                <span className="font-mono font-bold text-[#7F56D9] bg-[#7F56D9]/10 px-1.5 py-0.5 rounded">01:20</span>
+                <p className="text-slate-700 leading-relaxed font-sans">
+                  Now, I know that these two terms — UI and UX — are often used together, and sometimes even interchangeably. But they actually refer to two very different aspects of the design process. So let's break it down in a simple way.
+                </p>
+              </div>
+              <div 
+                onClick={() => setVideoPlayTime("4:10")}
+                className="p-3 border rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex gap-3 items-start"
+              >
+                <span className="font-mono font-bold text-[#7F56D9] bg-[#7F56D9]/10 px-1.5 py-0.5 rounded">04:10</span>
+                <p className="text-slate-700 leading-relaxed font-sans">
+                  User interface, or UI, is everything that the user interacts with visually: buttons, layouts, colors, fonts, and responsive components. User experience, or UX, is the overall feel and workflow.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeVideoTab === "notes" && (
+            <div className="grid md:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 bg-white border rounded-xl space-y-2">
+                <h5 className="font-bold text-slate-800">Meeting notes</h5>
+                <p className="text-slate-600 leading-relaxed font-serif italic">
+                  "The lecture focused on discussing the core principles of the project. We analyzed the visual design rules, typography options, and how color plays a role in student retention."
+                </p>
+              </div>
+              <div className="p-4 bg-white border rounded-xl space-y-2">
+                <h5 className="font-bold text-slate-800">Action points</h5>
+                <ul className="list-disc pl-4 text-slate-600 space-y-1">
+                  <li>Review the typography styles and spacing</li>
+                  <li>Incorporate dynamic syllabus integration</li>
+                  <li>Maintain recursive forum structures</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {activeVideoTab === "resources" && (
+            <div className="grid sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-white border rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded bg-red-50 text-red-650 flex items-center justify-center font-bold font-sans text-[10px]">PDF</div>
+                  <div>
+                    <p className="font-bold text-slate-800">Design Document</p>
+                    <p className="text-[10px] text-muted-foreground">94 KB • added 2 days ago</p>
+                  </div>
+                </div>
+                <button className="text-slate-500 hover:text-slate-800 border-none bg-transparent"><Download className="h-4 w-4" /></button>
+              </div>
+              <div className="p-3 bg-white border rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded bg-emerald-50 text-emerald-650 flex items-center justify-center font-bold font-sans text-[10px]">EXL</div>
+                  <div>
+                    <p className="font-bold text-slate-800">Account File</p>
+                    <p className="text-[10px] text-muted-foreground">94 KB • added 2 days ago</p>
+                  </div>
+                </div>
+                <button className="text-slate-500 hover:text-slate-800 border-none bg-transparent"><Download className="h-4 w-4" /></button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+    </div>
+  )
+
+  const renderReadingView = () => (
+    <div className="w-full py-6 bg-white p-8 md:p-12 rounded-3xl border border-slate-100 shadow-3xs">
+      <div className="max-w-4xl mx-auto w-full space-y-8">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-extrabold text-[#7F56D9] uppercase tracking-widest bg-[#7F56D9]/10 px-2 py-0.5 rounded-md">Materi Bacaan</span>
+            {activeSubChapter && completedSubChapters.includes(activeSubChapter.id) && (
+              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                <Check className="h-2.5 w-2.5" />
+                Selesai Dibaca
+              </span>
+            )}
+          </div>
+          <h1 className="font-serif text-3xl md:text-4xl font-extrabold text-[#060708] leading-tight">
+            {activeSubChapter?.title}
+          </h1>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
+            <span>Modul {activeModule?.order}</span>
+            <span>•</span>
+            <span>Durasi Baca: {activeSubChapter?.duration}</span>
+          </div>
+        </div>
+
+        <Separator className="bg-slate-100" />
+
+        <div className="prose prose-slate max-w-none text-[15px] font-sans text-slate-800 leading-loose space-y-6">
+          {activeSubChapter?.content ? (
+            <div className="mt-3 text-slate-800 font-sans border border-border p-6 rounded-xl bg-white leading-loose text-[13px]">
+              <MarkdownRenderer content={activeSubChapter.content} />
+            </div>
+          ) : (
+            (() => {
+              const readingData = getReadingContent(
+                course?.code || "IF101",
+                activeModule?.order || 1,
+                typeof activeSubChapter?.id === "string" && activeSubChapter.id.endsWith("_sub3") ? 3 : 2,
+                activeModule?.title || ""
+              )
+              return (
+                <div className="space-y-6">
+                  <p className="p-4 rounded-2xl border border-slate-150 bg-slate-50/50 text-slate-700 italic font-serif leading-relaxed text-sm">
+                    {readingData.introduction}
+                  </p>
+                  {readingData.sections.map((sect, sIdx) => (
+                    <div key={sIdx} className="space-y-3 pt-3">
+                      <h3 className="font-serif font-black text-xl text-[#060708] border-b pb-1 border-slate-100">
+                        {sect.heading}
+                      </h3>
+                      {sect.paragraphs.map((p, pIdx) => (
+                        <p key={pIdx} className="text-slate-700 font-sans leading-relaxed text-[14px]">
+                          {p}
+                        </p>
+                      ))}
+                      {sect.codeBlock && (
+                        <pre className="p-4 rounded-2xl bg-[#060708] text-emerald-400 font-mono text-[10px] overflow-x-auto shadow-inner leading-relaxed border border-slate-900 my-4">
+                          <code>{sect.codeBlock}</code>
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()
+          )}
+        </div>
+
+        {activeSubChapter && (
+          <div className="flex justify-end pt-6 border-t border-slate-100 mt-12">
+            <Button
+              size="sm"
+              onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
+              disabled={completedSubChapters.includes(activeSubChapter.id)}
+              className={`font-bold text-xs rounded-xl px-6 py-2.5 cursor-pointer border-none ${
+                completedSubChapters.includes(activeSubChapter.id)
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                  : "bg-[#060708] hover:bg-[#060708]/90 text-white"
+              }`}
+            >
+              {completedSubChapters.includes(activeSubChapter.id) ? "Selesai Dibaca" : "Tandai Selesai Membaca"}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const renderQuizView = () => {
+    if (enrollmentMode === "audit") {
+      return (
+        <Card className="border border-border bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[380px] mt-4">
+          <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
+            <Lock className="h-6 w-6" />
+          </div>
+          <h3 className="font-heading text-2xl font-bold text-primary">Evaluasi Pembelajaran Terkunci</h3>
+          <p className="text-sm text-slate-600 max-w-md mt-2 leading-relaxed font-sans">
+            Anda sedang mengakses kelas ini dalam <strong>Mode Audit (Gratis)</strong>. Evaluasi pembelajaran dan sertifikat kompetensi hanya tersedia bagi mahasiswa Kelas Terverifikasi.
+          </p>
+          <Button
+            onClick={handleCheckoutTrigger}
+            className="mt-6 bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg px-6 py-2.5 font-bold flex items-center gap-2 cursor-pointer shadow-sm text-xs border-none"
+          >
+            <Sparkles className="h-4 w-4 text-[#C6B5BF]" />
+            Akses Kelas Lengkap
+          </Button>
+        </Card>
+      )
+    }
+
+    if (quizTaking && activeQuiz) {
+      return (
+        <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
+          <CardHeader className="border-b bg-white flex flex-row items-center justify-between p-6">
+            <div>
+              <CardTitle className="font-heading text-xl font-bold text-primary">{activeQuiz.title}</CardTitle>
+              <CardDescription className="text-xs mt-1">Selesaikan seluruh pertanyaan sebelum waktu habis.</CardDescription>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive shrink-0 font-mono font-bold text-sm">
+              <Timer className="h-4 w-4" />
+              <span>{formatTime(quizTimeLeft)}</span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 space-y-8">
+            {activeQuiz.questions.map((q: any, idx: number) => {
+              const selected = quizAnswers[q.id]
+              return (
+                <div key={q.id} className="space-y-3">
+                  <h4 className="text-sm font-semibold text-primary flex items-start gap-2">
+                    <span className="px-2 py-0.5 rounded bg-secondary text-primary text-xs font-bold font-sans">{idx + 1}</span>
+                    <span className="leading-relaxed">{q.text}</span>
+                  </h4>
+                  <div className="grid gap-2 pl-7">
+                    {q.options.map((opt: any) => {
+                      const isSelected = selected === opt.id
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleQuizAnswerSelect(q.id, opt.id)}
+                          className={`w-full text-left p-3 rounded-lg border text-xs font-semibold transition-all flex items-center gap-3 cursor-pointer ${
+                            isSelected
+                              ? "bg-[#060708] border-[#060708] text-white"
+                              : "bg-background hover:bg-secondary/40 border-border"
+                          }`}
+                        >
+                          <span className={`h-5 w-5 rounded-full flex items-center justify-center border font-bold ${
+                            isSelected ? "border-white bg-white/20 text-white" : "border-border bg-white text-muted-foreground"
+                          }`}>
+                            {opt.id}
+                          </span>
+                          <span>{opt.text}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+          <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-between gap-4">
+            <span className="text-xs text-muted-foreground">
+              Terjawab: {Object.keys(quizAnswers).length} dari {activeQuiz.questions.length} soal
+            </span>
+            <Button
+              onClick={handleQuizSubmit}
+              className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold cursor-pointer border-none"
+            >
+              Kirim Jawaban
+            </Button>
+          </CardFooter>
+        </Card>
+      )
+    }
+
+    if (quizResult && activeQuiz) {
+      const scoreColor = quizResult.score >= 60 ? "text-primary" : "text-destructive"
+      return (
+        <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
+          <CardHeader className="border-b bg-white p-6 text-center">
+            <h3 className="font-heading text-lg font-bold text-primary">Hasil Evaluasi Pembelajaran</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{activeQuiz.title}</p>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="flex flex-col items-center justify-center p-6 border border-border rounded-xl bg-background max-w-sm mx-auto text-center space-y-2">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Skor Akhir</span>
+              <span className={`text-6xl font-heading font-black ${scoreColor}`}>
+                {quizResult.score}
+              </span>
+              <div className="text-xs font-semibold text-primary mt-1">
+                {quizResult.passed ? (
+                  <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-bold">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    SELESAI & LULUS
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-1 font-bold">
+                    <XCircle className="h-3.5 w-3.5" />
+                    TIDAK LULUS (Min 60)
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2">
+                Menjawab benar {quizResult.correct_count} dari {quizResult.total_questions} pertanyaan.
+              </p>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t border-border">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tinjauan Pertanyaan</h4>
+              {activeQuiz.questions.map((q: any, idx: number) => {
+                const review = quizResult.details.find((d: any) => d.question_id === q.id)
+                const isCorrect = review?.is_correct
+                const submittedOpt = q.options.find((o: any) => o.id === review?.submitted)
+                const correctOpt = q.options.find((o: any) => o.id === review?.correct)
+
+                return (
+                  <div key={q.id} className="p-4 border rounded-lg bg-[#FAF9FB] space-y-2 text-xs">
+                    <div className="flex items-start justify-between gap-3">
+                      <h5 className="font-semibold text-primary leading-normal">
+                        {idx + 1}. {q.text}
+                      </h5>
+                      {isCorrect ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-0.5 text-[9px] font-bold shrink-0">
+                          <Check className="h-2.5 w-2.5" />
+                          Benar
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/25 flex items-center gap-0.5 text-[9px] font-bold shrink-0">
+                          <XCircle className="h-2.5 w-2.5" />
+                          Salah
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 pl-2 pt-1 border-l-2 border-border/80">
+                      <p className="text-[11px] text-primary">
+                        Jawaban Anda: <strong className={isCorrect ? "text-primary" : "text-destructive"}>
+                          {submittedOpt ? `(${submittedOpt.id}) ${submittedOpt.text}` : "(Tidak Dijawab)"}
+                        </strong>
+                      </p>
+                      {!isCorrect && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Jawaban Benar: <strong className="text-primary">
+                            ({correctOpt.id}) {correctOpt.text}
+                          </strong>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+          <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={handleResetQuiz}
+              className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/45 cursor-pointer h-9 px-3 rounded-lg border-none"
+            >
+              Kembali ke Halaman Evaluasi
+            </Button>
+            <Button
+              onClick={() => activeModule && handleStartQuiz(activeModule.id)}
+              className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold cursor-pointer border-none"
+            >
+              Ulangi Evaluasi
+            </Button>
+          </CardFooter>
+        </Card>
+      )
+    }
+
+    return (
+      <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
+        <CardHeader className="border-b bg-white p-6">
+          <span className="text-[9px] font-bold text-[#7F56D9] uppercase tracking-wider">Modul {activeModule?.order} — Evaluasi</span>
+          {activeSubChapter && completedSubChapters.includes(activeSubChapter.id) && (
+            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+              <Check className="h-2.5 w-2.5" />
+              Lulus
+            </span>
+          )}
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <p className="text-sm text-primary leading-relaxed">
+            Gunakan evaluasi ini untuk mengukur pemahaman Anda terkait materi kuliah yang telah dipelajari. Anda membutuhkan nilai minimal 60% untuk dinyatakan lulus modul ini.
+          </p>
+          <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground bg-secondary/10 p-3 rounded-xl border border-border/50 max-w-sm">
+            <div className="flex items-center gap-1">
+              <Timer className="h-4 w-4 text-destructive" />
+              <span>Batas Waktu: 3 Menit</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <CheckCircle className="h-4 w-4 text-emerald-600" />
+              <span>Passing Grade: 60</span>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="border-t bg-secondary/15 p-4 flex justify-end">
+          <Button
+            onClick={() => activeModule && handleStartQuiz(activeModule.id)}
+            className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold flex items-center gap-2 cursor-pointer shadow-xs border-none"
+          >
+            <HelpCircle className="h-4 w-4" />
+            Mulai Evaluasi Pembelajaran
+          </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
+
+  const renderForumLanding = () => (
+    <div className="text-center text-muted-foreground p-12 border border-dashed rounded-2xl bg-white min-h-[300px] flex flex-col items-center justify-center">
+      <MessageSquare className="h-10 w-10 text-muted-foreground/50 mb-3" />
+      <h4 className="font-heading text-lg font-bold text-[#060708]">Forum Diskusi Mata Kuliah</h4>
+      <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+        Pilih pertanyaan dari panel samping untuk melihat detail pembahasan, atau klik "Buat Diskusi Baru" untuk mengajukan pertanyaan baru.
+      </p>
+    </div>
+  )
+
+  const renderForumCreatePost = () => (
+    <Card className="border border-border bg-white rounded-2xl shadow-xs">
+      <CardHeader className="border-b bg-white">
+        <CardTitle className="font-heading text-lg font-bold text-primary">Mulai Diskusi Baru</CardTitle>
+        <CardDescription className="text-xs">Ajukan pertanyaan mengenai topik mata kuliah ini ke dosen pengampu dan sesama mahasiswa.</CardDescription>
+      </CardHeader>
+      <form onSubmit={handleCreatePost}>
+        <CardContent className="p-6 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="post-title" className="text-xs font-semibold text-primary">Judul Diskusi</Label>
+            <Input
+              id="post-title"
+              placeholder="Masukkan judul singkat (cth: Masalah p(k+1) induksi)"
+              value={newPostTitle}
+              onChange={(e) => setNewPostTitle(e.target.value)}
+              className="bg-white border border-border rounded-lg"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="post-content" className="text-xs font-semibold text-primary">Detail Pertanyaan</Label>
+            <textarea
+              id="post-content"
+              rows={5}
+              placeholder="Tuliskan pertanyaan Anda secara mendetail di sini..."
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
+              className="w-full bg-white border border-border rounded-lg p-3 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-[#7F56D9]"
+            />
+          </div>
+        </CardContent>
+        <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-end gap-3">
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => setIsCreatingPost(false)}
+            className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/40 h-9 px-3 rounded-lg border-none"
+          >
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold border-none"
+          >
+            Kirim Pertanyaan
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  )
+
+  const renderForumPostDetail = () => (
+    <Card className="border border-border bg-white rounded-2xl shadow-xs">
+      <CardHeader className="border-b bg-white flex flex-row items-start justify-between gap-4 p-6">
+        <div className="space-y-1.5 w-full">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8 border bg-secondary/50 font-sans font-bold">
+              <AvatarFallback>{activePost.author.avatar || "M"}</AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-primary">{activePost.author.name}</span>
+                <span className="text-[9px] font-bold px-1 py-0.5 rounded border bg-[#7F56D9]/10 text-primary border-[#7F56D9]/20">
+                  {activePost.author.role}
+                </span>
+                {activePost.author.is_premium && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5">
+                    ★ Prioritas
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Ditanyakan pada {new Date(activePost.created_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+              </p>
+            </div>
+          </div>
+          
+          <CardTitle className="font-heading text-lg font-bold text-primary pt-3">{activePost.title}</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="p-6 space-y-6">
+        <p className="text-sm text-primary leading-relaxed border-b border-border pb-6">
+          {activePost.content}
+        </p>
+
+        <div className="space-y-4">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+            Balasan ({activePost.replies.length})
+          </h4>
+          {activePost.replies.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic text-center py-4 bg-background border rounded-lg">
+              Belum ada balasan. Tulis tanggapan Anda di bawah!
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {renderReplies(activePost.replies, activePost.id, 1)}
+            </div>
+          )}
+        </div>
+
+        <div className="pt-6 border-t border-border space-y-3">
+          <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tulis Tanggapan Anda</h5>
+          <div className="space-y-3">
+            <textarea
+              rows={3}
+              placeholder="Berikan jawaban atau tanggapan Anda..."
+              value={replyContents[`post-${activePost.id}`] || ""}
+              onChange={(e) => setReplyContents(prev => ({ ...prev, [`post-${activePost.id}`]: e.target.value }))}
+              className="w-full bg-white border border-border rounded-lg p-3 text-xs text-primary focus:outline-none focus:ring-1 focus:ring-[#7F56D9]"
+            />
+            <Button
+              onClick={() => handleCreateReply(activePost.id, null)}
+              className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-4 h-9 rounded-lg font-bold flex items-center gap-1 cursor-pointer border-none"
+            >
+              Kirim Tanggapan
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  const renderMainContent = () => {
+    if (activeSidebarTab === "discuss") {
+      if (isCreatingPost) {
+        return renderForumCreatePost()
+      } else if (activePost) {
+        return renderForumPostDetail()
+      } else {
+        return renderForumLanding()
+      }
+    }
+
+    if (!activeSubChapter) {
+      return (
+        <div className="text-center text-muted-foreground p-12 border border-dashed rounded-xl bg-white">
+          Pilih sub-bab di silabus samping untuk memulai belajar.
+        </div>
+      )
+    }
+
+    const isLocked = activeModule?.is_premium && !user?.is_premium
+    if (isLocked && activeSubItem !== "forum") {
+      return renderPremiumLocked()
+    }
+
+    if (activeSubItem === "video") {
+      return renderVideoView()
+    } else if (activeSubItem === "reading") {
+      return renderReadingView()
+    } else if (activeSubItem === "quiz") {
+      return renderQuizView()
+    } else {
+      if (isCreatingPost) {
+        return renderForumCreatePost()
+      } else if (activePost) {
+        return renderForumPostDetail()
+      } else {
+        return renderForumLanding()
+      }
+    }
+  }
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#FAF9FB] font-sans">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FAF9FB] font-sans">
       {/* Midtrans Snap script injection */}
       <script
         src="https://app.sandbox.midtrans.com/snap/snap.js"
@@ -730,7 +1494,7 @@ export default function CourseDetailPage({ params }: PageProps) {
           <BookOpen className="h-16 w-16 text-[#C6B5BF] animate-pulse" />
           <div className="space-y-2">
             <h3 className="font-heading text-2xl font-black text-[#060708]">Anda Belum Mengambil Mata Kuliah Ini</h3>
-            <p className="text-sm text-slate-600 leading-relaxed">
+            <p className="text-sm text-slate-600 leading-relaxed font-sans">
               Mata kuliah <strong>"{course.title}"</strong> ini memerlukan pengisian rencana studi aktif sebelum Anda dapat mengakses workspace materi kuliah, diskusi, dan evaluasi pembelajaran.
             </p>
           </div>
@@ -738,179 +1502,313 @@ export default function CourseDetailPage({ params }: PageProps) {
             onClick={() => {
               router.push("/courses")
             }}
-            className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white font-bold text-xs h-10 px-6 rounded-xl shadow-md cursor-pointer"
+            className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white font-bold text-xs h-10 px-6 rounded-xl shadow-md cursor-pointer border-none"
           >
             Kembali ke Katalog Mata Kuliah & KRS
           </Button>
         </div>
       ) : (
         <>
-          {/* Collapsible Syllabus Sidebar - Coursera Style */}
-          <aside className={`h-full border-r border-border bg-white flex flex-col transition-all duration-300 ease-in-out shrink-0 select-none z-30 ${
-            isSyllabusCollapsed 
-              ? "w-0 overflow-hidden border-r-0" 
-              : "w-80"
-          }`}>
-            {/* Sidebar Header with Course Title & Close (X) button */}
-            <div className="p-5 border-b border-border flex items-start justify-between">
-              <h2 className="text-[#060708] font-heading font-black text-base leading-tight max-w-[85%]">
-                {course.title}
-              </h2>
-              <button
-                onClick={() => setIsSyllabusCollapsed(true)}
-                className="h-7 w-7 flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer shrink-0"
-                title="Tutup Silabus Mata Kuliah"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            </div>
+          {/* Top Minimalist Header */}
+          <header className="flex h-14 shrink-0 items-center justify-between px-6 bg-white border-b border-border/80 z-20">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/dashboard")}
+              className="h-9 px-2.5 hover:bg-secondary/40 text-muted-foreground hover:text-primary gap-1.5 font-bold rounded-lg"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Kembali ke Dashboard
+            </Button>
+            
+            <span className="text-sm font-heading font-black text-[#060708] truncate max-w-md">
+              {course.title}
+            </span>
+            
+            <button
+              onClick={() => router.push("/courses")}
+              className="h-8 w-8 flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer border-none bg-transparent"
+              title="Tutup Workspace Kelas"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </header>
 
-            {/* Progress Bar inside sidebar */}
-            <div className="p-4 border-b border-border bg-slate-50/50 flex flex-col gap-1.5">
-              <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500 uppercase tracking-widest">
-                <span>Kemajuan Belajar</span>
-                <span>{progressPercent}% ({completedCount}/{totalSubChapters})</span>
-              </div>
-              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden border border-slate-350/30">
-                <div
-                  className="bg-[#CF3A1F] h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Audit Mode Alert */}
-            {enrollmentMode === "audit" && (
-              <div className="m-4 p-3 bg-amber-50 border border-amber-250 rounded-xl flex flex-col gap-1.5 shrink-0">
-                <div className="flex items-center gap-1.5 text-amber-800 text-[10px] font-bold">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                  <span>Mode Audit (Akses Gratis)</span>
+          {/* Sub-layout Workspace (Sidebar + Main Player) */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Sidebar content */}
+            <aside className="w-80 border-r border-border bg-white flex flex-col shrink-0 select-none z-10">
+              {/* Sidebar Header with dynamic progress */}
+              <div className="p-5 border-b border-border flex flex-col gap-3">
+                <div>
+                  <h2 className="text-[#060708] font-heading font-black text-sm tracking-wide uppercase">Course Content</h2>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-normal">
+                    Pilih topik di bawah untuk memulai pembelajaran dinamis.
+                  </p>
                 </div>
-                <p className="text-[9px] text-amber-700 leading-normal font-semibold">
-                  Dapatkan akses lengkap untuk membuka Evaluasi Pembelajaran & Sertifikat Kompetensi.
-                </p>
-                <Button
-                  onClick={handleCheckoutTrigger}
-                  className="mt-1 w-full bg-[#060708] hover:bg-[#060708]/90 text-white text-[9px] font-extrabold h-7 rounded-lg transition-colors cursor-pointer text-center flex items-center justify-center gap-1"
-                >
-                  <Sparkles className="h-3 w-3 text-[#C6B5BF]" />
-                  Akses Kelas Lengkap
-                </Button>
+
+                {/* Progress bar */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500 uppercase tracking-widest">
+                    <span>Kemajuan Belajar</span>
+                    <span>{progressPercent}% ({completedCount}/{totalSubChapters})</span>
+                  </div>
+                  {/* Custom progress slider bar */}
+                  <div className="w-full bg-slate-200 h-[3px] rounded-full relative mt-1.5">
+                    <div
+                      className="bg-[#060708] h-full rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-[#060708] border border-white shadow-xs transition-all duration-500 ease-out"
+                      style={{ left: `calc(${progressPercent}% - 6px)` }}
+                    />
+                  </div>
+                </div>
               </div>
-            )}
 
-            {/* Modules and Sub-Chapters scroll area */}
-            <div className="flex-1 overflow-y-auto divide-y divide-border/60">
-              {course.modules.map((mod) => {
-                const isModulePremium = !!mod.is_premium
-                const isUserPremium = user?.is_premium
-                const isLocked = isModulePremium && !isUserPremium
-                const isExpanded = !!expandedModules[mod.id]
+              {/* Tabs navigation list: Path | Learners | Discuss */}
+              <div className="flex border-b border-border bg-white shrink-0">
+                <button
+                  onClick={() => {
+                    setActiveSidebarTab("path")
+                    setIsCreatingPost(false)
+                  }}
+                  className={`flex-1 py-3 text-center text-xs font-bold transition-all relative border-none bg-transparent cursor-pointer ${
+                    activeSidebarTab === "path" ? "text-[#7F56D9]" : "text-muted-foreground hover:text-primary"
+                  }`}
+                >
+                  Path
+                  {activeSidebarTab === "path" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7F56D9]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveSidebarTab("learners")
+                    setIsCreatingPost(false)
+                  }}
+                  className={`flex-1 py-3 text-center text-xs font-bold transition-all relative border-none bg-transparent cursor-pointer ${
+                    activeSidebarTab === "learners" ? "text-[#7F56D9]" : "text-muted-foreground hover:text-primary"
+                  }`}
+                >
+                  Learners
+                  {activeSidebarTab === "learners" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7F56D9]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveSidebarTab("discuss")
+                    setIsCreatingPost(false)
+                  }}
+                  className={`flex-1 py-3 text-center text-xs font-bold transition-all relative border-none bg-transparent cursor-pointer ${
+                    activeSidebarTab === "discuss" ? "text-[#7F56D9]" : "text-muted-foreground hover:text-primary"
+                  }`}
+                >
+                  Discuss
+                  {activeSidebarTab === "discuss" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7F56D9]" />
+                  )}
+                </button>
+              </div>
 
-                const subs = getSubChaptersForModule(mod)
-                // Group subs by section
-                const sections: Record<string, SubChapter[]> = {}
-                subs.forEach(sub => {
-                  if (!sections[sub.section]) {
-                    sections[sub.section] = []
-                  }
-                  sections[sub.section].push(sub)
-                })
+              {/* Audit Alert */}
+              {enrollmentMode === "audit" && activeSidebarTab === "path" && (
+                <div className="m-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1.5 text-amber-800 text-[10px] font-bold">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span>Mode Audit (Akses Gratis)</span>
+                  </div>
+                  <p className="text-[9px] text-amber-700 leading-normal font-semibold">
+                    Dapatkan akses lengkap untuk membuka Evaluasi Pembelajaran & Sertifikat Kompetensi.
+                  </p>
+                  <Button
+                    onClick={handleCheckoutTrigger}
+                    className="mt-1 w-full bg-[#060708] hover:bg-[#060708]/90 text-white text-[9px] font-extrabold h-7 rounded-lg transition-colors cursor-pointer text-center flex items-center justify-center gap-1 border-none"
+                  >
+                    <Sparkles className="h-3 w-3 text-[#C6B5BF]" />
+                    Akses Kelas Lengkap
+                  </Button>
+                </div>
+              )}
 
-                const completedInModule = subs.filter(s => completedSubChapters.includes(s.id)).length
+              {/* Tab Contents Scroll Area */}
+              <div className="flex-1 overflow-y-auto">
+                {activeSidebarTab === "path" && (
+                  <div className="divide-y divide-border/60">
+                    {course.modules.map((mod) => {
+                      const isModulePremium = !!mod.is_premium
+                      const isUserPremium = user?.is_premium
+                      const isLocked = isModulePremium && !isUserPremium
+                      const isExpanded = !!expandedModules[mod.id]
 
-                return (
-                  <div key={mod.id} className="bg-white">
-                    {/* Module accordion header */}
-                    <button
-                      onClick={() => setExpandedModules(prev => ({ ...prev, [mod.id]: !prev[mod.id] }))}
-                      className="w-full p-4 bg-white flex items-center justify-between text-left hover:bg-slate-50/40 transition-colors cursor-pointer border-b border-border/20"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">Modul {mod.order}</span>
-                          {isModulePremium && (
-                            <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5 shrink-0">
-                              <Lock className="h-2 w-2" />
-                              Premium
-                            </span>
-                          )}
-                          {completedInModule === 5 && (
-                            <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                              Selesai
-                            </span>
-                          )}
-                        </div>
-                        <h4 className="font-extrabold text-xs text-[#060708] mt-0.5 leading-snug truncate">{mod.title}</h4>
-                      </div>
-                      <span className="text-slate-400 font-bold text-[9px] ml-2 select-none">
-                        {isExpanded ? "▲" : "▼"}
-                      </span>
-                    </button>
+                      const subs = getSubChaptersForModule(mod).filter(s => s.type !== "forum")
+                      const completedInModule = subs.filter(s => completedSubChapters.includes(s.id)).length
 
-                    {/* Nested sub-chapters listed sequentially */}
-                    {isExpanded && (
-                      <div className="pb-4 bg-white space-y-0.5 px-2">
-                        {subs.map((sub) => {
-                          const isSubCompleted = completedSubChapters.includes(sub.id)
-                          const isSubActive = activeSubChapter?.id === sub.id
-                          
-                          let typeLabel = "Video"
-                          if (sub.type === "reading") typeLabel = "Materi Kuliah"
-                          if (sub.type === "quiz") typeLabel = "Evaluasi"
-                          if (sub.type === "forum") typeLabel = "Forum"
-
-                          return (
-                            <button
-                              key={sub.id}
-                              onClick={() => {
-                                if (isLocked && sub.type !== "forum") {
-                                  // let user click to see lock promo screen
-                                }
-                                if (quizTaking) {
-                                  if (!confirm("Evaluasi sedang berjalan. Beralih halaman akan membatalkan evaluasi ini. Lanjutkan?")) {
-                                    return
-                                  }
-                                }
-                                setActiveSubChapter(sub)
-                                setActiveQuiz(null)
-                                setQuizResult(null)
-                                setQuizTaking(false)
-                                setQuizTimerActive(false)
-                              }}
-                              className={`w-full p-2.5 rounded-xl flex items-start gap-3 transition-all text-left cursor-pointer border ${
-                                isSubActive
-                                  ? "bg-slate-100/90 border-slate-200 shadow-3xs"
-                                  : "hover:bg-slate-50 border-transparent"
-                              }`}
-                            >
-                              {/* Completion circle checkmark */}
-                              <div className={`mt-0.5 h-5 w-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                                isSubCompleted
-                                  ? "bg-emerald-100 border-emerald-300 text-emerald-700"
-                                  : isSubActive
-                                    ? "bg-white border-slate-350"
-                                    : "bg-slate-50 border-slate-200"
-                              }`}>
-                                {isSubCompleted ? (
-                                  <Check className="h-3 w-3 stroke-[2.5]" />
-                                ) : (
-                                  <div className={`h-2 w-2 rounded-full ${
-                                    isSubActive ? "bg-slate-400" : "bg-transparent"
-                                  }`} />
+                      return (
+                        <div key={mod.id} className="bg-white">
+                          <button
+                            onClick={() => setExpandedModules(prev => ({ ...prev, [mod.id]: !prev[mod.id] }))}
+                            className="w-full p-4 bg-white flex items-center justify-between text-left hover:bg-slate-50/40 transition-colors cursor-pointer border-none border-b border-border/20"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase">Modul {mod.order}</span>
+                                {isModulePremium && (
+                                  <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5 shrink-0">
+                                    <Lock className="h-2 w-2" />
+                                    Premium
+                                  </span>
+                                )}
+                                {completedInModule === 4 && (
+                                  <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                                    Selesai
+                                  </span>
                                 )}
                               </div>
-                              
-                              {/* Sub-chapter metadata */}
-                              <div className="flex-1 min-w-0">
-                                <h5 className={`text-[11px] leading-snug font-bold ${
-                                  isSubActive ? "text-[#060708]" : "text-slate-600"
-                                }`}>
-                                  {sub.title}
-                                </h5>
-                                <span className="text-[9px] text-muted-foreground font-semibold mt-0.5 block">
-                                  {typeLabel} • {sub.duration}
+                              <h4 className="font-extrabold text-xs text-[#060708] mt-0.5 leading-snug truncate">{mod.title}</h4>
+                            </div>
+                            <span className="text-slate-400 font-bold text-[9px] ml-2 select-none">
+                              {isExpanded ? "▲" : "▼"}
+                            </span>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="pb-3 bg-white space-y-0.5 px-2 pt-1.5">
+                              {subs.map((sub) => {
+                                const isSubCompleted = completedSubChapters.includes(sub.id)
+                                const isSubActive = activeSubChapter?.id === sub.id
+                                
+                                let typeLabel = "Video"
+                                if (sub.type === "reading") typeLabel = "Materi Kuliah"
+                                if (sub.type === "quiz") typeLabel = "Evaluasi"
+
+                                return (
+                                  <button
+                                    key={sub.id}
+                                    onClick={() => {
+                                      if (isLocked) {
+                                        // Let click proceed to locked info layout
+                                      }
+                                      if (quizTaking) {
+                                        if (!confirm("Evaluasi sedang berjalan. Beralih halaman akan membatalkan evaluasi ini. Lanjutkan?")) {
+                                          return
+                                        }
+                                      }
+                                      setActiveSubChapter(sub)
+                                      setActiveQuiz(null)
+                                      setQuizResult(null)
+                                      setQuizTaking(false)
+                                      setQuizTimerActive(false)
+                                    }}
+                                    className={`w-full p-2.5 rounded-[12px] flex items-start gap-3 transition-all text-left cursor-pointer relative border border-solid ${
+                                      isSubActive
+                                        ? "bg-slate-50 border-slate-200"
+                                        : "hover:bg-slate-50/50 border-transparent bg-transparent"
+                                    }`}
+                                  >
+                                    {isSubActive && (
+                                      <div className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-[#7F56D9] rounded-r-md" />
+                                    )}
+                                    
+                                    <div className={`mt-0.5 h-6 w-6 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                                      isSubCompleted
+                                        ? "bg-emerald-100 border-emerald-300 text-emerald-700"
+                                        : isSubActive
+                                          ? "bg-white border-slate-350"
+                                          : "bg-slate-50 border-slate-200"
+                                    }`}>
+                                      {isSubCompleted ? (
+                                        <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                                      ) : sub.type === "video" ? (
+                                        <Play className="h-3 w-3 fill-slate-500 stroke-none" />
+                                      ) : sub.type === "reading" ? (
+                                        <BookOpen className="h-3 w-3 text-slate-500" />
+                                      ) : (
+                                        <HelpCircle className="h-3 w-3 text-slate-500" />
+                                      )}
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className={`text-[11px] leading-snug font-bold ${
+                                        isSubActive ? "text-[#060708]" : "text-slate-600"
+                                      }`}>
+                                        {sub.title}
+                                      </h5>
+                                      <span className="text-[9px] text-muted-foreground font-semibold mt-0.5 block">
+                                        {typeLabel} • {sub.duration}
+                                      </span>
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {activeSidebarTab === "discuss" && (
+                  <div className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Forum Diskusi</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setIsCreatingPost(true)
+                          setActivePost(null)
+                        }}
+                        className="h-8 px-2 text-xs text-[#7F56D9] hover:text-[#7F56D9]/80 hover:bg-[#7F56D9]/10 rounded-md cursor-pointer flex items-center gap-1 font-semibold border border-transparent hover:border-[#7F56D9]/20 bg-transparent"
+                      >
+                        <PlusCircle className="h-3.5 w-3.5" />
+                        <span>Buat Baru</span>
+                      </Button>
+                    </div>
+                    
+                    {forumPosts.length === 0 ? (
+                      <div className="text-xs text-muted-foreground p-6 border rounded-xl text-center bg-white">
+                        Belum ada diskusi di forum ini. Silakan mulai berdiskusi!
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {forumPosts.map((post) => {
+                          const isActive = activePost?.id === post.id
+                          const replyCount = post.replies ? post.replies.length : 0
+                          
+                          return (
+                            <button
+                              key={post.id}
+                              onClick={() => {
+                                setActivePost(post)
+                                setIsCreatingPost(false)
+                              }}
+                              className={`w-full text-left p-3 rounded-xl border transition-all flex flex-col gap-1.5 cursor-pointer border-solid ${
+                                isActive 
+                                  ? "bg-white border-slate-900 shadow-xs" 
+                                  : "bg-white hover:bg-slate-50 border-slate-200 bg-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 w-full">
+                                <span className="text-[9px] text-muted-foreground">
+                                  {new Date(post.created_at).toLocaleDateString("id-ID")}
                                 </span>
+                                <span className="text-[9px] font-bold text-slate-300">•</span>
+                                <span className="text-[9px] font-semibold text-primary truncate max-w-[100px]">{post.author.name}</span>
+                                {post.author.is_premium && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5 ml-auto shrink-0">
+                                    ★ Prioritas
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="font-bold text-xs text-primary leading-snug line-clamp-1">{post.title}</h4>
+                              <p className="text-[10px] text-muted-foreground line-clamp-2 leading-normal">{post.content}</p>
+                              <div className="flex items-center gap-1 mt-0.5 text-[9px] font-bold text-[#7F56D9] uppercase tracking-wide">
+                                <MessageSquare className="h-3 w-3" />
+                                <span>{replyCount} Balasan</span>
                               </div>
                             </button>
                           )
@@ -918,784 +1816,110 @@ export default function CourseDetailPage({ params }: PageProps) {
                       </div>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          </aside>
+                )}
 
-          {/* Main learning player pane */}
-          <main className="flex-1 overflow-hidden flex flex-col bg-[#FAF9FB] relative h-full">
-            
-            {/* Top Minimalist Header */}
-            <header className="flex h-14 shrink-0 items-center justify-between px-6 z-20 relative bg-white border-b border-border/80">
-              {isSyllabusCollapsed ? (
-                <button
-                  onClick={() => setIsSyllabusCollapsed(false)}
-                  className="h-9 px-3 bg-white border border-border shadow-3xs rounded-lg flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer transition-all"
-                >
-                  <Menu className="h-4 w-4" />
-                  Silabus Mata Kuliah
-                </button>
-              ) : (
-                <div />
-              )}
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/dashboard")}
-                className="h-9 px-2.5 hover:bg-secondary/40 text-muted-foreground hover:text-primary gap-1.5 font-bold rounded-lg"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Kembali ke Dashboard
-              </Button>
-            </header>
-
-            {/* Scrollable Content Viewport */}
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col justify-between">
-              <div className="max-w-4xl mx-auto w-full flex-1">
-                
-                {activeSubChapter ? (
-                  (() => {
-                    const isLocked = activeModule?.is_premium && !user?.is_premium
-
-                    // Locked Premium screen
-                    if (isLocked && activeSubItem !== "forum") {
-                      return (
-                        <Card className="border border-border bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[380px] mt-4">
-                          <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
-                            <Lock className="h-6 w-6" />
+                {activeSidebarTab === "learners" && (
+                  <div className="p-4 space-y-4">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 block">Teman Sekelas ({mockLearners.length})</span>
+                    <div className="space-y-2.5">
+                      {mockLearners.map((learner, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-2.5 bg-white border border-slate-100 rounded-xl shadow-3xs">
+                          <Avatar className="h-7 w-7 border bg-secondary/50 font-sans font-bold flex items-center justify-center text-[10px]">
+                            <AvatarFallback>{learner.avatar}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h5 className="text-[11px] font-bold text-slate-800 truncate">{learner.name}</h5>
+                            <span className="text-[9px] text-muted-foreground font-semibold flex items-center gap-1 mt-0.5">
+                              <span className={`h-1.5 w-1.5 rounded-full ${learner.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-slate-350"}`} />
+                              {learner.status === "online" ? "Online" : "Offline"}
+                            </span>
                           </div>
-                          <h3 className="font-heading text-2xl font-bold text-primary">Modul Premium Terkunci</h3>
-                          <p className="text-sm text-muted-foreground max-w-md mt-2 leading-relaxed">
-                            Sub-bab ini merupakan bagian dari modul premium <strong>"{activeModule?.title}"</strong> yang berisi materi kuliah interaktif, bacaan mendalam, dan evaluasi pembelajaran.
-                          </p>
-                          <Button
-                            onClick={handleCheckoutTrigger}
-                            className="mt-6 bg-destructive hover:bg-destructive/90 text-white rounded-lg px-6 py-2.5 font-bold flex items-center gap-2 cursor-pointer shadow-sm"
-                          >
-                            <Sparkles className="h-4 w-4" />
-                            Akses Premium Sekarang
-                          </Button>
-                        </Card>
-                      )
-                    }
-
-                    return (
-                      <div className="space-y-6">
-                        
-                        {/* 1. VIDEO VIEW */}
-                        {activeSubItem === "video" && (
-                          <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
-                            <CardHeader className="border-b bg-white p-6">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Video</span>
-                                {completedSubChapters.includes(activeSubChapter.id) && (
-                                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Check className="h-2.5 w-2.5" />
-                                    Selesai Ditonton
-                                  </span>
-                                )}
-                              </div>
-                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">{activeSubChapter.title}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-6 space-y-6">
-                              {activeSubChapter.video_url ? (
-                                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border">
-                                  <iframe
-                                    className="w-full h-full"
-                                    src={activeSubChapter.video_url}
-                                    title={activeSubChapter.title}
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                  />
-                                </div>
-                              ) : (
-                                <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-border flex flex-col justify-between p-4 group">
-                                  <div className="flex justify-between items-center text-white/80 text-[10px] font-semibold bg-gradient-to-b from-black/80 to-transparent p-3 absolute top-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <span>{activeSubChapter.title}</span>
-                                    <span>12:45</span>
-                                  </div>
-                                  <div 
-                                    onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
-                                    className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/25 transition-colors cursor-pointer z-0"
-                                  >
-                                    <div className="h-16 w-16 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
-                                      <Play className="h-6 w-6 fill-white ml-1" />
-                                    </div>
-                                  </div>
-                                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden">
-                                      <div className="bg-[#CF3A1F] h-full w-[45%]" />
-                                    </div>
-                                    <div className="flex justify-between items-center text-white text-[10px] font-semibold">
-                                      <div className="flex items-center gap-3">
-                                        <span>Play</span>
-                                        <span>05:32 / 12:45</span>
-                                      </div>
-                                      <span>HD / Fullscreen</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#FAF9FB] p-4 rounded-xl border border-border/60">
-                                <div>
-                                  <h5 className="text-xs font-bold text-primary">Status Penayangan</h5>
-                                  <p className="text-[10px] text-slate-500 mt-0.5">Tonton video hingga selesai untuk melengkapi aktivitas ini.</p>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
-                                  disabled={completedSubChapters.includes(activeSubChapter.id)}
-                                  className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
-                                    completedSubChapters.includes(activeSubChapter.id)
-                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                                      : "bg-[#060708] hover:bg-[#060708]/90 text-white"
-                                  }`}
-                                >
-                                  {completedSubChapters.includes(activeSubChapter.id) ? (
-                                    <span className="flex items-center justify-center gap-1">
-                                      <Check className="h-3.5 w-3.5" />
-                                      Sudah Ditonton
-                                    </span>
-                                  ) : (
-                                    "Tandai Selesai Menonton"
-                                  )}
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        {/* 2. READING VIEW */}
-                        {activeSubItem === "reading" && (
-                          <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
-                            <CardHeader className="border-b bg-white p-6">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Materi Kuliah</span>
-                                {completedSubChapters.includes(activeSubChapter.id) && (
-                                  <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Check className="h-2.5 w-2.5" />
-                                    Selesai Dibaca
-                                  </span>
-                                )}
-                              </div>
-                              <CardTitle className="font-heading text-xl font-black text-primary mt-1">{activeSubChapter.title}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-6 space-y-6">
-                              {/* RENDER RICH TEXTBOOK MATERIAL */}
-                              {activeSubChapter && (() => {
-                                if (activeSubChapter.content) {
-                                  return (
-                                    <div className="space-y-4 text-xs text-primary leading-relaxed font-sans prose prose-slate max-w-none">
-                                      <div className="p-4 rounded-xl border border-[#C6B5BF]/40 bg-[#FAF9FB]/70 text-xs text-slate-600 font-serif leading-relaxed italic shrink-0">
-                                        Materi kuliah mandiri untuk memperkuat pemahaman Anda dalam topik ini.
-                                      </div>
-                                      <div className="mt-3 text-slate-800 font-sans border border-border p-6 rounded-xl bg-white leading-loose text-[13px]">
-                                        <MarkdownRenderer content={activeSubChapter.content} />
-                                      </div>
-                                    </div>
-                                  )
-                                }
-
-                                const readingData = getReadingContent(course?.code || "IF101", activeModule?.order || 1, typeof activeSubChapter.id === "string" && activeSubChapter.id.endsWith("_sub3") ? 3 : 2, activeModule?.title || "");
-                                return (
-                                  <div className="space-y-6 text-[#060708]">
-                                    <div className="p-4 rounded-xl border border-[#C6B5BF]/40 bg-[#FAF9FB]/70 text-xs italic text-slate-600 leading-relaxed font-serif">
-                                      {readingData.introduction}
-                                    </div>
-                                    
-                                    {readingData.sections.map((sect, sIdx) => (
-                                      <div key={sIdx} className="space-y-3 pt-2">
-                                        <h3 className="font-heading font-extrabold text-sm text-[#060708] border-b pb-1 border-slate-100 uppercase tracking-wide">
-                                          {sect.heading}
-                                        </h3>
-                                        {sect.paragraphs.map((p, pIdx) => (
-                                          <p key={pIdx} className="text-xs text-slate-700 leading-relaxed font-sans">
-                                            {p}
-                                          </p>
-                                        ))}
-                                        {sect.codeBlock && (
-                                          <pre className="p-4 rounded-xl bg-[#060708] text-emerald-400 font-mono text-[10px] overflow-x-auto shadow-inner leading-relaxed border border-slate-800">
-                                            <code>{sect.codeBlock}</code>
-                                          </pre>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )
-                              })()}
-
-
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 p-4 rounded-xl border border-border/40">
-                                <div>
-                                  <h5 className="text-xs font-bold text-primary">Status Pembacaan</h5>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah memahami materi kuliah ini.</p>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
-                                  disabled={completedSubChapters.includes(activeSubChapter.id)}
-                                  className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
-                                    completedSubChapters.includes(activeSubChapter.id)
-                                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                                      : "bg-[#060708] hover:bg-[#060708]/90 text-white"
-                                  }`}
-                                >
-                                  {completedSubChapters.includes(activeSubChapter.id) ? (
-                                    <span className="flex items-center justify-center gap-1">
-                                      <Check className="h-3.5 w-3.5" />
-                                      Sudah Dibaca
-                                    </span>
-                                  ) : (
-                                    "Tandai Selesai Membaca"
-                                  )}
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )}
-
-                        {/* 3. QUIZ VIEW */}
-                        {activeSubItem === "quiz" && (
-                          (() => {
-                            if (enrollmentMode === "audit") {
-                              return (
-                                <Card className="border border-border bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[380px] mt-4">
-                                  <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
-                                    <Lock className="h-6 w-6" />
-                                  </div>
-                                  <h3 className="font-heading text-2xl font-bold text-primary">Evaluasi Pembelajaran Terkunci</h3>
-                                  <p className="text-sm text-slate-600 max-w-md mt-2 leading-relaxed font-sans">
-                                    Anda sedang mengakses kelas ini dalam <strong>Mode Audit (Gratis)</strong>. Evaluasi pembelajaran dan sertifikat kompetensi hanya tersedia bagi mahasiswa Kelas Terverifikasi.
-                                  </p>
-                                  <Button
-                                    onClick={handleCheckoutTrigger}
-                                    className="mt-6 bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg px-6 py-2.5 font-bold flex items-center gap-2 cursor-pointer shadow-sm text-xs"
-                                  >
-                                    <Sparkles className="h-4 w-4 text-[#C6B5BF]" />
-                                    Akses Kelas Lengkap
-                                  </Button>
-                                </Card>
-                              )
-                            }
-
-                            if (quizTaking && activeQuiz) {
-                              return (
-                                <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
-                                  <CardHeader className="border-b bg-white flex flex-row items-center justify-between p-6">
-                                    <div>
-                                      <CardTitle className="font-heading text-xl font-bold text-primary">{activeQuiz.title}</CardTitle>
-                                      <CardDescription className="text-xs mt-1">Selesaikan seluruh pertanyaan sebelum waktu habis.</CardDescription>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive shrink-0 font-mono font-bold text-sm">
-                                      <Timer className="h-4 w-4" />
-                                      <span>{formatTime(quizTimeLeft)}</span>
-                                    </div>
-                                  </CardHeader>
-                                  <CardContent className="p-6 space-y-8">
-                                    {activeQuiz.questions.map((q: any, idx: number) => {
-                                      const selected = quizAnswers[q.id]
-                                      return (
-                                        <div key={q.id} className="space-y-3">
-                                          <h4 className="text-sm font-semibold text-primary flex items-start gap-2">
-                                            <span className="px-2 py-0.5 rounded bg-secondary text-primary text-xs font-bold font-sans">{idx + 1}</span>
-                                            <span className="leading-relaxed">{q.text}</span>
-                                          </h4>
-                                          <div className="grid gap-2 pl-7">
-                                            {q.options.map((opt: any) => {
-                                              const isSelected = selected === opt.id
-                                              return (
-                                                <button
-                                                  key={opt.id}
-                                                  onClick={() => handleQuizAnswerSelect(q.id, opt.id)}
-                                                  className={`w-full text-left p-3 rounded-lg border text-xs font-semibold transition-all flex items-center gap-3 cursor-pointer ${
-                                                    isSelected
-                                                      ? "bg-[#060708] border-[#060708] text-white"
-                                                      : "bg-background hover:bg-secondary/40 border-border"
-                                                  }`}
-                                                >
-                                                  <span className={`h-5 w-5 rounded-full flex items-center justify-center border font-bold ${
-                                                    isSelected ? "border-white bg-white/20 text-white" : "border-border bg-white text-muted-foreground"
-                                                  }`}>
-                                                    {opt.id}
-                                                  </span>
-                                                  <span>{opt.text}</span>
-                                                </button>
-                                              )
-                                            })}
-                                          </div>
-                                        </div>
-                                      )
-                                    })}
-                                  </CardContent>
-                                  <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-between gap-4">
-                                    <span className="text-xs text-muted-foreground">
-                                      Terjawab: {Object.keys(quizAnswers).length} dari {activeQuiz.questions.length} soal
-                                    </span>
-                                    <Button
-                                      onClick={handleQuizSubmit}
-                                      className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold cursor-pointer"
-                                    >
-                                      Kirim Jawaban
-                                    </Button>
-                                  </CardFooter>
-                                </Card>
-                              )
-                            }
-
-                            if (quizResult && activeQuiz) {
-                              const scoreColor = quizResult.score >= 60 ? "text-primary" : "text-destructive"
-                              return (
-                                <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
-                                  <CardHeader className="border-b bg-white p-6 text-center">
-                                    <h3 className="font-heading text-lg font-bold text-primary">Hasil Evaluasi Pembelajaran</h3>
-                                    <p className="text-xs text-muted-foreground mt-0.5">{activeQuiz.title}</p>
-                                  </CardHeader>
-                                  <CardContent className="p-6 space-y-6">
-                                    {/* Score display */}
-                                    <div className="flex flex-col items-center justify-center p-6 border border-border rounded-xl bg-background max-w-sm mx-auto text-center space-y-2">
-                                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Skor Akhir</span>
-                                      <span className={`text-6xl font-heading font-black ${scoreColor}`}>
-                                        {quizResult.score}
-                                      </span>
-                                      <div className="text-xs font-semibold text-primary mt-1">
-                                        {quizResult.passed ? (
-                                          <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 font-bold">
-                                            <CheckCircle className="h-3.5 w-3.5" />
-                                            SELESAI & LULUS
-                                          </span>
-                                        ) : (
-                                          <span className="px-3 py-1 rounded-full bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-1 font-bold">
-                                            <XCircle className="h-3.5 w-3.5" />
-                                            TIDAK LULUS (Min 60)
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-[10px] text-muted-foreground mt-2">
-                                        Menjawab benar {quizResult.correct_count} dari {quizResult.total_questions} pertanyaan.
-                                      </p>
-                                    </div>
-
-                                    {/* Review answers */}
-                                    <div className="space-y-4 pt-4 border-t border-border">
-                                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tinjauan Pertanyaan</h4>
-                                      {activeQuiz.questions.map((q: any, idx: number) => {
-                                        const review = quizResult.details.find((d: any) => d.question_id === q.id)
-                                        const isCorrect = review?.is_correct
-                                        const submittedOpt = q.options.find((o: any) => o.id === review?.submitted)
-                                        const correctOpt = q.options.find((o: any) => o.id === review?.correct)
-
-                                        return (
-                                          <div key={q.id} className="p-4 border rounded-lg bg-[#FAF9FB] space-y-2 text-xs">
-                                            <div className="flex items-start justify-between gap-3">
-                                              <h5 className="font-semibold text-primary leading-normal">
-                                                {idx + 1}. {q.text}
-                                              </h5>
-                                              {isCorrect ? (
-                                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-0.5 text-[9px] font-bold shrink-0">
-                                                  <Check className="h-2.5 w-2.5" />
-                                                  Benar
-                                                </span>
-                                              ) : (
-                                                <span className="px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/25 flex items-center gap-0.5 text-[9px] font-bold shrink-0">
-                                                  <XCircle className="h-2.5 w-2.5" />
-                                                  Salah
-                                                </span>
-                                              )}
-                                            </div>
-
-                                            <div className="space-y-1.5 pl-2 pt-1 border-l-2 border-border/80">
-                                              <p className="text-[11px] text-primary">
-                                                Jawaban Anda: <strong className={isCorrect ? "text-primary" : "text-destructive"}>
-                                                  {submittedOpt ? `(${submittedOpt.id}) ${submittedOpt.text}` : "(Tidak Dijawab)"}
-                                                </strong>
-                                              </p>
-                                              {!isCorrect && (
-                                                <p className="text-[11px] text-muted-foreground">
-                                                  Jawaban Benar: <strong className="text-primary">
-                                                    ({correctOpt.id}) {correctOpt.text}
-                                                  </strong>
-                                                </p>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  </CardContent>
-                                  <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-between">
-                                    <Button
-                                      variant="ghost"
-                                      onClick={handleResetQuiz}
-                                      className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/45 cursor-pointer h-9 px-3 rounded-lg"
-                                    >
-                                      Kembali ke Halaman Evaluasi
-                                    </Button>
-                                    <Button
-                                      onClick={() => activeModule && handleStartQuiz(activeModule.id)}
-                                      className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold cursor-pointer"
-                                    >
-                                      Ulangi Evaluasi
-                                    </Button>
-                                  </CardFooter>
-                                </Card>
-                              )
-                            }
-
-                            // Default Quiz Landing View
-                            return (
-                              <Card className="border border-border bg-white rounded-2xl shadow-xs overflow-hidden">
-                                <CardHeader className="border-b bg-white p-6">
-                                  <span className="text-[9px] font-bold text-accent uppercase tracking-wider">Modul {activeModule?.order} — Evaluasi</span>
-                                  {completedSubChapters.includes(activeSubChapter.id) && (
-                                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                                      <Check className="h-2.5 w-2.5" />
-                                      Lulus
-                                    </span>
-                                  )}
-                                </CardHeader>
-                                <CardContent className="p-6 space-y-4">
-                                  <p className="text-sm text-primary leading-relaxed">
-                                    Gunakan evaluasi ini untuk mengukur pemahaman Anda terkait materi kuliah yang telah dipelajari. Anda membutuhkan nilai minimal 60% untuk dinyatakan lulus modul ini.
-                                  </p>
-                                  <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground bg-secondary/10 p-3 rounded-xl border border-border/50 max-w-sm">
-                                    <div className="flex items-center gap-1">
-                                      <Timer className="h-4 w-4 text-[#CF3A1F]" />
-                                      <span>Batas Waktu: 3 Menit</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <CheckCircle className="h-4 w-4 text-emerald-600" />
-                                      <span>Passing Grade: 60</span>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                                <CardFooter className="border-t bg-secondary/15 p-4 flex justify-end">
-                                  <Button
-                                    onClick={() => activeModule && handleStartQuiz(activeModule.id)}
-                                    className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs h-9 px-4 rounded-lg font-bold flex items-center gap-2 cursor-pointer shadow-xs"
-                                  >
-                                    <HelpCircle className="h-4 w-4" />
-                                    Mulai Evaluasi Pembelajaran
-                                  </Button>
-                                </CardFooter>
-                              </Card>
-                            )
-                          })()
-                        )}
-
-                        {/* 4. FORUM VIEW */}
-                        {activeSubItem === "forum" && (
-                          <div className="space-y-6">
-                            <div className="grid gap-6 lg:grid-cols-3 items-start">
-                              {/* Left Panel: Threads */}
-                              <div className={`lg:col-span-1 space-y-3 ${activePost ? "hidden lg:block" : "block"}`}>
-                                <div className="flex items-center justify-between px-1 mb-2">
-                                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Forum Diskusi</h3>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setIsCreatingPost(true)}
-                                    className="h-8 px-2 text-xs text-[#CF3A1F] hover:text-[#CF3A1F]/80 hover:bg-[#CF3A1F]/10 rounded-md cursor-pointer flex items-center gap-1 font-semibold border border-transparent hover:border-[#CF3A1F]/20"
-                                  >
-                                    <PlusCircle className="h-4 w-4" />
-                                    <span>Buat Diskusi Baru</span>
-                                  </Button>
-                                </div>
-
-                                {forumPosts.length === 0 ? (
-                                  <div className="text-xs text-muted-foreground p-6 border rounded-xl text-center bg-white">
-                                    Belum ada diskusi di forum ini. Silakan mulai berdiskusi!
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2 pr-1">
-                                    {forumPosts.map((post) => {
-                                      const isActive = activePost?.id === post.id
-                                      const replyCount = post.replies.length
-                                      
-                                      return (
-                                        <button
-                                          key={post.id}
-                                          onClick={() => {
-                                            setActivePost(post)
-                                            setIsCreatingPost(false)
-                                          }}
-                                          className={`w-full text-left p-4 rounded-xl border transition-all flex flex-col gap-2 cursor-pointer ${
-                                            isActive 
-                                              ? "bg-white border-primary shadow-xs" 
-                                              : "bg-white hover:bg-secondary/20 border-border hover:border-accent-2/40"
-                                          }`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-[10px] text-muted-foreground">
-                                              {new Date(post.created_at).toLocaleDateString("id-ID")}
-                                            </span>
-                                            <span className="text-[10px] font-bold text-accent">•</span>
-                                            <span className="text-[10px] font-semibold text-primary">{post.author.name}</span>
-                                          </div>
-                                          <h4 className="font-bold text-sm text-primary leading-snug line-clamp-1">{post.title}</h4>
-                                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{post.content}</p>
-                                          <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-accent uppercase tracking-wide">
-                                            <MessageSquare className="h-3.5 w-3.5" />
-                                            <span>{replyCount} Balasan</span>
-                                          </div>
-                                        </button>
-                                      )
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Right Panel: Active Thread detail OR Creation Form */}
-                              <div className="lg:col-span-2">
-                                {isCreatingPost ? (
-                                  <Card className="border border-border bg-white rounded-2xl shadow-xs">
-                                    <CardHeader className="border-b bg-white">
-                                      <CardTitle className="font-heading text-lg font-bold text-primary">Mulai Diskusi Baru</CardTitle>
-                                      <CardDescription className="text-xs">Ajukan pertanyaan mengenai topik mata kuliah ini ke dosen pengampu dan sesama mahasiswa.</CardDescription>
-                                    </CardHeader>
-                                    <form onSubmit={handleCreatePost}>
-                                      <CardContent className="p-6 space-y-4">
-                                        <div className="space-y-1.5">
-                                          <Label htmlFor="post-title" className="text-xs font-semibold text-primary">Judul Diskusi</Label>
-                                          <Input
-                                            id="post-title"
-                                            placeholder="Masukkan judul singkat (cth: Masalah p(k+1) induksi)"
-                                            value={newPostTitle}
-                                            onChange={(e) => setNewPostTitle(e.target.value)}
-                                            className="bg-white border border-border rounded-lg"
-                                          />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                          <Label htmlFor="post-content" className="text-xs font-semibold text-primary">Detail Pertanyaan</Label>
-                                          <textarea
-                                            id="post-content"
-                                            rows={5}
-                                            placeholder="Tuliskan pertanyaan Anda secara mendetail di sini..."
-                                            value={newPostContent}
-                                            onChange={(e) => setNewPostContent(e.target.value)}
-                                            className="w-full bg-white border border-border rounded-lg p-3 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                                          />
-                                        </div>
-                                      </CardContent>
-                                      <CardFooter className="border-t bg-secondary/15 p-4 flex items-center justify-end gap-3">
-                                        <Button
-                                          variant="ghost"
-                                          type="button"
-                                          onClick={() => setIsCreatingPost(false)}
-                                          className="text-xs text-muted-foreground hover:text-primary hover:bg-secondary/40 h-9 px-3 rounded-lg"
-                                        >
-                                          Batal
-                                        </Button>
-                                        <Button
-                                          type="submit"
-                                          className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-5 h-9 rounded-lg font-bold"
-                                        >
-                                          Kirim Pertanyaan
-                                        </Button>
-                                      </CardFooter>
-                                    </form>
-                                  </Card>
-                                ) : activePost ? (
-                                  <Card className="border border-border bg-white rounded-2xl shadow-xs">
-                                    <CardHeader className="border-b bg-white flex flex-row items-start justify-between gap-4 p-6">
-                                      <div className="space-y-1.5">
-                                        {/* Back to threads button only visible on mobile layout */}
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setActivePost(null)}
-                                          className="h-8 px-2 -ml-2 text-muted-foreground hover:text-primary hover:bg-secondary/40 gap-1 lg:hidden"
-                                        >
-                                          <ArrowLeft className="h-4 w-4" />
-                                          <span>Kembali ke List</span>
-                                        </Button>
-                                        
-                                        <div className="flex items-center gap-3">
-                                          <Avatar className="h-8 w-8 border bg-secondary/50 font-sans font-bold">
-                                            <AvatarFallback>{activePost.author.avatar || "M"}</AvatarFallback>
-                                          </Avatar>
-                                          <div>
-                                            <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-bold text-primary">{activePost.author.name}</span>
-                                              <span className="text-[9px] font-bold px-1 py-0.5 rounded border bg-accent/20 text-primary border-accent/30">
-                                                {activePost.author.role}
-                                              </span>
-                                            </div>
-                                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                                              Ditanyakan pada {new Date(activePost.created_at).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
-                                            </p>
-                                          </div>
-                                        </div>
-                                        
-                                        <CardTitle className="font-heading text-lg font-bold text-primary pt-3">{activePost.title}</CardTitle>
-                                      </div>
-                                    </CardHeader>
-                                    <CardContent className="p-6 space-y-6">
-                                      <p className="text-sm text-primary leading-relaxed border-b border-border pb-6">
-                                        {activePost.content}
-                                      </p>
-
-                                      {/* Replies Thread list */}
-                                      <div className="space-y-4">
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                                          Balasan ({activePost.replies.length})
-                                        </h4>
-                                        {activePost.replies.length === 0 ? (
-                                          <p className="text-xs text-muted-foreground italic text-center py-4 bg-background border rounded-lg">
-                                            Belum ada balasan. Tulis tanggapan Anda di bawah!
-                                          </p>
-                                        ) : (
-                                          <div className="space-y-2">
-                                            {renderReplies(activePost.replies, activePost.id, 1)}
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Reply Form */}
-                                      <div className="pt-6 border-t border-border space-y-3">
-                                        <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tulis Tanggapan Anda</h5>
-                                        <div className="space-y-3">
-                                          <textarea
-                                            rows={3}
-                                            placeholder="Berikan jawaban atau tanggapan Anda..."
-                                            value={replyContents[`post-${activePost.id}`] || ""}
-                                            onChange={(e) => setReplyContents(prev => ({ ...prev, [`post-${activePost.id}`]: e.target.value }))}
-                                            className="w-full bg-white border border-border rounded-lg p-3 text-xs text-primary focus:outline-none focus:ring-1 focus:ring-accent"
-                                          />
-                                          <Button
-                                            onClick={() => handleCreateReply(activePost.id, null)}
-                                            className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs px-4 h-9 rounded-lg font-bold flex items-center gap-1 cursor-pointer"
-                                          >
-                                            Kirim Tanggapan
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                ) : (
-                                  <div className="text-center text-muted-foreground p-12 border border-dashed rounded-2xl bg-white min-h-[300px] flex flex-col items-center justify-center">
-                                    <MessageSquare className="h-10 w-10 text-muted-foreground/50 mb-3" />
-                                    <h4 className="font-heading text-lg font-bold text-[#060708]">Forum Diskusi Mata Kuliah</h4>
-                                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                                      Pilih pertanyaan dari panel samping untuk melihat detail pembahasan, atau klik "Buat Diskusi Baru" untuk mengajukan pertanyaan baru.
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#FAF9FB] p-4 rounded-xl border border-border/60">
-                              <div>
-                                <h5 className="text-xs font-bold text-primary">Partisipasi Diskusi</h5>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Tandai selesai jika Anda telah membaca atau berdiskusi di modul ini.</p>
-                              </div>
-                              <Button
-                                size="sm"
-                                onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
-                                disabled={completedSubChapters.includes(activeSubChapter.id)}
-                                className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
-                                  completedSubChapters.includes(activeSubChapter.id)
-                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                                    : "bg-[#060708] hover:bg-[#060708]/90 text-white"
-                                }`}
-                              >
-                                {completedSubChapters.includes(activeSubChapter.id) ? (
-                                  <span className="flex items-center justify-center gap-1">
-                                    <Check className="h-3.5 w-3.5" />
-                                    Selesai
-                                  </span>
-                                ) : (
-                                  "Tandai Selesai"
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })()
-                ) : (
-                  <div className="text-center text-muted-foreground p-12 border border-dashed rounded-xl bg-white">
-                    Pilih sub-bab di panel samping untuk memulai belajar.
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
+            </aside>
 
-              {/* Bottom Navigation controls */}
-              {activeSubChapter && (
-                (() => {
-                  const isLocked = activeModule?.is_premium && !user?.is_premium
-                  if (isLocked && activeSubItem !== "forum") return null
-                  
-                  return (
-                    <footer className="border-t border-border/80 bg-white p-4 flex items-center justify-between shrink-0 shadow-xs z-20 rounded-xl mt-8 max-w-4xl w-full mx-auto">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (activeIndex > 0) {
-                            const prevItem = flatSubChapters[activeIndex - 1]
-                            setActiveSubChapter(prevItem)
-                            setExpandedModules(prev => ({ ...prev, [prevItem.module.id]: true }))
-                            setActiveQuiz(null)
-                            setQuizResult(null)
-                            setQuizTaking(false)
-                            setQuizTimerActive(false)
-                          }
-                        }}
-                        disabled={activeIndex <= 0}
-                        className="text-xs border-border hover:bg-slate-100/60 text-primary gap-1 font-bold rounded-lg h-9"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        Sebelumnya
-                      </Button>
+            {/* Main Content Area */}
+            <main className="flex-1 overflow-hidden flex flex-col bg-[#FAF9FB] relative h-full">
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col justify-between">
+                <div className="w-full flex-1">
+                  {renderMainContent()}
+                </div>
 
-                      <div className="text-[9px] text-muted-foreground font-bold uppercase tracking-wider hidden md:inline-block">
-                        Lengkapi tiap sub-bab materi kuliah secara berurutan
-                      </div>
-
-                      {activeIndex < flatSubChapters.length - 1 ? (
+                {/* Bottom Navigation controls */}
+                {activeSidebarTab === "path" && activeSubChapter && (
+                  (() => {
+                    const isLocked = activeModule?.is_premium && !user?.is_premium
+                    if (isLocked && activeSubItem !== "forum") return null
+                    
+                    return (
+                      <footer className="border border-solid border-border/80 bg-white p-4 flex items-center justify-between shrink-0 shadow-xs z-20 rounded-xl mt-8 w-full">
                         <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => {
-                            // Mark current as completed
-                            markSubChapterAsCompleted(activeSubChapter.id)
-                            
-                            // Navigate to next
-                            const nextItem = flatSubChapters[activeIndex + 1]
-                            setActiveSubChapter(nextItem)
-                            setExpandedModules(prev => ({ ...prev, [nextItem.module.id]: true }))
-                            setActiveQuiz(null)
-                            setQuizResult(null)
-                            setQuizTaking(false)
-                            setQuizTimerActive(false)
+                            if (activeIndex > 0) {
+                              const prevItem = flatSubChapters[activeIndex - 1]
+                              setActiveSubChapter(prevItem)
+                              setExpandedModules(prev => ({ ...prev, [prevItem.module.id]: true }))
+                              setActiveQuiz(null)
+                              setQuizResult(null)
+                              setQuizTaking(false)
+                              setQuizTimerActive(false)
+                            }
                           }}
-                          className="bg-[#060708] hover:bg-[#060708]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm"
+                          disabled={activeIndex <= 0}
+                          className="text-xs border-border hover:bg-slate-100/60 text-primary gap-1 font-bold rounded-lg h-9 border-solid"
                         >
-                          Tandai Selesai & Lanjut
-                          <ChevronRight className="h-4 w-4" />
+                          <ChevronLeft className="h-4 w-4" />
+                          Sebelumnya
                         </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            markSubChapterAsCompleted(activeSubChapter.id)
-                            alert("Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran pada mata kuliah ini. Semoga sukses dalam ujian akhir!")
-                          }}
-                          className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm"
-                        >
-                          Selesaikan Mata Kuliah
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </footer>
-                  )
-                })()
-              )}
-            </div>
-          </main>
+
+                        <div className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest hidden md:inline-block">
+                          Lengkapi tiap sub-bab materi kuliah secara berurutan
+                        </div>
+
+                        {activeIndex < flatSubChapters.length - 1 ? (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              markSubChapterAsCompleted(activeSubChapter.id)
+                              const nextItem = flatSubChapters[activeIndex + 1]
+                              setActiveSubChapter(nextItem)
+                              setExpandedModules(prev => ({ ...prev, [nextItem.module.id]: true }))
+                              setActiveQuiz(null)
+                              setQuizResult(null)
+                              setQuizTaking(false)
+                              setQuizTimerActive(false)
+                            }}
+                            className="bg-[#060708] hover:bg-[#060708]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm border-none"
+                          >
+                            Tandai Selesai & Lanjut
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              markSubChapterAsCompleted(activeSubChapter.id)
+                              alert("Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran pada mata kuliah ini. Semoga sukses dalam ujian akhir!")
+                            }}
+                            className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm border-none"
+                          >
+                            Selesaikan Mata Kuliah
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </footer>
+                    )
+                  })()
+                )}
+              </div>
+            </main>
+          </div>
         </>
       )}
 
@@ -1708,7 +1932,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                 setCheckoutOpen(false)
                 setPaymentStatus("idle")
               }}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-primary h-8 w-8 cursor-pointer rounded-full border border-transparent hover:border-border flex items-center justify-center"
+              className="absolute right-4 top-4 text-muted-foreground hover:text-primary h-8 w-8 cursor-pointer rounded-full border border-transparent hover:border-border flex items-center justify-center border-none bg-transparent"
               disabled={checkoutLoading}
             >
               <X className="h-5 w-5" />
@@ -1716,7 +1940,7 @@ export default function CourseDetailPage({ params }: PageProps) {
             
             <div className="mb-4">
               <h3 className="text-xl font-heading font-bold text-primary flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-destructive animate-pulse" />
+                <Sparkles className="h-5 w-5 text-[#7F56D9] animate-pulse" />
                 Upgrade Belajara Premium
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1743,14 +1967,14 @@ export default function CourseDetailPage({ params }: PageProps) {
             ) : (
               // Mock Midtrans Gateway Overlay UI (Fallback if snap.js does not trigger)
               <div className="space-y-4">
-                <div className="p-4 border rounded-xl bg-background flex items-center justify-between border-border/80">
+                <div className="p-4 border rounded-xl bg-background flex items-center justify-between border-border/80 border-solid">
                   <div>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Metode Upgrade</p>
                     <p className="text-sm font-bold text-primary">Akses Premium Belajara</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-muted-foreground line-through">Rp 149.000</p>
-                    <p className="text-sm font-heading font-bold text-destructive">Rp 49.000</p>
+                    <p className="text-sm font-heading font-bold text-[#CF3A1F]">Rp 49.000</p>
                   </div>
                 </div>
 
@@ -1759,20 +1983,20 @@ export default function CourseDetailPage({ params }: PageProps) {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setMockPaymentMethod("gopay")}
-                      className={`p-3 border rounded-lg text-xs font-semibold text-center cursor-pointer transition-all ${
+                      className={`p-3 border rounded-lg text-xs font-semibold text-center cursor-pointer transition-all border-solid ${
                         mockPaymentMethod === "gopay" 
                           ? "bg-primary border-primary text-white" 
-                          : "bg-white hover:bg-secondary/40 border-border"
+                          : "bg-white hover:bg-secondary/40 border-border bg-transparent"
                       }`}
                     >
                       GoPay / QRIS
                     </button>
                     <button
                       onClick={() => setMockPaymentMethod("va")}
-                      className={`p-3 border rounded-lg text-xs font-semibold text-center cursor-pointer transition-all ${
+                      className={`p-3 border rounded-lg text-xs font-semibold text-center cursor-pointer transition-all border-solid ${
                         mockPaymentMethod === "va" 
                           ? "bg-primary border-primary text-white" 
-                          : "bg-white hover:bg-secondary/40 border-border"
+                          : "bg-white hover:bg-secondary/40 border-border bg-transparent"
                       }`}
                     >
                       Virtual Account
@@ -1781,7 +2005,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                 </div>
 
                 {mockPaymentMethod === "va" ? (
-                  <div className="p-3.5 border rounded-lg bg-background text-xs space-y-2">
+                  <div className="p-3.5 border rounded-lg bg-background text-xs space-y-2 border-solid">
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">Nomor Virtual Account</span>
                       <span className="font-mono font-bold text-primary">8819082201010101</span>
@@ -1795,8 +2019,8 @@ export default function CourseDetailPage({ params }: PageProps) {
                     </p>
                   </div>
                 ) : (
-                  <div className="p-3.5 border rounded-lg bg-[#FAF9FB] flex flex-col items-center justify-center gap-2">
-                    <div className="h-28 w-28 bg-white border border-border rounded-lg p-1 flex items-center justify-center shrink-0">
+                  <div className="p-3.5 border rounded-lg bg-[#FAF9FB] flex flex-col items-center justify-center gap-2 border-solid">
+                    <div className="h-28 w-28 bg-white border border-border rounded-lg p-1 flex items-center justify-center shrink-0 border-solid">
                       {/* Simulating QR code */}
                       <div className="grid grid-cols-4 gap-1 w-full h-full bg-[#060708]/10 p-2">
                         {[...Array(16)].map((_, i) => (
@@ -1810,7 +2034,7 @@ export default function CourseDetailPage({ params }: PageProps) {
 
                 <Button
                   onClick={handleMockPaymentSuccess}
-                  className="w-full bg-destructive hover:bg-destructive/95 text-white cursor-pointer py-2.5 rounded-lg flex items-center justify-center gap-2 font-bold shadow-xs"
+                  className="w-full bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white cursor-pointer py-2.5 rounded-lg flex items-center justify-center gap-2 font-bold shadow-xs border-none"
                 >
                   <CreditCard className="h-4.5 w-4.5" />
                   Konfirmasi Bayar Rp 49.000

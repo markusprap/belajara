@@ -36,6 +36,65 @@ class MeView(APIView):
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def put(self, request):
+        from users.models import Mahasiswa, InstructorProfile
+        
+        user = request.user
+        data = request.data
+        
+        # Update user fields
+        user.first_name = data.get('first_name', user.first_name)
+        user.last_name = data.get('last_name', user.last_name)
+        user.save()
+        
+        if user.is_mahasiswa:
+            profile_data = data.get('mahasiswa_profile', {}) or data
+            try:
+                profile = user.mahasiswa_profile
+            except Mahasiswa.DoesNotExist:
+                import random
+                nim = profile_data.get('nim') or f"2201{random.randint(100000, 999999)}"
+                profile = Mahasiswa.objects.create(user=user, nim=nim)
+                
+            nim = profile_data.get('nim')
+            if nim and nim != profile.nim:
+                if Mahasiswa.objects.filter(nim=nim).exclude(user=user).exists():
+                    return Response({"detail": "NIM sudah terdaftar."}, status=status.HTTP_400_BAD_REQUEST)
+                profile.nim = nim
+                
+            profile.jurusan = profile_data.get('jurusan', profile.jurusan)
+            profile.universitas = profile_data.get('universitas', profile.universitas)
+            
+            semester = profile_data.get('semester')
+            if semester is not None:
+                try:
+                    profile.semester = int(semester)
+                except ValueError:
+                    pass
+            profile.save()
+            
+        elif user.is_instructor:
+            profile_data = data.get('instructor_profile', {}) or data
+            try:
+                profile = user.instructor_profile
+            except InstructorProfile.DoesNotExist:
+                import random
+                nidn = profile_data.get('nidn') or f"1001{random.randint(100000, 999999)}"
+                profile = InstructorProfile.objects.create(user=user, nidn=nidn)
+                
+            nidn = profile_data.get('nidn')
+            if nidn and nidn != profile.nidn:
+                if InstructorProfile.objects.filter(nidn=nidn).exclude(user=user).exists():
+                    return Response({"detail": "NIDN sudah terdaftar."}, status=status.HTTP_400_BAD_REQUEST)
+                profile.nidn = nidn
+                
+            profile.bidang_keahlian = profile_data.get('bidang_keahlian', profile.bidang_keahlian)
+            profile.universitas = profile_data.get('universitas', profile.universitas)
+            profile.save()
+            
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class StudentDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -54,7 +113,7 @@ class GoogleOAuthView(APIView):
     def post(self, request):
         import random
         from django.contrib.auth import get_user_model
-        from users.models import Mahasiswa
+        from users.models import Mahasiswa, InstructorProfile
 
         User = get_user_model()
         email = request.data.get('email')
@@ -62,9 +121,13 @@ class GoogleOAuthView(APIView):
         last_name = request.data.get('last_name', '')
         # google_id can be mock or real ID
         google_id = request.data.get('google_id', '')
+        role = request.data.get('role', 'student')
 
         if not email:
             return Response({"detail": "Email harus diisi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if 'instructor' in email.lower() or 'dosen' in email.lower():
+            role = 'instructor'
 
         # Try to find user with this email
         try:
@@ -81,28 +144,53 @@ class GoogleOAuthView(APIView):
 
             import secrets
             password = secrets.token_urlsafe(16)
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-                first_name=first_name,
-                last_name=last_name,
-                is_mahasiswa=True
-            )
+            
+            if role == 'instructor':
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    is_instructor=True,
+                    is_mahasiswa=False
+                )
+                
+                # Generate random NIDN
+                nidn = f"1001{random.randint(100000, 999999)}"
+                while InstructorProfile.objects.filter(nidn=nidn).exists():
+                    nidn = f"1001{random.randint(100000, 999999)}"
+                
+                InstructorProfile.objects.create(
+                    user=user,
+                    nidn=nidn,
+                    bidang_keahlian="Umum",
+                    universitas="Universitas Indonesia"
+                )
+            else:
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    is_mahasiswa=True,
+                    is_instructor=False
+                )
 
-            # Generate random NIM
-            nim = f"2201{random.randint(100000, 999999)}"
-            while Mahasiswa.objects.filter(nim=nim).exists():
+                # Generate random NIM
                 nim = f"2201{random.randint(100000, 999999)}"
+                while Mahasiswa.objects.filter(nim=nim).exists():
+                    nim = f"2201{random.randint(100000, 999999)}"
 
-            # Create Mahasiswa profile
-            Mahasiswa.objects.create(
-                user=user,
-                nim=nim,
-                jurusan="Informatika",
-                universitas="Universitas Indonesia",
-                semester=1
-            )
+                # Create Mahasiswa profile
+                Mahasiswa.objects.create(
+                    user=user,
+                    nim=nim,
+                    jurusan="Informatika",
+                    universitas="Universitas Indonesia",
+                    semester=1
+                )
 
         # Generate simple JWT tokens
         tokens = get_tokens_for_user(user)
@@ -112,4 +200,35 @@ class GoogleOAuthView(APIView):
             "user": user_data,
             "tokens": tokens
         }, status=status.HTTP_200_OK)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not old_password or not new_password:
+            return Response(
+                {"detail": "Password lama dan password baru harus diisi."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.check_password(old_password):
+            return Response(
+                {"detail": "Password lama salah."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(new_password) < 6:
+            return Response(
+                {"detail": "Password baru minimal 6 karakter."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+        return Response({"detail": "Password berhasil diubah."}, status=status.HTTP_200_OK)
 
