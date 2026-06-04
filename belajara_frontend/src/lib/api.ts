@@ -813,6 +813,17 @@ function mockGetStatus(curriculumId: number) {
   }
   return {
     status: session.status,
+    academic_profile: session.status === "success" ? {
+      completed_subjects: [
+        "Pemrograman Dasar (Python)",
+        "Logika & Matematika Dasar"
+      ],
+      competency_gaps: [
+        "Struktur Data Dinamis & Manajemen Memori",
+        "Perancangan Database Relasional (SQL)"
+      ],
+      career_recommendations: "Software Engineer, Database Administrator, Backend Developer"
+    } : null,
     recommendations: session.status === "success" ? [
       {
         course: {

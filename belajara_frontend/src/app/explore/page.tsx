@@ -11,7 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check } from "lucide-react"
+import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check, BookOpen } from "lucide-react"
 import { api } from "@/lib/api"
 
 interface Module {
@@ -38,6 +38,12 @@ interface Recommendation {
   reason: string
 }
 
+interface AcademicProfile {
+  completed_subjects: string[]
+  competency_gaps: string[]
+  career_recommendations: string
+}
+
 interface StudentDashboardData {
   active_courses: Course[]
 }
@@ -49,6 +55,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = React.useState<boolean>(false)
   const [loadingStep, setLoadingStep] = React.useState<string>("Mengunggah file...")
   const [recommendations, setRecommendations] = React.useState<Recommendation[]>([])
+  const [academicProfile, setAcademicProfile] = React.useState<AcademicProfile | null>(null)
   const [activeCourseCodes, setActiveCourseCodes] = React.useState<string[]>([])
   const [error, setError] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -145,6 +152,7 @@ export default function ExplorePage() {
   const removeFile = () => {
     setFile(null)
     setRecommendations([])
+    setAcademicProfile(null)
     setError(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
@@ -157,6 +165,7 @@ export default function ExplorePage() {
     setLoading(true)
     setError(null)
     setRecommendations([])
+    setAcademicProfile(null)
 
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current)
@@ -175,6 +184,7 @@ export default function ExplorePage() {
             .then((statusData: any) => {
               if (statusData.status === "success") {
                 setRecommendations(statusData.recommendations || [])
+                setAcademicProfile(statusData.academic_profile || null)
                 setLoading(false)
                 fetchActiveCourses() // Refresh active list to reflect current status
                 if (pollingIntervalRef.current) {
@@ -353,7 +363,7 @@ export default function ExplorePage() {
                 </Card>
               )}
 
-              {!loading && recommendations.length === 0 && (
+              {!loading && !academicProfile && recommendations.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center p-12 border border-dashed rounded-xl bg-white min-h-[400px]">
                   <Sparkles className="h-12 w-12 text-accent/50 mb-4" />
                   <h3 className="font-heading text-xl font-bold text-primary">Hasil Rekomendasi Rencana Studi</h3>
@@ -363,87 +373,170 @@ export default function ExplorePage() {
                 </div>
               )}
 
-              {recommendations.length > 0 && (
+              {/* Display Results */}
+              {!loading && (academicProfile || recommendations.length > 0) && (
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-heading text-xl font-bold text-primary flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-destructive" />
-                      Hasil Rekomendasi untuk Anda
-                    </h2>
-                    <span className="text-xs text-muted-foreground">
-                      Ditemukan {recommendations.length} rekomendasi mata kuliah
-                    </span>
-                  </div>
+                  {/* Academic Profile Analysis Block */}
+                  {academicProfile && (
+                    <Card className="border border-border shadow-sm bg-white p-6 rounded-xl space-y-6">
+                      <div className="flex items-center gap-3 border-b border-border pb-4">
+                        <div className="p-2 rounded-lg bg-secondary text-primary">
+                          <BookOpen className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <h2 className="font-heading text-xl font-bold text-primary">
+                            Analisis Profil &amp; Kinerja Akademik
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            Hasil pemetaan transkrip/dokumen akademik yang diunggah secara mandiri
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="space-y-4">
-                    {recommendations.map((rec, idx) => {
-                      const course = rec.course
-                      const isEnrolled = activeCourseCodes.includes(course.code)
-                      
-                      return (
-                        <div key={idx} className="border border-border rounded-xl bg-white p-6 shadow-sm flex flex-col gap-4">
-                          <div className="flex items-start justify-between gap-4 flex-wrap">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-accent/20 text-primary border border-accent/30 font-sans">
-                                  {course.code}
+                      <div className="grid gap-6 md:grid-cols-2">
+                        {/* Completed Competencies */}
+                        <div className="space-y-3">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                            Kompetensi / Mata Kuliah Dikuasai
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            {academicProfile.completed_subjects && academicProfile.completed_subjects.length > 0 ? (
+                              academicProfile.completed_subjects.map((sub, i) => (
+                                <span
+                                  key={i}
+                                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-100/50 flex items-center gap-1"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                  {sub}
                                 </span>
-                                <span className="text-xs text-muted-foreground">{course.department}</span>
-                              </div>
-                              <h3 className="font-heading text-xl font-bold text-primary mt-1">
-                                {course.title}
-                              </h3>
-                            </div>
-                            
-                            {/* Match Percentage Badge */}
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive">
-                              <Sparkles className="h-3.5 w-3.5" />
-                              <span className="text-sm font-bold font-heading">{rec.match_percentage}% Relevan</span>
-                            </div>
-                          </div>
-
-                          <div className="p-3 bg-secondary/50 rounded-lg border border-border/50 text-sm text-primary">
-                            <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-1">Analisis Kecocokan AI</p>
-                            <p className="italic">"{rec.reason}"</p>
-                          </div>
-
-                          <div className="space-y-2 border-t border-border pt-4">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Modul Belajar</h4>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              {course.modules.map((module) => (
-                                <div key={module.id} className="text-xs flex items-center gap-2 text-primary p-2 border rounded bg-background">
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
-                                  <span className="truncate">Modul Belajar {module.order}: {module.title}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between border-t border-border pt-4 flex-wrap gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              Bobot: <strong className="text-primary">{course.sks} SKS</strong> | Semester {course.semester}
-                            </span>
-                            
-                            {isEnrolled ? (
-                              <span className="text-xs font-bold text-primary bg-accent/20 px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-1">
-                                <Check className="h-4 w-4" />
-                                Sudah Terdaftar
-                              </span>
+                              ))
                             ) : (
-                              <Button
-                                onClick={() => handleEnroll(course.code)}
-                                className="bg-destructive hover:bg-destructive/95 text-white text-xs h-9 cursor-pointer px-4 rounded-lg font-medium shadow-sm"
-                              >
-                                Ambil Mata Kuliah Ini
-                              </Button>
+                              <span className="text-xs text-muted-foreground italic">Tidak ada mata kuliah terdeteksi.</span>
                             )}
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
+
+                        {/* Competency Gaps */}
+                        <div className="space-y-3">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <AlertCircle className="h-4 w-4 text-primary shrink-0" />
+                            Kesenjangan Kompetensi
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            {academicProfile.competency_gaps && academicProfile.competency_gaps.length > 0 ? (
+                              academicProfile.competency_gaps.map((gap, i) => (
+                                <span
+                                  key={i}
+                                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-background text-primary border border-border flex items-center gap-1"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                                  {gap}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">Tidak ada kesenjangan kompetensi terdeteksi.</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Career Recommendations */}
+                      {academicProfile.career_recommendations && (
+                        <div className="border-t border-border pt-4 space-y-2">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Prospek &amp; Rekomendasi Jalur Karir
+                          </h3>
+                          <p className="text-sm text-primary leading-relaxed bg-[#FAF9FB] p-4 rounded-xl border border-border">
+                            {academicProfile.career_recommendations}
+                          </p>
+                        </div>
+                      )}
+                    </Card>
+                  )}
+
+                  {/* Belajara Catalogue Recommendations Block */}
+                  {recommendations.length > 0 && (
+                    <div className="space-y-6 pt-2">
+                      <div className="flex items-center justify-between">
+                        <h2 className="font-heading text-xl font-bold text-primary flex items-center gap-2">
+                          <Sparkles className="h-5 w-5 text-destructive" />
+                          Rekomendasi Kelas Belajara Terkait
+                        </h2>
+                        <span className="text-xs text-muted-foreground">
+                          Mencocokkan {recommendations.length} kelas untuk menutup gap kompetensi Anda
+                        </span>
+                      </div>
+
+                      <div className="space-y-4">
+                        {recommendations.map((rec, idx) => {
+                          const course = rec.course
+                          const isEnrolled = activeCourseCodes.includes(course.code)
+                          
+                          return (
+                            <div key={idx} className="border border-border rounded-xl bg-white p-6 shadow-sm flex flex-col gap-4">
+                              <div className="flex items-start justify-between gap-4 flex-wrap">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-accent/20 text-primary border border-accent/30 font-sans">
+                                      {course.code}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">{course.department}</span>
+                                  </div>
+                                  <h3 className="font-heading text-xl font-bold text-primary mt-1">
+                                    {course.title}
+                                  </h3>
+                                </div>
+                                
+                                {/* Match Percentage Badge */}
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive">
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                  <span className="text-sm font-bold font-heading">{rec.match_percentage}% Relevan</span>
+                                </div>
+                              </div>
+
+                              <div className="p-3 bg-secondary/50 rounded-lg border border-border/50 text-sm text-primary">
+                                <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-1">Analisis Kecocokan AI</p>
+                                <p className="italic">"{rec.reason}"</p>
+                              </div>
+
+                              <div className="space-y-2 border-t border-border pt-4">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Modul Belajar</h4>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {course.modules.map((module) => (
+                                    <div key={module.id} className="text-xs flex items-center gap-2 text-primary p-2 border rounded bg-background">
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
+                                      <span className="truncate">Modul Belajar {module.order}: {module.title}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between border-t border-border pt-4 flex-wrap gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  Bobot: <strong className="text-primary">{course.sks} SKS</strong> | Semester {course.semester}
+                                </span>
+                                
+                                {isEnrolled ? (
+                                  <span className="text-xs font-bold text-primary bg-accent/20 px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-1">
+                                    <Check className="h-4 w-4" />
+                                    Sudah Terdaftar
+                                  </span>
+                                ) : (
+                                  <Button
+                                    onClick={() => handleEnroll(course.code)}
+                                    className="bg-destructive hover:bg-destructive/95 text-white text-xs h-9 cursor-pointer px-4 rounded-lg font-medium shadow-sm"
+                                  >
+                                    Ambil Mata Kuliah Ini
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
             </div>
           </div>
         </div>

@@ -60,10 +60,22 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
         # Call LLM matching service
         recommendations = analyze_curriculum_text(text, available_courses_list, is_premium=mahasiswa.user.is_premium)
 
+        # Handle structured dictionary output format
+        if isinstance(recommendations, dict):
+            academic_profile = recommendations.get("academic_profile", {})
+            course_matches = recommendations.get("course_matches", [])
+        else:
+            academic_profile = {
+                "completed_subjects": [],
+                "competency_gaps": [],
+                "career_recommendations": "Belum ada rekomendasi karir."
+            }
+            course_matches = recommendations if isinstance(recommendations, list) else []
+
         # Build list of matching course details using in-memory lookup to prevent N+1 queries
         existing_codes = {c.code for c in courses}
         saved_recommendations_list = []
-        for rec in recommendations:
+        for rec in course_matches:
             code = rec.get("code")
             match_pct = rec.get("match_percentage", 80)
             reason = rec.get("reason", "")
@@ -84,11 +96,16 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
                     "reason": "Mata kuliah dasar ini sangat direkomendasikan untuk menunjang pilar keahlian informatika Anda."
                 })
 
+        recommendations_payload = {
+            "academic_profile": academic_profile,
+            "course_matches": saved_recommendations_list
+        }
+
         # Create AIRecommendation object
         ai_recommendation = AIRecommendation.objects.create(
             mahasiswa=mahasiswa,
             curriculum=curriculum,
-            recommendations_data=saved_recommendations_list
+            recommendations_data=recommendations_payload
         )
         logger.info(f"Successfully processed curriculum recommendation: {ai_recommendation.id}")
     except Exception as e:

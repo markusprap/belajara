@@ -28,8 +28,10 @@ def test_llm_service_fallback():
     # Without environment API key set, it should fallback to mock recommendations
     with patch.dict('os.environ', {'GEMINI_API_KEY': 'your-gemini-api-key'}):
         recs = analyze_curriculum_text("Rencana belajar pemrograman", available_courses)
-        assert len(recs) >= 2
-        assert recs[0]["code"] == "IF101"
+        assert "academic_profile" in recs
+        assert "course_matches" in recs
+        assert len(recs["course_matches"]) >= 2
+        assert recs["course_matches"][0]["code"] == "IF101"
 
 @pytest.mark.django_db
 @patch('explore.views.analyze_curriculum_task.delay')
@@ -142,9 +144,16 @@ def test_ai_recommendation_status_success():
     AIRecommendation.objects.create(
         mahasiswa=mahasiswa,
         curriculum=curriculum,
-        recommendations_data=[
-            {"code": "IF101", "match_percentage": 90, "reason": "Cocok dengan minat pemrograman"}
-        ]
+        recommendations_data={
+            "academic_profile": {
+                "completed_subjects": ["Pemrograman Dasar"],
+                "competency_gaps": ["Struktur Data"],
+                "career_recommendations": "Software Engineer"
+            },
+            "course_matches": [
+                {"code": "IF101", "match_percentage": 90, "reason": "Cocok dengan minat pemrograman"}
+            ]
+        }
     )
     
     url = reverse('ai-recommendation-status', kwargs={'curriculum_id': curriculum.id})
@@ -152,6 +161,7 @@ def test_ai_recommendation_status_success():
     response = client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert response.data["status"] == "success"
+    assert response.data["academic_profile"]["career_recommendations"] == "Software Engineer"
     assert len(response.data["recommendations"]) == 1
     assert response.data["recommendations"][0]["course"]["code"] == "IF101"
     assert response.data["recommendations"][0]["match_percentage"] == 90
@@ -167,9 +177,16 @@ def test_analyze_curriculum_task(mock_analyze):
     from explore.tasks import analyze_curriculum_task
     
     # Mock LLM return value
-    mock_analyze.return_value = [
-        {"code": "IF101", "match_percentage": 95, "reason": "Sangat sesuai dengan dasar pemrograman"}
-    ]
+    mock_analyze.return_value = {
+        "academic_profile": {
+            "completed_subjects": ["Matematika"],
+            "competency_gaps": ["Struktur Data"],
+            "career_recommendations": "Data Scientist"
+        },
+        "course_matches": [
+            {"code": "IF101", "match_percentage": 95, "reason": "Sangat sesuai dengan dasar pemrograman"}
+        ]
+    }
     
     User = get_user_model()
     user = User.objects.create_user(username="testuser2", password="password123")
@@ -193,8 +210,10 @@ def test_analyze_curriculum_task(mock_analyze):
         recs = AIRecommendation.objects.filter(curriculum=curriculum)
         assert recs.exists()
         rec = recs.first()
-        assert len(rec.recommendations_data) == 1
-        assert rec.recommendations_data[0]["code"] == "IF101"
+        assert isinstance(rec.recommendations_data, dict)
+        assert rec.recommendations_data["academic_profile"]["career_recommendations"] == "Data Scientist"
+        assert len(rec.recommendations_data["course_matches"]) == 1
+        assert rec.recommendations_data["course_matches"][0]["code"] == "IF101"
 
 @pytest.mark.django_db
 def test_cleanup_old_curriculums():

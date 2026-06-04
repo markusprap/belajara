@@ -731,10 +731,18 @@ export default function CatalogPage() {
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-[#FAF9FB]/80 border-b border-[#E8E5E9] px-6 py-4 transition-all">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-12">
             <Link href="/" className="font-heading text-2xl font-bold tracking-tight text-[#060708]">
               Belajara.
             </Link>
+            
+            {/* Desktop Navbar Menu */}
+            <nav className="hidden lg:flex items-center gap-8 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+              <a href="/#formula" className="hover:text-[#060708] transition-colors">About Us</a>
+              <a href="/#benefits" className="hover:text-[#060708] transition-colors">Program</a>
+              <a href="/#harga" className="hover:text-[#060708] transition-colors">Pricing</a>
+              <Link href="/catalog" className="text-[#CF3A1F] hover:text-[#CF3A1F]/80 transition-colors">Katalog Kelas</Link>
+            </nav>
           </div>
 
           <div className="flex items-center gap-4">

@@ -127,12 +127,22 @@ class AIRecommendationStatusView(APIView):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
 
+        recommendations_data = recommendation.recommendations_data
+        
+        # Check if recommendations_data is a dict (new format) or a list (old format)
+        if isinstance(recommendations_data, dict):
+            academic_profile = recommendations_data.get("academic_profile", {})
+            course_matches = recommendations_data.get("course_matches", [])
+        else:
+            academic_profile = None
+            course_matches = recommendations_data if isinstance(recommendations_data, list) else []
+
         response_data = []
-        codes = [item.get("code") for item in recommendation.recommendations_data if item.get("code")]
+        codes = [item.get("code") for item in course_matches if item.get("code")]
         courses = Course.objects.filter(code__in=codes).prefetch_related('modules__subchapters')
         course_map = {c.code: c for c in courses}
 
-        for item in recommendation.recommendations_data:
+        for item in course_matches:
             code = item.get("code")
             match_pct = item.get("match_percentage", 80)
             reason = item.get("reason", "")
@@ -148,6 +158,7 @@ class AIRecommendationStatusView(APIView):
         
         return Response({
             "status": "success",
+            "academic_profile": academic_profile,
             "recommendations": response_data
         }, status=status.HTTP_200_OK)
 
