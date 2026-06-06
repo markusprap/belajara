@@ -8,13 +8,53 @@ from explore.services.pdf_service import extract_text_from_pdf
 from explore.services.llm_service import analyze_curriculum_text
 from courses.models import Course
 
+def authenticate_student(client: APIClient, username: str = "student"):
+    from django.contrib.auth import get_user_model
+    from users.models import Mahasiswa
+
+    User = get_user_model()
+    user = User.objects.create_user(
+        username=username,
+        password="password123",
+        is_mahasiswa=True,
+    )
+    Mahasiswa.objects.create(
+        user=user,
+        nim=f"S{abs(hash(username)) % 100000000}",
+        jurusan="Informatika",
+        universitas="Universitas Indonesia",
+    )
+    client.force_authenticate(user=user)
+    return user
+
+
+def authenticate_instructor(client: APIClient, username: str = "instructor"):
+    from django.contrib.auth import get_user_model
+    from users.models import InstructorProfile
+
+    User = get_user_model()
+    user = User.objects.create_user(
+        username=username,
+        password="password123",
+        is_instructor=True,
+    )
+    InstructorProfile.objects.create(
+        user=user,
+        nidn=f"I{abs(hash(username)) % 100000000}",
+        bidang_keahlian="Kurikulum",
+        universitas="Universitas Indonesia",
+    )
+    client.force_authenticate(user=user)
+    return user
+
+
 def test_extract_text_from_pdf_mocked():
     mock_page = MagicMock()
     mock_page.extract_text.return_value = "Logika dan Algoritma Pemrograman"
-    
+
     mock_reader = MagicMock()
     mock_reader.pages = [mock_page]
-    
+
     with patch('explore.services.pdf_service.PdfReader', return_value=mock_reader):
         dummy_file = io.BytesIO(b"dummy_pdf_data")
         text = extract_text_from_pdf(dummy_file)
@@ -38,22 +78,23 @@ def test_llm_service_fallback():
 def test_pdf_analyze_api(mock_task_delay, settings):
     settings.DEBUG = True
     client = APIClient()
+    authenticate_student(client, "pdfstudent")
     # Create courses in test DB
     Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
     Course.objects.create(code="IF201", title="Basis Data", sks=4, semester=3, department="Informatika")
 
     url = reverse('pdf-analyze')
-    
+
     # Post mock PDF file
     pdf_file = io.BytesIO(b"fake PDF bytes")
     pdf_file.name = "curriculum.pdf"
-    
+
     response = client.post(url, {'file': pdf_file}, format='multipart')
-    
+
     assert response.status_code == status.HTTP_200_OK, response.data
     assert response.data["status"] == "processing"
     assert "curriculum_id" in response.data
-    
+
     # Assert Celery task is called asynchronously
     mock_task_delay.assert_called_once()
 
@@ -64,11 +105,11 @@ def test_excel_extraction_mocked():
     ws.title = "Matkul"
     ws.append(["Kode", "Nama", "SKS"])
     ws.append(["IF102", "Dasar Pemrograman", 3])
-    
+
     excel_file = io.BytesIO()
     wb.save(excel_file)
     excel_file.seek(0)
-    
+
     from explore.services.excel_service import extract_text_from_excel
     text = extract_text_from_excel(excel_file)
     assert "Matkul" in text
@@ -79,18 +120,19 @@ def test_excel_extraction_mocked():
 @patch('explore.services.curriculum_service.extract_text_from_pdf', return_value="Some SI curriculum text")
 def test_curriculum_upload_api(mock_extract):
     client = APIClient()
+    authenticate_instructor(client, "curriculuminstructor")
     url = reverse('curriculum-upload')
-    
+
     # Post mock PDF file to seed new courses
     pdf_file = io.BytesIO(b"fake PDF bytes")
     pdf_file.name = "curriculum_sistem_informasi.pdf"
-    
+
     response = client.post(url, {'file': pdf_file, 'department': 'Sistem Informasi'}, format='multipart')
-    
+
     assert response.status_code == status.HTTP_201_CREATED, response.data
     assert "message" in response.data
     assert len(response.data["courses"]) > 0
-    
+
     # Check that courses actually got saved in PostgreSQL
     created_codes = [c["code"] for c in response.data["courses"]]
     assert len(created_codes) > 0
@@ -102,15 +144,16 @@ def test_curriculum_upload_api(mock_extract):
 def test_course_enroll_api(settings):
     settings.DEBUG = True
     client = APIClient()
+    authenticate_student(client, "enrollstudent")
     # Ensure test user 'mahasiswa' and course are created in DB
     Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
-    
+
     url = reverse('course-enroll')
     response = client.post(url, {'course_code': 'IF101'}, format='json')
-    
+
     assert response.status_code == status.HTTP_200_OK, response.data
     assert "Berhasil mendaftar" in response.data["message"]
-    
+
     # Test double enrollment warning
     response_double = client.post(url, {'course_code': 'IF101'}, format='json')
     assert response_double.status_code == status.HTTP_400_BAD_REQUEST
@@ -121,6 +164,7 @@ def test_course_enroll_api(settings):
 @pytest.mark.django_db
 def test_ai_recommendation_status_processing():
     client = APIClient()
+    authenticate_student(client, "statusstudent")
     url = reverse('ai-recommendation-status', kwargs={'curriculum_id': 9999})
     response = client.get(url)
     assert response.status_code == status.HTTP_200_OK
@@ -132,14 +176,14 @@ def test_ai_recommendation_status_success():
     from users.models import Mahasiswa
     from django.contrib.auth import get_user_model
     from explore.models import Curriculum, AIRecommendation
-    
+
     User = get_user_model()
     user = User.objects.create_user(username="testuser", password="password123")
     mahasiswa = Mahasiswa.objects.create(user=user, nim="12345", jurusan="Informatika")
     curriculum = Curriculum.objects.create(user=user, file_name="curriculum.pdf")
-    
+
     course = Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
-    
+
     # Create the recommendation in DB
     AIRecommendation.objects.create(
         mahasiswa=mahasiswa,
@@ -155,7 +199,7 @@ def test_ai_recommendation_status_success():
             ]
         }
     )
-    
+
     url = reverse('ai-recommendation-status', kwargs={'curriculum_id': curriculum.id})
     client.force_authenticate(user=user)
     response = client.get(url)
@@ -175,7 +219,7 @@ def test_analyze_curriculum_task(mock_analyze):
     from django.contrib.auth import get_user_model
     from explore.models import Curriculum, AIRecommendation
     from explore.tasks import analyze_curriculum_task
-    
+
     # Mock LLM return value
     mock_analyze.return_value = {
         "academic_profile": {
@@ -187,25 +231,25 @@ def test_analyze_curriculum_task(mock_analyze):
             {"code": "IF101", "match_percentage": 95, "reason": "Sangat sesuai dengan dasar pemrograman"}
         ]
     }
-    
+
     User = get_user_model()
     user = User.objects.create_user(username="testuser2", password="password123")
     mahasiswa = Mahasiswa.objects.create(user=user, nim="67890", jurusan="Informatika")
-    
+
     uploaded_file = SimpleUploadedFile("curriculum.pdf", b"fake PDF bytes")
     curriculum = Curriculum.objects.create(
         user=user,
         file_name="curriculum.pdf",
         file_url=uploaded_file
     )
-    
+
     # We mock extract_text_from_pdf as we are using a fake PDF bytes
     with patch('explore.tasks.extract_text_from_pdf', return_value="Saya berminat belajar pemrograman"):
         Course.objects.create(code="IF101", title="Algoritma & Struktur Data", sks=3, semester=2, department="Informatika")
-        
+
         # Execute Celery task synchronously
         analyze_curriculum_task(curriculum.id, mahasiswa.id)
-        
+
         # Verify AIRecommendation is created in database
         recs = AIRecommendation.objects.filter(curriculum=curriculum)
         assert recs.exists()
@@ -273,22 +317,22 @@ def test_pdf_analyze_api_rate_limiting_free_user(mock_task_delay):
     from users.models import Mahasiswa
     from django.contrib.auth import get_user_model
     from explore.models import Curriculum, AIRecommendation
-    
+
     User = get_user_model()
-    user = User.objects.create_user(username="freeuser", password="password123", is_premium=False)
+    user = User.objects.create_user(username="freeuser", password="password123", is_premium=False, is_mahasiswa=True)
     mahasiswa = Mahasiswa.objects.create(user=user, nim="2201010099", jurusan="Informatika")
-    
+
     # 1. First upload (no recommendations exist yet)
     url = reverse('pdf-analyze')
     client.force_authenticate(user=user)
-    
+
     pdf_file = io.BytesIO(b"fake PDF bytes")
     pdf_file.name = "curriculum1.pdf"
-    
+
     response = client.post(url, {'file': pdf_file}, format='multipart')
     assert response.status_code == status.HTTP_200_OK
     cur_id = response.data["curriculum_id"]
-    
+
     # Simulate recommendation generation
     curriculum = Curriculum.objects.get(id=cur_id)
     AIRecommendation.objects.create(
@@ -296,11 +340,11 @@ def test_pdf_analyze_api_rate_limiting_free_user(mock_task_delay):
         curriculum=curriculum,
         recommendations_data=[]
     )
-    
+
     # 2. Second upload (should be blocked by rate limit)
     pdf_file2 = io.BytesIO(b"fake PDF bytes 2")
     pdf_file2.name = "curriculum2.pdf"
-    
+
     response_blocked = client.post(url, {'file': pdf_file2}, format='multipart')
     assert response_blocked.status_code == status.HTTP_403_FORBIDDEN
     assert "batas rekomendasi AI gratis" in response_blocked.data["detail"]
@@ -313,14 +357,14 @@ def test_pdf_analyze_api_no_rate_limiting_premium_user(mock_task_delay):
     from users.models import Mahasiswa
     from django.contrib.auth import get_user_model
     from explore.models import Curriculum, AIRecommendation
-    
+
     User = get_user_model()
-    user = User.objects.create_user(username="premiumuser", password="password123", is_premium=True)
+    user = User.objects.create_user(username="premiumuser", password="password123", is_premium=True, is_mahasiswa=True)
     mahasiswa = Mahasiswa.objects.create(user=user, nim="2201010098", jurusan="Informatika")
-    
+
     url = reverse('pdf-analyze')
     client.force_authenticate(user=user)
-    
+
     # Create an existing recommendation
     curriculum = Curriculum.objects.create(user=user, file_name="curriculum1.pdf")
     AIRecommendation.objects.create(
@@ -328,11 +372,11 @@ def test_pdf_analyze_api_no_rate_limiting_premium_user(mock_task_delay):
         curriculum=curriculum,
         recommendations_data=[]
     )
-    
+
     # Premium user should bypass rate limit
     pdf_file2 = io.BytesIO(b"fake PDF bytes 2")
     pdf_file2.name = "curriculum2.pdf"
-    
+
     response = client.post(url, {'file': pdf_file2}, format='multipart')
     assert response.status_code == status.HTTP_200_OK
 
@@ -347,7 +391,7 @@ def test_unauthenticated_explore_api_rejected_in_production(settings):
     url = reverse('pdf-analyze')
     pdf_file = io.BytesIO(b"fake PDF bytes")
     pdf_file.name = "curriculum.pdf"
-    
+
     response = client.post(url, {'file': pdf_file}, format='multipart')
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert "Authentication credentials" in response.data["detail"]
@@ -357,12 +401,13 @@ def test_unauthenticated_explore_api_rejected_in_production(settings):
 def test_pdf_analyze_large_file_rejected():
     """Uploading a curriculum file larger than 10MB should return 400."""
     client = APIClient()
+    authenticate_student(client, "largefilestudent")
     url = reverse('pdf-analyze')
-    
+
     # 11MB file
     large_file = io.BytesIO(b"x" * (11 * 1024 * 1024))
     large_file.name = "large_curriculum.pdf"
-    
+
     response = client.post(url, {'file': large_file}, format='multipart')
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "melebihi batas maksimum" in response.data["detail"]
@@ -375,25 +420,25 @@ def test_ai_recommendation_status_ownership_protection():
     from users.models import Mahasiswa
     from django.contrib.auth import get_user_model
     from explore.models import Curriculum, AIRecommendation
-    
+
     User = get_user_model()
-    
+
     # User A (Owner)
     user_a = User.objects.create_user(username="usera", password="password123")
     mahasiswa_a = Mahasiswa.objects.create(user=user_a, nim="11111", jurusan="Informatika")
     curriculum_a = Curriculum.objects.create(user=user_a, file_name="curriculum_a.pdf")
-    
+
     AIRecommendation.objects.create(
         mahasiswa=mahasiswa_a,
         curriculum=curriculum_a,
         recommendations_data=[]
     )
-    
+
     # User B (Attacker)
     user_b = User.objects.create_user(username="userb", password="password123")
-    
+
     url = reverse('ai-recommendation-status', kwargs={'curriculum_id': curriculum_a.id})
-    
+
     # Authenticate as User B and request User A's status
     client.force_authenticate(user=user_b)
     response = client.get(url)
@@ -407,13 +452,13 @@ def test_premium_course_enrollment_gating(settings):
     client = APIClient()
     from django.contrib.auth import get_user_model
     from users.models import Mahasiswa
-    
+
     User = get_user_model()
     # Create free user
     free_user = User.objects.create_user(username='free_student', password='testpassword123', is_mahasiswa=True, is_premium=False)
     # Create premium/subscribed user
     premium_user = User.objects.create_user(username='premium_student', password='testpassword123', is_mahasiswa=True, is_premium=True)
-    
+
     # Ensure they have mahasiswa profiles
     Mahasiswa.objects.get_or_create(user=free_user, nim='123', jurusan='IF')
     Mahasiswa.objects.get_or_create(user=premium_user, nim='456', jurusan='IF')
@@ -428,19 +473,17 @@ def test_premium_course_enrollment_gating(settings):
         price=150000.00,
         is_premium=True
     )
-    
+
     url = reverse('course-enroll')
-    
+
     # 1. Free user tries to enroll in 'verified' mode -> should get 'audit' mode instead
     client.force_authenticate(user=free_user)
     resp1 = client.post(url, {'course_code': 'IF302', 'enrollment_mode': 'verified'}, format='json')
     assert resp1.status_code == status.HTTP_200_OK
     assert resp1.data['enrollment_mode'] == 'audit'
-    
+
     # 2. Premium user tries to enroll in 'verified' mode -> should get 'verified' mode successfully
     client.force_authenticate(user=premium_user)
     resp2 = client.post(url, {'course_code': 'IF302', 'enrollment_mode': 'verified'}, format='json')
     assert resp2.status_code == status.HTTP_200_OK
     assert resp2.data['enrollment_mode'] == 'verified'
-
-

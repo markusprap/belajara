@@ -11,7 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check, BookOpen } from "lucide-react"
+import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check, BookOpen, ChevronDown, ChevronUp } from "lucide-react"
 import { api, getUser, getToken } from "@/lib/api"
 
 interface Module {
@@ -60,6 +60,15 @@ export default function ExplorePage() {
   const [error, setError] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const pollingIntervalRef = React.useRef<any>(null)
+
+  const [expandedRecs, setExpandedRecs] = React.useState<Record<string, boolean>>({})
+
+  const toggleRecExpand = (courseCode: string) => {
+    setExpandedRecs(prev => ({
+      ...prev,
+      [courseCode]: !prev[courseCode]
+    }))
+  }
 
   // Cycle loading messages for a premium dynamic UX
   React.useEffect(() => {
@@ -135,7 +144,7 @@ export default function ExplorePage() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDragging(false)
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0]
       if (checkFileSupport(droppedFile)) {
@@ -193,7 +202,11 @@ export default function ExplorePage() {
           api.explore.checkStatus(curriculumId)
             .then((statusData: any) => {
               if (statusData.status === "success") {
-                setRecommendations(statusData.recommendations || [])
+                const recs = statusData.recommendations || []
+                setRecommendations(recs)
+                if (recs.length > 0) {
+                  setExpandedRecs({ [recs[0].course.code]: true })
+                }
                 setAcademicProfile(statusData.academic_profile || null)
                 setLoading(false)
                 fetchActiveCourses() // Refresh active list to reflect current status
@@ -293,7 +306,7 @@ export default function ExplorePage() {
                 <h3 className="font-heading text-lg font-bold text-primary mb-4">
                   Unggah Dokumen Akademik
                 </h3>
-                
+
                 <div
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -491,10 +504,20 @@ export default function ExplorePage() {
                         {recommendations.map((rec, idx) => {
                           const course = rec.course
                           const isEnrolled = activeCourseCodes.includes(course.code)
-                          
+                          const isExpanded = !!expandedRecs[course.code]
+
                           return (
-                            <div key={idx} className="border border-border rounded-xl bg-white p-6 shadow-sm flex flex-col gap-4">
-                              <div className="flex items-start justify-between gap-4 flex-wrap">
+                            <div
+                              key={idx}
+                              className={`border border-border rounded-xl bg-white shadow-sm transition-all duration-200 overflow-hidden flex flex-col ${
+                                isExpanded ? "p-6 gap-4" : "p-4 hover:border-[#C6B5BF]/40 cursor-pointer"
+                              }`}
+                              onClick={!isExpanded ? () => toggleRecExpand(course.code) : undefined}
+                            >
+                              <div
+                                className={`flex items-start justify-between gap-4 flex-wrap select-none ${isExpanded ? "cursor-pointer" : ""}`}
+                                onClick={isExpanded ? () => toggleRecExpand(course.code) : undefined}
+                              >
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-accent/20 text-primary border border-accent/30 font-sans">
@@ -502,54 +525,69 @@ export default function ExplorePage() {
                                     </span>
                                     <span className="text-xs text-muted-foreground">{course.department}</span>
                                   </div>
-                                  <h3 className="font-heading text-xl font-bold text-primary mt-1">
+                                  <h3 className="font-heading text-lg font-bold text-primary mt-1">
                                     {course.title}
                                   </h3>
                                 </div>
-                                
-                                {/* Match Percentage Badge */}
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive">
-                                  <Sparkles className="h-3.5 w-3.5" />
-                                  <span className="text-sm font-bold font-heading">{rec.match_percentage}% Relevan</span>
-                                </div>
-                              </div>
 
-                              <div className="p-3 bg-secondary/50 rounded-lg border border-border/50 text-sm text-primary">
-                                <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-1">Analisis Kecocokan AI</p>
-                                <p className="italic">"{rec.reason}"</p>
-                              </div>
+                                <div className="flex items-center gap-3">
+                                  {/* Match Percentage Badge */}
+                                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-destructive">
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-bold font-heading">{rec.match_percentage}% Relevan</span>
+                                  </div>
 
-                              <div className="space-y-2 border-t border-border pt-4">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Modul Belajar</h4>
-                                <div className="grid gap-2 sm:grid-cols-2">
-                                  {course.modules.map((module) => (
-                                    <div key={module.id} className="text-xs flex items-center gap-2 text-primary p-2 border rounded bg-background">
-                                      <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
-                                      <span className="truncate">Modul Belajar {module.order}: {module.title}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between border-t border-border pt-4 flex-wrap gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  Bobot: <strong className="text-primary">{course.sks} SKS</strong> | Semester {course.semester}
-                                </span>
-                                
-                                {isEnrolled ? (
-                                  <span className="text-xs font-bold text-primary bg-accent/20 px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-1">
-                                    <Check className="h-4 w-4" />
-                                    Sudah Terdaftar
+                                  {/* Chevron Toggle Icon */}
+                                  <span className="text-slate-400 p-1 hover:bg-slate-100 rounded-full transition-colors shrink-0">
+                                    {isExpanded ? (
+                                      <ChevronUp className="h-5 w-5" />
+                                    ) : (
+                                      <ChevronDown className="h-5 w-5" />
+                                    )}
                                   </span>
-                                ) : (
-                                  <Button
-                                    onClick={() => handleEnroll(course.code)}
-                                    className="bg-destructive hover:bg-destructive/95 text-white text-xs h-9 cursor-pointer px-4 rounded-lg font-medium shadow-sm"
-                                  >
-                                    Ambil Mata Kuliah Ini
-                                  </Button>
-                                )}
+                                </div>
                               </div>
+
+                              {isExpanded && (
+                                <>
+                                  <div className="p-3 bg-secondary/50 rounded-lg border border-border/50 text-sm text-primary animate-in fade-in duration-200">
+                                    <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wider mb-1">Analisis Kecocokan AI</p>
+                                    <p className="italic">"{rec.reason}"</p>
+                                  </div>
+
+                                  <div className="space-y-2 border-t border-border pt-4 animate-in fade-in duration-200">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Modul Belajar</h4>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                      {course.modules.map((module) => (
+                                        <div key={module.id} className="text-xs flex items-center gap-2 text-primary p-2 border rounded bg-background">
+                                          <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0" />
+                                          <span className="truncate">Modul Belajar {module.order}: {module.title}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between border-t border-border pt-4 flex-wrap gap-2 animate-in fade-in duration-200">
+                                    <span className="text-xs text-muted-foreground">
+                                      Bobot: <strong className="text-primary">{course.sks} SKS</strong> | Semester {course.semester}
+                                    </span>
+
+                                    {isEnrolled ? (
+                                      <span className="text-xs font-bold text-primary bg-accent/20 px-4 py-2 rounded-lg border border-accent/30 flex items-center gap-1">
+                                        <Check className="h-4 w-4" />
+                                        Sudah Terdaftar
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        onClick={() => handleEnroll(course.code)}
+                                        className="bg-destructive hover:bg-destructive/95 text-white text-xs h-9 cursor-pointer px-4 rounded-lg font-medium shadow-sm"
+                                      >
+                                        Ambil Mata Kuliah Ini
+                                      </Button>
+                                    )}
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )
                         })}
