@@ -773,7 +773,7 @@ export default function ExplorePage() {
                     onChange={e => setUserProdi(e.target.value)}
                     className="w-full px-3 py-2 bg-[#FAF9FB] border border-border rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C6B5BF] cursor-pointer"
                   >
-                    {PROGRAM_STUDI_INDONESIA.map(p => (
+                    {Array.from(new Set(PROGRAM_STUDI_INDONESIA)).map(p => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
