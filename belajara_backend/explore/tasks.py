@@ -59,7 +59,7 @@ def apply_premium_gating(academic_profile: dict, course_matches: list, is_premiu
 
 
 @shared_task
-def analyze_curriculum_task(curriculum_id, mahasiswa_id):
+def analyze_curriculum_task(curriculum_id, mahasiswa_id, target_prodi=None):
     """
     Asynchronously extracts text from the curriculum document,
     calls the LLM service for course matching with rich academic profile output,
@@ -106,17 +106,19 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
             for c in courses
         ]
 
+        prodi_name = target_prodi or mahasiswa.jurusan or "Program Studi Umum"
+
         # Call LLM matching service (always call with full analysis)
         raw_result = analyze_curriculum_text(
             text,
             available_courses_list,
             is_premium=is_premium,
-            study_program=mahasiswa.jurusan,
+            study_program=prodi_name,
         )
 
         # Normalize the result
         if isinstance(raw_result, dict):
-            normalized = normalize_recommendations_payload(raw_result, mahasiswa.jurusan)
+            normalized = normalize_recommendations_payload(raw_result, prodi_name)
             academic_profile = normalized.get("academic_profile", {})
             course_matches = normalized.get("course_matches", [])
         else:
@@ -155,7 +157,7 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
                 saved_recommendations_list.append({
                     "code": c.code,
                     "match_percentage": 85,
-                    "reason": f"Mata kuliah dasar ini direkomendasikan untuk menunjang pilar keahlian {mahasiswa.jurusan} Anda.",
+                    "reason": f"Mata kuliah dasar ini direkomendasikan untuk menunjang pilar keahlian {prodi_name} Anda.",
                 })
 
         recommendations_payload = {

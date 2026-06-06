@@ -846,10 +846,14 @@ export const api = {
   },
 
   explore: {
-    analyze: async (file: File) => {
+    analyze: async (file: File, targetProdi?: string) => {
       try {
         const formData = new FormData();
         formData.append("file", file);
+        if (targetProdi) {
+          formData.append("target_prodi", targetProdi);
+          formData.append("department", targetProdi);
+        }
         const token = getToken();
         const headers: Record<string, string> = {};
         if (token) {

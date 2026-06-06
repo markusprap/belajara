@@ -75,7 +75,8 @@ class PDFAnalyzeView(APIView):
             )
 
             # 3. Run Celery task asynchronously
-            analyze_curriculum_task.delay(curriculum_obj.id, mahasiswa.id)
+            target_prodi = request.data.get('target_prodi') or request.data.get('department')
+            analyze_curriculum_task.delay(curriculum_obj.id, mahasiswa.id, target_prodi)
 
             # 4. Return response immediately
             return Response(

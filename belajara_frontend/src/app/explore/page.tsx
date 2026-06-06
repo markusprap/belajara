@@ -17,7 +17,7 @@ import {
   TrendingUp, Map, Eye, EyeOff,
 } from "lucide-react"
 import { api, getUser, getToken } from "@/lib/api"
-import { inferProgramStudiGroup, type ProgramStudiGroupKey } from "@/lib/indonesia-academic-data"
+import { inferProgramStudiGroup, type ProgramStudiGroupKey, PROGRAM_STUDI_INDONESIA } from "@/lib/indonesia-academic-data"
 
 // ─────────────────────────────────────────────────────────────
 //  Types & Interfaces
@@ -455,9 +455,23 @@ export default function ExplorePage() {
   }, [])
 
   const isPremium = (currentUser as { is_premium?: boolean } | null)?.is_premium === true
-  const userProdi = (currentUser as { mahasiswa_profile?: { jurusan?: string }; jurusan?: string } | null)?.mahasiswa_profile?.jurusan
-    || (currentUser as { mahasiswa_profile?: { jurusan?: string }; jurusan?: string } | null)?.jurusan
-    || "Program Studi Umum"
+
+  const [userProdi, setUserProdi] = React.useState<string>("Sistem Informasi")
+
+  React.useEffect(() => {
+    const profileProdi = (currentUser as { mahasiswa_profile?: { jurusan?: string }; jurusan?: string } | null)?.mahasiswa_profile?.jurusan
+      || (currentUser as { mahasiswa_profile?: { jurusan?: string }; jurusan?: string } | null)?.jurusan
+    if (profileProdi) {
+      setUserProdi(profileProdi)
+    }
+  }, [currentUser])
+
+  React.useEffect(() => {
+    if (academicProfile?.study_program) {
+      setUserProdi(academicProfile.study_program)
+    }
+  }, [academicProfile])
+
   const programGroup = React.useMemo(() => inferProgramStudiGroup(userProdi), [userProdi])
 
   // ── Skill Categories for radar chart (from AI labels if available) ──
@@ -668,7 +682,7 @@ export default function ExplorePage() {
     setLoading(true); setError(null); setRecommendations([]); setAcademicProfile(null)
     if (pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null }
 
-    api.explore.analyze(file)
+    api.explore.analyze(file, userProdi)
       .then((data: { curriculum_id?: string }) => {
         const curriculumId = data.curriculum_id
         if (!curriculumId) throw new Error("Gagal mendapatkan ID kurikulum dari server.")
@@ -745,6 +759,27 @@ export default function ExplorePage() {
           <div className="grid gap-6 lg:grid-cols-3">
             {/* ─── Left Column ─────────────────────────────── */}
             <div className="lg:col-span-1 space-y-4">
+              {/* Target Prodi Card */}
+              <Card className="border border-border shadow-sm bg-white p-6 rounded-xl">
+                <h3 className="font-heading text-base font-bold text-primary mb-2">
+                  Program Studi Target
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Pilih program studi target untuk memuat peta kompetensi default dan standar kurikulum benchmarking.
+                </p>
+                <div>
+                  <select
+                    value={userProdi}
+                    onChange={e => setUserProdi(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#FAF9FB] border border-border rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C6B5BF] cursor-pointer"
+                  >
+                    {PROGRAM_STUDI_INDONESIA.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+              </Card>
+
               {/* Upload Card */}
               <Card className="border border-border shadow-sm bg-white p-6 rounded-xl">
                 <h3 className="font-heading text-lg font-bold text-primary mb-4">
