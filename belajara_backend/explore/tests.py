@@ -70,13 +70,37 @@ def test_llm_service_fallback():
         recs = analyze_curriculum_text("Rencana belajar pemrograman", available_courses, study_program="Farmasi")
         assert "academic_profile" in recs
         assert "course_matches" in recs
-        assert recs["academic_profile"]["study_program"] == "Farmasi"
-        assert "readiness_score" in recs["academic_profile"]
-        assert "competency_scores" in recs["academic_profile"]
-        assert isinstance(recs["academic_profile"]["competency_gaps"][0], dict)
-        assert isinstance(recs["academic_profile"]["career_recommendations"], list)
-        assert "semester_plan" in recs["academic_profile"]
-        assert len(recs["course_matches"]) >= 2
+        profile = recs["academic_profile"]
+        assert profile["study_program"] == "Farmasi"
+        assert "readiness_score" in profile
+        assert "confidence_score" in profile
+        assert "competency_scores" in profile
+        assert isinstance(profile["competency_scores"], dict)
+        assert "competency_axis_labels" in profile
+        assert isinstance(profile["competency_axis_labels"], dict)
+        # Verify rich gap_map structure
+        assert "gap_map" in profile
+        gap_map = profile["gap_map"]
+        assert "mandatory" in gap_map
+        assert "elective" in gap_map
+        assert "career" in gap_map
+        assert isinstance(gap_map["mandatory"], list)
+        if len(gap_map["mandatory"]) > 0:
+            assert isinstance(gap_map["mandatory"][0], dict)
+            assert "gap" in gap_map["mandatory"][0]
+            assert "priority" in gap_map["mandatory"][0]
+            assert "reason" in gap_map["mandatory"][0]
+        # Verify next_best_action
+        assert "next_best_action" in profile
+        assert isinstance(profile["next_best_action"], str)
+        # Verify career recommendations are normalized
+        assert isinstance(profile["career_recommendations"], list)
+        if len(profile["career_recommendations"]) > 0:
+            career = profile["career_recommendations"][0]
+            assert "title" in career
+            assert "fit_score" in career
+        assert "semester_plan" in profile
+        assert len(recs["course_matches"]) >= 1
         assert recs["course_matches"][0]["code"] == "IF101"
 
 @pytest.mark.django_db
@@ -227,11 +251,26 @@ def test_analyze_curriculum_task(mock_analyze):
     from explore.models import Curriculum, AIRecommendation
     from explore.tasks import analyze_curriculum_task
 
-    # Mock LLM return value
+    # Mock LLM return value — new rich output format
     mock_analyze.return_value = {
         "academic_profile": {
-            "completed_subjects": ["Matematika"],
-            "competency_gaps": ["Struktur Data"],
+            "study_program": "Informatika",
+            "detected_semester": 4,
+            "readiness_score": 72,
+            "confidence_score": 80,
+            "summary": "Mahasiswa informatika dengan dasar pemrograman yang solid.",
+            "next_best_action": "Ambil mata kuliah Struktur Data untuk menutup gap prioritas utama.",
+            "completed_subjects": ["Matematika", "Pemrograman Dasar"],
+            "competency_scores": {"software_engineering": 65, "data_ai": 50, "system_architecture": 40, "math_logic": 72, "digital_business": 55},
+            "competency_axis_labels": {"software_engineering": "Software Eng.", "data_ai": "Data Sci. & AI", "system_architecture": "System Arch.", "math_logic": "Math & Logic", "digital_business": "Digital Business"},
+            "competency_evidence": [
+                {"competency": "Math & Logic", "competency_key": "math_logic", "course_name": "Matematika", "text_excerpt": "Terdeteksi mata kuliah Matematika dengan nilai baik.", "confidence": 85}
+            ],
+            "gap_map": {
+                "mandatory": [{"gap": "Struktur Data", "priority": "high", "reason": "Fundamental untuk Informatika", "suggested_action": "Ambil kelas Algoritma & Struktur Data"}],
+                "elective": [{"gap": "Machine Learning", "priority": "medium", "reason": "Relevan untuk karier data", "suggested_action": "Ambil kelas Data Science"}],
+                "career": [{"gap": "Cloud Computing", "target_career": "Backend Engineer", "reason": "Diperlukan untuk backend modern"}]
+            },
             "career_recommendations": "Data Scientist"
         },
         "course_matches": [
@@ -257,13 +296,23 @@ def test_analyze_curriculum_task(mock_analyze):
         # Execute Celery task synchronously
         analyze_curriculum_task(curriculum.id, mahasiswa.id)
 
-        # Verify AIRecommendation is created in database
+        # Verify AIRecommendation is created in database with new schema
         recs = AIRecommendation.objects.filter(curriculum=curriculum)
         assert recs.exists()
         rec = recs.first()
         assert isinstance(rec.recommendations_data, dict)
-        assert rec.recommendations_data["academic_profile"]["career_recommendations"][0]["title"] == "Data Scientist"
-        assert "readiness_score" in rec.recommendations_data["academic_profile"]
+        profile = rec.recommendations_data["academic_profile"]
+        assert profile["career_recommendations"][0]["title"] == "Data Scientist"
+        assert "readiness_score" in profile
+        assert "competency_scores" in profile
+        assert "gap_map" in profile
+        gap_map = profile["gap_map"]
+        assert "mandatory" in gap_map
+        assert "elective" in gap_map
+        assert "career" in gap_map
+        assert "next_best_action" in profile
+        assert "competency_axis_labels" in profile
+        # For non-premium user, premium gating should limit courses
         assert len(rec.recommendations_data["course_matches"]) == 1
         assert rec.recommendations_data["course_matches"][0]["code"] == "IF101"
 
