@@ -70,6 +70,137 @@ export default function ExplorePage() {
     }))
   }
 
+  const getSkillData = () => {
+    const skills = {
+      softwareEng: 20,
+      dataSci: 20,
+      systemArch: 20,
+      mathLogic: 20,
+      businessIntel: 20
+    }
+
+    if (!academicProfile || !academicProfile.completed_subjects) {
+      return skills
+    }
+
+    academicProfile.completed_subjects.forEach((subject: string) => {
+      const normalized = subject.toLowerCase()
+      if (
+        normalized.includes("pemrograman") || 
+        normalized.includes("rpl") || 
+        normalized.includes("perangkat lunak") || 
+        normalized.includes("web") || 
+        normalized.includes("pbo") || 
+        normalized.includes("oop") || 
+        normalized.includes("object") || 
+        normalized.includes("algoritma") || 
+        normalized.includes("struktur data") || 
+        normalized.includes("coding") || 
+        normalized.includes("programming")
+      ) {
+        skills.softwareEng = Math.min(100, skills.softwareEng + 20)
+      }
+      if (
+        normalized.includes("data mining") || 
+        normalized.includes("sains data") || 
+        normalized.includes("data science") || 
+        normalized.includes("kecerdasan buatan") || 
+        normalized.includes("ai") || 
+        normalized.includes("machine learning") || 
+        normalized.includes("statistika") || 
+        normalized.includes("statistik") || 
+        normalized.includes("data analisis") || 
+        normalized.includes("analisis data") || 
+        normalized.includes("visualisasi") || 
+        normalized.includes("pembelajaran mesin")
+      ) {
+        skills.dataSci = Math.min(100, skills.dataSci + 20)
+      }
+      if (
+        normalized.includes("enterprise") || 
+        normalized.includes("arsitektur") || 
+        normalized.includes("jaringan") || 
+        normalized.includes("cloud") || 
+        normalized.includes("infrastruktur") || 
+        normalized.includes("sistem enterprise")
+      ) {
+        skills.systemArch = Math.min(100, skills.systemArch + 20)
+      }
+      if (
+        normalized.includes("matematika") || 
+        normalized.includes("diskrit") || 
+        normalized.includes("kalkulus") || 
+        normalized.includes("aljabar") || 
+        normalized.includes("logika") || 
+        normalized.includes("teori") || 
+        normalized.includes("komputasi")
+      ) {
+        skills.mathLogic = Math.min(100, skills.mathLogic + 20)
+      }
+      if (
+        normalized.includes("sistem pendukung keputusan") || 
+        normalized.includes("decision support") || 
+        normalized.includes("spk") || 
+        normalized.includes("manajemen") || 
+        normalized.includes("bisnis") || 
+        normalized.includes("proyek") || 
+        normalized.includes("analitik") || 
+        normalized.includes("informasi")
+      ) {
+        skills.businessIntel = Math.min(100, skills.businessIntel + 20)
+      }
+    })
+
+    return skills
+  }
+
+  const skillValues = getSkillData()
+  const skillList = [
+    { label: "Software Eng.", value: skillValues.softwareEng },
+    { label: "Data Sci. & AI", value: skillValues.dataSci },
+    { label: "System Arch.", value: skillValues.systemArch },
+    { label: "Math & Logic", value: skillValues.mathLogic },
+    { label: "Business Intel.", value: skillValues.businessIntel }
+  ]
+
+  const cx = 125
+  const cy = 115
+  const r = 65
+
+  const getCoordinates = (index: number, val: number) => {
+    const angle = (index * 2 * Math.PI) / 5 - Math.PI / 2
+    const x = cx + r * (val / 100) * Math.cos(angle)
+    const y = cy + r * (val / 100) * Math.sin(angle)
+    return { x, y }
+  }
+
+  const pointsStr = skillList
+    .map((s, idx) => {
+      const coords = getCoordinates(idx, s.value)
+      return `${coords.x},${coords.y}`
+    })
+    .join(" ")
+
+  const gridLevels = [20, 40, 60, 80, 100]
+
+  const getGridPath = (level: number) => {
+    return Array.from({ length: 5 })
+      .map((_, idx) => {
+        const coords = getCoordinates(idx, level)
+        return `${idx === 0 ? "M" : "L"} ${coords.x} ${coords.y}`
+      })
+      .join(" ") + " Z"
+  }
+
+  const getLabelCoordinates = (index: number) => {
+    const angle = (index * 2 * Math.PI) / 5 - Math.PI / 2
+    let labelOffset = 18
+    if (index === 0) labelOffset = 15 // Top
+    const x = cx + (r + labelOffset) * Math.cos(angle)
+    const y = cy + (r + 12) * Math.sin(angle)
+    return { x, y }
+  }
+
   // Cycle loading messages for a premium dynamic UX
   React.useEffect(() => {
     if (!loading) return
@@ -376,6 +507,117 @@ export default function ExplorePage() {
                     Mulai Analisis Dokumen
                   </Button>
                 )}
+              </Card>
+
+              {/* Competency Spider Chart Card */}
+              <Card className="border border-border shadow-sm bg-white p-6 rounded-xl flex flex-col items-center select-none">
+                <div className="w-full border-b border-border pb-3 mb-4 text-left">
+                  <h3 className="font-heading text-base font-bold text-primary">
+                    Peta Kompetensi Mahasiswa
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    {!academicProfile 
+                      ? "Visualisasi gap kompetensi (unggah dokumen untuk memperbarui)" 
+                      : "Pemetaan kekuatan akademik Anda secara visual"}
+                  </p>
+                </div>
+                
+                <div className="relative w-full flex justify-center items-center">
+                  <svg width="250" height="230" className="overflow-visible">
+                    {/* Grid Pentagons */}
+                    {gridLevels.map((lvl) => (
+                      <path
+                        key={lvl}
+                        d={getGridPath(lvl)}
+                        fill="none"
+                        stroke="#FAF9FB"
+                        strokeWidth="1.5"
+                        className="stroke-slate-100 dark:stroke-slate-800"
+                      />
+                    ))}
+                    <path
+                      d={getGridPath(100)}
+                      fill="none"
+                      stroke="#E8E5E9"
+                      strokeWidth="1"
+                    />
+                    
+                    {/* Grid Lines */}
+                    {Array.from({ length: 5 }).map((_, idx) => {
+                      const outerCoords = getCoordinates(idx, 100)
+                      return (
+                        <line
+                          key={idx}
+                          x1={cx}
+                          y1={cy}
+                          x2={outerCoords.x}
+                          y2={outerCoords.y}
+                          stroke="#E8E5E9"
+                          strokeWidth="1"
+                          strokeDasharray="2"
+                        />
+                      )
+                    })}
+                    
+                    {/* User Data Polygon */}
+                    <polygon
+                      points={pointsStr}
+                      fill="rgba(207, 58, 31, 0.15)"
+                      stroke="#CF3A1F"
+                      strokeWidth="2"
+                      className="transition-all duration-500 ease-in-out"
+                    />
+                    
+                    {/* User Data Vertices Dots */}
+                    {skillList.map((s, idx) => {
+                      const coords = getCoordinates(idx, s.value)
+                      return (
+                        <circle
+                          key={idx}
+                          cx={coords.x}
+                          cy={coords.y}
+                          r="3.5"
+                          fill="#CF3A1F"
+                          stroke="#ffffff"
+                          strokeWidth="1"
+                          className="transition-all duration-500 ease-in-out"
+                        />
+                      )
+                    })}
+                    
+                    {/* Axis Labels */}
+                    {skillList.map((s, idx) => {
+                      const coords = getLabelCoordinates(idx)
+                      let textAnchor: "middle" | "start" | "end" = "middle"
+                      if (idx === 0) textAnchor = "middle"
+                      if (idx === 1) textAnchor = "start"
+                      if (idx === 2) textAnchor = "start"
+                      if (idx === 3) textAnchor = "end"
+                      if (idx === 4) textAnchor = "end"
+                      
+                      return (
+                        <g key={idx}>
+                          <text
+                            x={coords.x}
+                            y={coords.y}
+                            textAnchor={textAnchor}
+                            className="text-[9px] font-black fill-slate-700 uppercase tracking-wider"
+                          >
+                            {s.label}
+                          </text>
+                          <text
+                            x={coords.x}
+                            y={coords.y + 9}
+                            textAnchor={textAnchor}
+                            className="text-[9px] font-mono font-bold fill-[#CF3A1F]"
+                          >
+                            {s.value}%
+                          </text>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
               </Card>
             </div>
 
