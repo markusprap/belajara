@@ -1,4 +1,5 @@
 // Frontend API Client with JWT storage & mock fallbacks
+import { inferProgramStudiGroup } from "./indonesia-academic-data";
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001/api";
 const ENABLE_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
 
@@ -233,6 +234,31 @@ const MOCK_FORUM_POSTS: Record<string, any[]> = {
   ]
 };
 
+function getMockJurusan(username: string): string {
+  const name = username.toLowerCase();
+  if (name.includes("si") || name.includes("sistem")) return "Sistem Informasi";
+  if (name.includes("akuntansi") || name.includes("akuntan")) return "Akuntansi";
+  if (name.includes("manajemen") || name.includes("manajer")) return "Manajemen";
+  if (name.includes("hukum") || name.includes("advokat")) return "Ilmu Hukum";
+  if (name.includes("farmasi") || name.includes("apoteker")) return "Farmasi";
+  if (name.includes("sipil")) return "Teknik Sipil";
+  if (name.includes("elektro")) return "Teknik Elektro";
+  
+  if (typeof window !== "undefined") {
+    try {
+      const existing = localStorage.getItem("user");
+      if (existing) {
+        const parsed = JSON.parse(existing);
+        if (parsed && parsed.username === username) {
+          const prodi = parsed.mahasiswa_profile?.jurusan || parsed.jurusan;
+          if (prodi) return prodi;
+        }
+      }
+    } catch (e) {}
+  }
+  return "Informatika";
+}
+
 export const api = {
   auth: {
     login: async (username: string, password: string) => {
@@ -277,7 +303,13 @@ export const api = {
             is_onboarded: true,
             subscription_tier: username === "pro" ? "pro" : (username === "premium" ? "scholar" : "free"),
             nim: "2201010101",
-            jurusan: "Informatika",
+            jurusan: getMockJurusan(username),
+            mahasiswa_profile: {
+              nim: "2201010101",
+              jurusan: getMockJurusan(username),
+              universitas: "Universitas Indonesia",
+              semester: 3
+            },
             universitas: "Universitas Indonesia",
             semester: 3
           };
@@ -334,7 +366,13 @@ export const api = {
           is_onboarded: username !== "newgoogle", // Simulated onboarding check
           subscription_tier: "free",
           nim: isInstructor ? undefined : "2201010102",
-          jurusan: isInstructor ? undefined : "Informatika",
+          jurusan: isInstructor ? undefined : getMockJurusan(username),
+          mahasiswa_profile: isInstructor ? undefined : {
+            nim: "2201010102",
+            jurusan: getMockJurusan(username),
+            universitas: "Universitas Indonesia",
+            semester: 1
+          },
           universitas: "Universitas Indonesia",
           semester: isInstructor ? undefined : 1
         };
@@ -858,6 +896,227 @@ function mockGetStatus(curriculumId: number) {
   }
   const user = getUser();
   const prodi = user?.mahasiswa_profile?.jurusan || user?.jurusan || "Program Studi Umum";
+  const group = inferProgramStudiGroup(prodi);
+
+  const MOCK_COMPETENCY_KEYS: Record<string, { key: string; label: string }[]> = {
+    computing: [
+      { key: "software_engineering", label: "Software Eng." },
+      { key: "data_ai", label: "Data Sci. & AI" },
+      { key: "system_architecture", label: "System Arch." },
+      { key: "math_logic", label: "Math & Logic" },
+      { key: "digital_business", label: "Digital Business" }
+    ],
+    engineering: [
+      { key: "engineering_math", label: "Eng. Math" },
+      { key: "design_analysis", label: "Design & Analysis" },
+      { key: "materials_process", label: "Materials/Process" },
+      { key: "systems_control", label: "Systems & Control" },
+      { key: "safety_project", label: "Safety & Project" }
+    ],
+    business: [
+      { key: "finance_accounting", label: "Finance & Acct." },
+      { key: "marketing", label: "Marketing" },
+      { key: "operations_logistics", label: "Ops & Logistics" },
+      { key: "strategy_entrepreneurship", label: "Strategy & Biz" },
+      { key: "hr_organization", label: "Org & People" }
+    ],
+    socialHumanities: [
+      { key: "theory_society", label: "Theory & Society" },
+      { key: "policy_law", label: "Policy & Law" },
+      { key: "communication_media", label: "Comm. & Media" },
+      { key: "research_methods", label: "Research Methods" },
+      { key: "ethics_culture", label: "Ethics & Culture" }
+    ],
+    education: [
+      { key: "pedagogy", label: "Pedagogy" },
+      { key: "subject_mastery", label: "Subject Mastery" },
+      { key: "assessment", label: "Assessment" },
+      { key: "classroom_technology", label: "Classroom Tech" },
+      { key: "guidance_ethics", label: "Guidance & Ethics" }
+    ],
+    science: [
+      { key: "math_statistics", label: "Math & Stats" },
+      { key: "lab_experiment", label: "Lab & Experiment" },
+      { key: "natural_systems", label: "Natural Systems" },
+      { key: "data_modeling", label: "Data & Modeling" },
+      { key: "research_method", label: "Research Method" }
+    ],
+    health: [
+      { key: "biomedical_core", label: "Biomedical Core" },
+      { key: "clinical_care", label: "Clinical Care" },
+      { key: "public_health", label: "Public Health" },
+      { key: "health_systems", label: "Health Systems" },
+      { key: "ethics_safety", label: "Ethics & Safety" }
+    ],
+    agriculture: [
+      { key: "production_cultivation", label: "Cultivation" },
+      { key: "soil_ecosystem", label: "Soil & Ecosystem" },
+      { key: "food_postharvest", label: "Food/Postharvest" },
+      { key: "agribusiness", label: "Agribusiness" },
+      { key: "research_fieldwork", label: "Research/Field" }
+    ],
+    artsCulture: [
+      { key: "creative_practice", label: "Creative Practice" },
+      { key: "history_theory", label: "History & Theory" },
+      { key: "language_literacy", label: "Language/Literacy" },
+      { key: "production_media", label: "Production Media" },
+      { key: "portfolio_research", label: "Portfolio/Research" }
+    ],
+    tourism: [
+      { key: "hospitality_operations", label: "Hospitality Ops" },
+      { key: "destination_management", label: "Destination Mgmt." },
+      { key: "culinary_service", label: "Culinary/Service" },
+      { key: "marketing_event", label: "Marketing/Event" },
+      { key: "sustainability", label: "Sustainability" }
+    ],
+    general: [
+      { key: "core_foundation", label: "Core Subjects" },
+      { key: "analysis_research", label: "Analysis & Research" },
+      { key: "professional_practice", label: "Professional Practice" },
+      { key: "digital_data", label: "Digital & Data" },
+      { key: "communication_ethics", label: "Communication & Ethics" }
+    ]
+  };
+
+  const categories = MOCK_COMPETENCY_KEYS[group.key] || MOCK_COMPETENCY_KEYS.general;
+  const scoresVal = [82, 74, 65, 58, 70];
+  const competency_scores: Record<string, number> = {};
+  const competency_axis_labels: Record<string, string> = {};
+
+  categories.forEach((cat, idx) => {
+    competency_scores[cat.key] = scoresVal[idx] || 60;
+    competency_axis_labels[cat.key] = cat.label;
+  });
+
+  const getMockRecommendations = (groupKey: string): any[] => {
+    switch (groupKey) {
+      case "computing":
+        return [
+          {
+            course: {
+              id: 2,
+              code: "IF102",
+              title: "Struktur Data & Algoritma",
+              description: "Mata kuliah lanjutan tentang struktur data non-linear (tree, graph) dan analisis algoritma.",
+              sks: 3,
+              semester: 4,
+              department: prodi,
+              modules: [{ id: 10, title: "Pengenalan Struktur Data Non-Linear", description: "Tree, BST, dan representasi graph.", order: 1 }]
+            },
+            match_percentage: 95,
+            reason: `Sangat relevan untuk memperkuat pemahaman struktur data dan efisiensi algoritma yang belum dicakup di kurikulum ${prodi} Anda.`
+          },
+          {
+            course: {
+              id: 1,
+              code: "IF101",
+              title: "Matematika Diskrit",
+              description: "Mata kuliah dasar yang mempelajari logika matematika, himpunan, relasi, fungsi, graf, dan pembuktian.",
+              sks: 3,
+              semester: 3,
+              department: prodi,
+              modules: [{ id: 1, title: "Pengantar Logika Matematika & Proposisi", description: "Logika proposisi.", order: 1 }]
+            },
+            match_percentage: 88,
+            reason: "Mata kuliah ini melengkapi dasar pembuktian formal dan logika proposisi untuk problem solving digital."
+          }
+        ];
+      case "business":
+        return [
+          {
+            course: {
+              id: 201,
+              code: "MN101",
+              title: "Manajemen Pemasaran Strategis",
+              description: "Prinsip dasar pemasaran, perilaku konsumen, segmentasi pasar, dan strategi bauran pemasaran di era digital.",
+              sks: 3,
+              semester: 3,
+              department: prodi,
+              modules: [{ id: 101, title: "Strategi Produk & Segmentasi Pasar", description: "Analisis audiens target dan pemetaan brand.", order: 1 }]
+            },
+            match_percentage: 92,
+            reason: `Membantu Anda menguasai keahlian marketing dan strategi bisnis terapan yang sangat krusial untuk profil lulusan ${prodi}.`
+          },
+          {
+            course: {
+              id: 202,
+              code: "AK101",
+              title: "Pengantar Akuntansi & Keuangan",
+              description: "Konsep dasar pelaporan keuangan, pencatatan transaksi jurnal, buku besar, neraca saldo, dan laporan laba-rugi.",
+              sks: 3,
+              semester: 2,
+              department: prodi,
+              modules: [{ id: 102, title: "Persamaan Dasar Akuntansi & Siklus Jurnal", description: "Mempelajari siklus pelaporan keuangan entitas bisnis.", order: 1 }]
+            },
+            match_percentage: 85,
+            reason: "Membekali Anda dengan kompetensi literasi finansial yang mendasar untuk mendukung analisis bisnis."
+          }
+        ];
+      case "engineering":
+        return [
+          {
+            course: {
+              id: 301,
+              code: "FT102",
+              title: "Gambar Teknik & CAD",
+              description: "Pengenalan visualisasi desain rekayasa, standar proyeksi gambar, tata letak, dan pemodelan CAD 2D/3D.",
+              sks: 3,
+              semester: 2,
+              department: prodi,
+              modules: [{ id: 202, title: "Pengenalan AutoCAD & Gambar Proyeksi", description: "Prinsip dasar penggambaran rekayasa standar ISO.", order: 1 }]
+            },
+            match_percentage: 94,
+            reason: `Mengembangkan keterampilan visualisasi spasial dan desain CAD yang merupakan kompetensi mutlak bagi mahasiswa ${prodi}.`
+          },
+          {
+            course: {
+              id: 302,
+              code: "FT101",
+              title: "Fisika Teknik Dasar",
+              description: "Mempelajari hukum mekanika, termodinamika, gelombang, dan listrik magnet sebagai fondasi fisika rekayasa.",
+              sks: 3,
+              semester: 1,
+              department: prodi,
+              modules: [{ id: 201, title: "Mekanika & Kinematika Benda Tegar", description: "Gaya, usaha, energi, dan momen inersia.", order: 1 }]
+            },
+            match_percentage: 89,
+            reason: "Menyediakan pemahaman sains dasar yang kuat untuk menunjang mata kuliah rekayasa lanjutan."
+          }
+        ];
+      default:
+        return [
+          {
+            course: {
+              id: 401,
+              code: "UM101",
+              title: "Metodologi Penelitian & Penulisan Ilmiah",
+              description: "Prosedur penelitian ilmiah, penyusunan hipotesis, desain eksperimen, pengolahan data kuantitatif, dan tata cara sitasi.",
+              sks: 3,
+              semester: 5,
+              department: prodi,
+              modules: [{ id: 301, title: "Penyusunan Usulan Penelitian", description: "Perumusan masalah dan penyusunan landasan teori.", order: 1 }]
+            },
+            match_percentage: 93,
+            reason: `Mata kuliah ini wajib untuk menyusun skripsi / proyek tugas akhir bagi program studi ${prodi} Anda.`
+          },
+          {
+            course: {
+              id: 402,
+              code: "UM102",
+              title: "Etika Profesi & Komunikasi",
+              description: "Pengembangan diri, profesionalisme, etika kerja, teknik komunikasi publik, serta kerja sama tim dalam organisasi.",
+              sks: 2,
+              semester: 4,
+              department: prodi,
+              modules: [{ id: 302, title: "Komunikasi Persuasif & Presentasi", description: "Teknik menyajikan gagasan akademis secara efektif.", order: 1 }]
+            },
+            match_percentage: 87,
+            reason: "Sangat baik untuk membangun soft skill komunikasi dan etika kerja yang dicari oleh industri."
+          }
+        ];
+    }
+  };
+
   return {
     status: session.status,
     academic_profile: session.status === "success" ? {
@@ -865,43 +1124,74 @@ function mockGetStatus(curriculumId: number) {
       detected_semester: user?.mahasiswa_profile?.semester || user?.semester || 3,
       readiness_score: 74,
       confidence_score: 82,
-      summary: `Dokumen menunjukkan fondasi ${prodi} sudah terbentuk, dengan beberapa gap prioritas yang perlu ditutup lewat mata kuliah terarah dan proyek kecil.`,
+      summary: `Dokumen menunjukkan fondasi ${prodi} (rumpun ${group.label}) sudah terbentuk, dengan beberapa gap prioritas yang perlu ditutup lewat mata kuliah terarah dan proyek kecil.`,
       completed_subjects: [
         `Pengantar ${prodi}`,
         `Dasar Keilmuan ${prodi}`,
         "Metode Penelitian"
       ],
-      competency_scores: {
-        core_foundation: 76,
-        analysis_research: 68,
-        professional_practice: 58,
-        digital_data: 64,
-        communication_ethics: 80
-      },
+      competency_scores: competency_scores,
+      competency_axis_labels: competency_axis_labels,
       competency_evidence: [
         {
-          competency: "Fondasi Keilmuan",
-          evidence: `Dokumen memuat beberapa mata kuliah dasar yang selaras dengan ${prodi}.`,
+          competency: categories[0].label,
+          competency_key: categories[0].key,
+          course_name: `Pengantar ${prodi}`,
+          text_excerpt: `Dokumen memuat penyelesaian mata kuliah dasar ${prodi} dengan hasil yang baik untuk membangun fondasi keilmuan.`,
           confidence: 84
         },
         {
-          competency: "Metodologi & Analisis",
-          evidence: "Ada indikasi mata kuliah metodologi, tetapi latihan analisis lanjutan masih perlu diperkuat.",
+          competency: categories[1].label,
+          competency_key: categories[1].key,
+          course_name: "Metode Penelitian",
+          text_excerpt: "Ada penyelesaian mata kuliah metodologi dalam transkrip Anda, menunjukkan pengenalan riset ilmiah.",
           confidence: 76
         }
       ],
+      gap_map: {
+        mandatory: [
+          {
+            gap: `Pendalaman kompetensi inti ${categories[2].label}`,
+            priority: "high",
+            reason: `Area ${categories[2].label} merupakan pilar inti kurikulum ${prodi} tetapi belum tercakup penuh dalam dokumen Anda.`,
+            suggested_action: "Ambil mata kuliah tingkat menengah/lanjut dan kerjakan studi kasus terapan."
+          },
+          {
+            gap: "Analisis Data Kuantitatif",
+            priority: "medium",
+            reason: "Keterampilan mengolah data dan membaca statistik diperlukan di semua rumpun bidang kerja.",
+            suggested_action: "Pilih kelas statistik terapan, riset operasi, atau analisis data dasar."
+          }
+        ],
+        elective: [
+          {
+            gap: `Spesialisasi di bidang ${categories[3].label}`,
+            priority: "medium",
+            reason: "Membantu menaikkan daya saing Anda pada profil kerja pilihan.",
+            suggested_action: "Ambil mata kuliah peminatan yang spesifik."
+          }
+        ],
+        career: [
+          {
+            gap: "Kekurangan portofolio/studi kasus nyata",
+            target_career: `Profesional ${prodi}`,
+            reason: "Industri saat ini lebih mementingkan bukti portofolio rekayasa dibanding nilai transkrip."
+          }
+        ]
+      },
+      // Keep legacy flat list
       competency_gaps: [
         {
-          gap: `Pendalaman kompetensi inti ${prodi}`,
+          gap: `Pendalaman kompetensi inti ${categories[2].label}`,
           priority: "high",
-          reason: "Area ini paling langsung memengaruhi kesiapan akademik dan karier.",
-          suggested_action: "Ambil mata kuliah inti lanjutan dan kerjakan studi kasus terapan."
+          reason: `Area ${categories[2].label} merupakan pilar inti kurikulum ${prodi} tetapi belum tercakup penuh dalam dokumen Anda.`,
+          suggested_action: "Ambil mata kuliah tingkat menengah/lanjut dan kerjakan studi kasus terapan."
         },
         {
-          gap: "Literasi data dan analisis kuantitatif",
+          gap: "Analisis Data Kuantitatif",
           priority: "medium",
-          reason: "Kemampuan membaca data memperkuat hampir semua rumpun studi.",
-          suggested_action: "Pilih kelas statistik, metode penelitian, atau analisis data dasar."
+          reason: "Keterampilan mengolah data dan membaca statistik diperlukan di semua rumpun bidang kerja.",
+          suggested_action: "Pilih kelas statistik terapan, riset operasi, atau analisis data dasar."
         }
       ],
       career_recommendations: [
@@ -931,39 +1221,6 @@ function mockGetStatus(curriculumId: number) {
         }
       ]
     } : null,
-    recommendations: session.status === "success" ? [
-      {
-        course: {
-          id: 2,
-          code: "IF102",
-          title: "Struktur Data & Algoritma",
-          description: "Mata kuliah lanjutan tentang struktur data non-linear (tree, graph) dan analisis algoritma.",
-          sks: 3,
-          semester: 4,
-          department: "Informatika",
-          modules: [
-            { id: 10, title: "Pengenalan Struktur Data Non-Linear", description: "Tree, BST, dan representasi graph.", order: 1 }
-          ]
-        },
-        match_percentage: 95,
-        reason: "Berdasarkan silabus yang Anda unggah, mata kuliah ini sangat relevan untuk memperkuat pemahaman struktur data non-linear dan efisiensi algoritma yang belum dicakup di kurikulum Anda."
-      },
-      {
-        course: {
-          id: 1,
-          code: "IF101",
-          title: "Matematika Diskrit",
-          description: "Mata kuliah dasar yang mempelajari logika matematika, himpunan, relasi, fungsi, graf, dan pembuktian matematis.",
-          sks: 3,
-          semester: 3,
-          department: "Informatika",
-          modules: [
-            { id: 1, title: "Pengantar Logika Matematika & Proposisi", description: "Logika proposisi.", order: 1 }
-          ]
-        },
-        match_percentage: 88,
-        reason: "Kurikulum Anda kekurangan fondasi teori himpunan dan logika matematika formal yang penting untuk pemecahan masalah tingkat lanjut."
-      }
-    ] : null
+    recommendations: session.status === "success" ? getMockRecommendations(group.key) : null
   };
 }

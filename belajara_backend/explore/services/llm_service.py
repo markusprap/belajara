@@ -9,7 +9,7 @@ import google.generativeai as genai
 RUMPUN_COMPETENCY_KEYS: dict[str, list[str]] = {
     "computing": ["software_engineering", "data_ai", "system_architecture", "math_logic", "digital_business"],
     "engineering": ["engineering_math", "design_analysis", "materials_process", "systems_control", "safety_project"],
-    "business": ["finance_accounting", "marketing", "operations_logistics", "strategy_entrepreneurship", "org_people"],
+    "business": ["finance_accounting", "marketing", "operations_logistics", "strategy_entrepreneurship", "hr_organization"],
     "socialHumanities": ["theory_society", "policy_law", "communication_media", "research_methods", "ethics_culture"],
     "education": ["pedagogy", "subject_mastery", "assessment", "classroom_technology", "guidance_ethics"],
     "science": ["math_statistics", "lab_experiment", "natural_systems", "data_modeling", "research_method"],
@@ -20,7 +20,154 @@ RUMPUN_COMPETENCY_KEYS: dict[str, list[str]] = {
     "general": ["core_foundation", "analysis_research", "professional_practice", "digital_data", "communication_ethics"],
 }
 
+RUMPUN_COMPETENCY_LABELS: dict[str, dict[str, str]] = {
+    "computing": {
+        "software_engineering": "Software Eng.",
+        "data_ai": "Data Sci. & AI",
+        "system_architecture": "System Arch.",
+        "math_logic": "Math & Logic",
+        "digital_business": "Digital Business"
+    },
+    "engineering": {
+        "engineering_math": "Eng. Math",
+        "design_analysis": "Design & Analysis",
+        "materials_process": "Materials/Process",
+        "systems_control": "Systems & Control",
+        "safety_project": "Safety & Project"
+    },
+    "business": {
+        "finance_accounting": "Finance & Acct.",
+        "marketing": "Marketing",
+        "operations_logistics": "Ops & Logistics",
+        "strategy_entrepreneurship": "Strategy & Biz",
+        "hr_organization": "Org & People"
+    },
+    "socialHumanities": {
+        "theory_society": "Theory & Society",
+        "policy_law": "Policy & Law",
+        "communication_media": "Comm. & Media",
+        "research_methods": "Research Methods",
+        "ethics_culture": "Ethics & Culture"
+    },
+    "education": {
+        "pedagogy": "Pedagogy",
+        "subject_mastery": "Subject Mastery",
+        "assessment": "Assessment",
+        "classroom_technology": "Classroom Tech",
+        "guidance_ethics": "Guidance & Ethics"
+    },
+    "science": {
+        "math_statistics": "Math & Stats",
+        "lab_experiment": "Lab & Experiment",
+        "natural_systems": "Natural Systems",
+        "data_modeling": "Data & Modeling",
+        "research_method": "Research Method"
+    },
+    "health": {
+        "biomedical_core": "Biomedical Core",
+        "clinical_care": "Clinical Care",
+        "public_health": "Public Health",
+        "health_systems": "Health Systems",
+        "ethics_safety": "Ethics & Safety"
+    },
+    "agriculture": {
+        "production_cultivation": "Cultivation",
+        "soil_ecosystem": "Soil & Ecosystem",
+        "food_postharvest": "Food/Postharvest",
+        "agribusiness": "Agribusiness",
+        "research_fieldwork": "Research/Field"
+    },
+    "artsCulture": {
+        "creative_practice": "Creative Practice",
+        "history_theory": "History & Theory",
+        "language_literacy": "Language/Literacy",
+        "production_media": "Production Media",
+        "portfolio_research": "Portfolio/Research"
+    },
+    "tourism": {
+        "hospitality_operations": "Hospitality Ops",
+        "destination_management": "Destination Mgmt.",
+        "culinary_service": "Culinary/Service",
+        "marketing_event": "Marketing/Event",
+        "sustainability": "Sustainability"
+    },
+    "general": {
+        "core_foundation": "Core Subjects",
+        "analysis_research": "Analysis & Research",
+        "professional_practice": "Professional Practice",
+        "digital_data": "Digital & Data",
+        "communication_ethics": "Communication & Ethics"
+    }
+}
+
 DEFAULT_COMPETENCY_KEYS = RUMPUN_COMPETENCY_KEYS["general"]
+
+def infer_rumpun_from_prodi(study_program: str) -> str:
+    prodi_lower = (study_program or "").lower().strip()
+    if not prodi_lower:
+        return "general"
+
+    mapping = {
+        "computing": [
+            "informatika", "komputer", "informasi", "siber", "kecerdasan buatan",
+            "data science", "ilmu data", "cloud", "jaringan", "multimedia",
+            "animasi", "desain komunikasi visual", "desain grafis", "bisnis digital"
+        ],
+        "engineering": [
+            "teknik", "arsitektur", "industri", "sipil", "mesin", "elektro",
+            "kimia", "pertambangan", "perminyakan", "metalurgi", "material",
+            "nuklir", "biomedik", "penerbangan", "perkapalan", "geodesi",
+            "geofisika", "geologi", "fisika", "telekomunikasi", "robotika",
+            "lingkungan", "planologi", "perencanaan wilayah"
+        ],
+        "business": [
+            "manajemen", "akuntansi", "ekonomi", "perbankan", "bisnis",
+            "administrasi bisnis", "perkantoran", "pemasaran", "perpajakan",
+            "logistik", "keuangan", "kewirausahaan", "aset"
+        ],
+        "socialHumanities": [
+            "komunikasi", "hubungan internasional", "politik", "sosiologi",
+            "antropologi", "sejarah", "arkeologi", "filsafat", "psikologi",
+            "geografi", "kriminologi", "kesejahteraan sosial", "administrasi negara",
+            "administrasi publik", "hukum", "kebijakan publik", "jurnalistik",
+            "humas", "penyiaran", "periklanan", "film", "perpustakaan", "kearsipan"
+        ],
+        "education": [
+            "pendidikan", "guru", "pgsd", "paud", "bimbingan dan konseling",
+            "teknologi pendidikan", "luar biasa", "jasmani", "olahraga"
+        ],
+        "science": [
+            "matematika", "statistika", "fisika", "kimia", "biologi", "geologi",
+            "geofisika", "meteorologi", "oseanografi", "astronomi", "biokimia",
+            "mikrobiologi", "lingkungan", "kelautan", "aktuaria"
+        ],
+        "health": [
+            "dokter", "kedokteran", "farmasi", "keperawatan", "kebidanan",
+            "kesehatan", "gizi", "fisioterapi", "radiologi", "rekam medis",
+            "analis kesehatan", "rumah sakit", "biomedik", "hewan", "optometri",
+            "epidemiologi", "bioinformatika"
+        ],
+        "agriculture": [
+            "agroteknologi", "agribisnis", "tanah", "hama", "tanaman",
+            "pertanian", "pangan", "kehutanan", "hutan", "silvikultur",
+            "peternakan", "ternak", "perairan", "perikanan", "kelautan",
+            "penyuluhan"
+        ],
+        "artsCulture": [
+            "seni", "tari", "musik", "drama", "teater", "kriya", "karawitan",
+            "etnomusikologi", "bahasa", "sastra", "daerah", "tafsir",
+            "peradaban islam"
+        ],
+        "tourism": [
+            "pariwisata", "perhotelan", "hotel", "destinasi", "tata boga",
+            "tata rias", "ekowisata"
+        ]
+    }
+
+    for key, keywords in mapping.items():
+        if any(kw in prodi_lower for kw in keywords):
+            return key
+    return "general"
 
 
 def clamp_score(value, default=50):
@@ -117,12 +264,17 @@ def normalize_academic_profile(profile, study_program: str) -> dict:
         raw_scores = {}
     competency_scores = {str(k): clamp_score(v, 45) for k, v in raw_scores.items()}
     if not competency_scores:
-        for key in DEFAULT_COMPETENCY_KEYS:
+        rumpun = infer_rumpun_from_prodi(study_program)
+        keys = RUMPUN_COMPETENCY_KEYS.get(rumpun, RUMPUN_COMPETENCY_KEYS["general"])
+        for key in keys:
             competency_scores[key] = 45
 
     # ── Axis labels from AI ──
     raw_axis_labels = profile.get("competency_axis_labels")
     competency_axis_labels = raw_axis_labels if isinstance(raw_axis_labels, dict) else {}
+    if not competency_axis_labels:
+        rumpun = infer_rumpun_from_prodi(study_program)
+        competency_axis_labels = RUMPUN_COMPETENCY_LABELS.get(rumpun, RUMPUN_COMPETENCY_LABELS["general"])
 
     # ── Evidence with rich text excerpts ──
     evidence = normalize_evidence(profile.get("competency_evidence") or [])
@@ -483,22 +635,14 @@ def get_mock_recommendations(
     prodi = study_program or "Program Studi Umum"
     prodi_lower = prodi.lower()
 
-    # Pick relevant competency keys and labels
-    if "informatika" in prodi_lower or "komputer" in prodi_lower:
-        comp_scores = {"software_engineering": 68, "data_ai": 52, "system_architecture": 45, "math_logic": 72, "digital_business": 58}
-        comp_labels = {"software_engineering": "Software Eng.", "data_ai": "Data Sci. & AI", "system_architecture": "System Arch.", "math_logic": "Math & Logic", "digital_business": "Digital Business"}
-    elif "manajemen" in prodi_lower:
-        comp_scores = {"strategic_management": 55, "finance_accounting": 60, "marketing": 70, "operations_logistics": 48, "hr_organization": 62}
-        comp_labels = {"strategic_management": "Strategic Mgmt.", "finance_accounting": "Finance & Acct.", "marketing": "Marketing", "operations_logistics": "Ops & Logistics", "hr_organization": "HR & Org."}
-    elif "akuntansi" in prodi_lower:
-        comp_scores = {"financial_accounting": 72, "managerial_accounting": 58, "auditing": 45, "taxation": 50, "accounting_information_systems": 42}
-        comp_labels = {"financial_accounting": "Financial Acct.", "managerial_accounting": "Managerial Acct.", "auditing": "Auditing", "taxation": "Taxation", "accounting_information_systems": "Acct. Info Sys."}
-    elif "hukum" in prodi_lower:
-        comp_scores = {"hukum_dasar": 70, "hukum_perdata": 55, "hukum_pidana": 60, "hukum_acara": 40, "etika_profesi": 65}
-        comp_labels = {"hukum_dasar": "Hukum Dasar", "hukum_perdata": "Hukum Perdata", "hukum_pidana": "Hukum Pidana", "hukum_acara": "Hukum Acara", "etika_profesi": "Etika Profesi"}
-    else:
-        comp_scores = {"core_foundation": 62, "analysis_research": 48, "professional_practice": 55, "digital_data": 45, "communication_ethics": 70}
-        comp_labels = {"core_foundation": "Fondasi Inti", "analysis_research": "Analisis & Riset", "professional_practice": "Praktik Profesional", "digital_data": "Digital & Data", "communication_ethics": "Komunikasi & Etika"}
+    rumpun = infer_rumpun_from_prodi(prodi)
+    comp_labels = RUMPUN_COMPETENCY_LABELS.get(rumpun, RUMPUN_COMPETENCY_LABELS["general"])
+    comp_keys = RUMPUN_COMPETENCY_KEYS.get(rumpun, RUMPUN_COMPETENCY_KEYS["general"])
+    
+    scores_val = [68, 52, 45, 72, 58]
+    comp_scores = {}
+    for idx, key in enumerate(comp_keys):
+        comp_scores[key] = scores_val[idx] if idx < len(scores_val) else 60
 
     all_gap_keys = list(comp_scores.keys())
     weakest_key = min(comp_scores, key=lambda k: comp_scores[k])
