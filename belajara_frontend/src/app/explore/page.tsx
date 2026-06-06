@@ -223,103 +223,18 @@ const SKILL_CONFIGS: Record<string, SkillCategory[]> = {
 //  Benchmark Data
 // ─────────────────────────────────────────────────────────────
 
-const BENCHMARKS: Record<string, Benchmark[]> = {
-  "Informatika": [
-    {
-      id: "aptikom-if",
-      name: "Standar APTIKOM (Informatika)",
-      description: "Kurikulum Inti Informatika Asosiasi Pendidikan Tinggi Informatika dan Komputer Indonesia.",
-      courses: [
-        { name: "Algoritma & Struktur Data", category: "software_engineering" },
-        { name: "Basis Data", category: "software_engineering" },
-        { name: "Pemrograman Web", category: "software_engineering" },
-        { name: "Rekayasa Perangkat Lunak", category: "software_engineering" },
-        { name: "Matematika Diskrit", category: "math_logic" },
-        { name: "Kecerdasan Buatan", category: "data_ai" },
-        { name: "Sistem Jaringan / Operasi", category: "system_architecture" },
-      ],
-    },
-    {
-      id: "acm-cs",
-      name: "ACM/IEEE Computer Science 2023",
-      description: "International standard computing curriculum guidelines by ACM and IEEE-CS.",
-      courses: [
-        { name: "Software Development Fundamentals", category: "software_engineering" },
-        { name: "Algorithms and Complexity", category: "software_engineering" },
-        { name: "Systems Fundamentals", category: "system_architecture" },
-        { name: "Discrete Structures", category: "math_logic" },
-        { name: "Data Management & Analytics", category: "data_ai" },
-        { name: "Artificial Intelligence", category: "data_ai" },
-      ],
-    },
-  ],
-  "Sistem Informasi": [
-    {
-      id: "aptikom-si",
-      name: "Standar APTIKOM (Sistem Informasi)",
-      description: "Kurikulum Nasional Rumpun Sistem Informasi.",
-      courses: [
-        { name: "Sistem Informasi Manajemen", category: "digital_business" },
-        { name: "Analisis & Perancangan Sistem", category: "software_engineering" },
-        { name: "Manajemen Proyek TI", category: "digital_business" },
-        { name: "Basis Data", category: "software_engineering" },
-        { name: "Sistem Pendukung Keputusan", category: "digital_business" },
-        { name: "Tata Kelola TI", category: "digital_business" },
-      ],
-    },
-    {
-      id: "acm-msis",
-      name: "ACM/AIS MSIS Core Curriculum",
-      description: "International curriculum guidelines for MS in Information Systems.",
-      courses: [
-        { name: "Enterprise Architecture", category: "system_architecture" },
-        { name: "IS Strategy and Governance", category: "digital_business" },
-        { name: "Data Management & Analytics", category: "data_ai" },
-        { name: "Systems Analysis and Design", category: "software_engineering" },
-        { name: "Project Management", category: "digital_business" },
-      ],
-    },
-  ],
-  "Manajemen": [
-    {
-      id: "aacsb-manajemen",
-      name: "Standar Global AACSB (Manajemen)",
-      description: "Kurikulum standar internasional sekolah bisnis dari AACSB.",
-      courses: [
-        { name: "Manajemen Strategis", category: "strategy_entrepreneurship" },
-        { name: "Perilaku Organisasi", category: "hr_organization" },
-        { name: "Manajemen Pemasaran", category: "marketing" },
-        { name: "Pengantar Bisnis", category: "strategy_entrepreneurship" },
-        { name: "Statistika Bisnis", category: "finance_accounting" },
-        { name: "Manajemen Operasional", category: "operations_logistics" },
-      ],
-    },
-    {
-      id: "kkni-manajemen",
-      name: "KKNI Level 6 (Manajemen Indonesia)",
-      description: "Kerangka Kualifikasi Nasional Indonesia rumpun Manajemen.",
-      courses: [
-        { name: "Manajemen Keuangan", category: "finance_accounting" },
-        { name: "Manajemen Sumber Daya Manusia", category: "hr_organization" },
-        { name: "Kewirausahaan", category: "strategy_entrepreneurship" },
-        { name: "Sistem Informasi Manajemen", category: "digital_business" },
-        { name: "Metode Penelitian", category: "analysis_research" },
-      ],
-    },
-  ],
-  "Umum": [
-    {
-      id: "sndikti-umum",
-      name: "SN-Dikti (Standar Nasional Indonesia)",
-      description: "Standar Nasional Pendidikan Tinggi Indonesia untuk seluruh Program Studi.",
-      courses: [
-        { name: "Pendidikan Pancasila & Kewarganegaraan", category: "communication_ethics" },
-        { name: "Pendidikan Agama", category: "communication_ethics" },
-        { name: "Bahasa Indonesia", category: "communication_ethics" },
-        { name: "Bahasa Inggris Akademik", category: "communication_ethics" },
-        { name: "Metodologi Penelitian", category: "analysis_research" },
-      ],
-    },
+// Universal SN-Dikti benchmark (added to all programs as a common reference)
+const SNDIKTI_UNIVERSAL: Benchmark = {
+  id: "sndikti-universal",
+  name: "SN-Dikti — Mata Kuliah Umum Wajib",
+  description: "Mata kuliah umum wajib SN-Dikti yang berlaku untuk seluruh program studi di Indonesia, termasuk Pancasila, Agama, dan Bahasa Indonesia.",
+  courses: [
+    { name: "Pendidikan Pancasila & Kewarganegaraan", category: "communication_ethics" },
+    { name: "Pendidikan Agama", category: "communication_ethics" },
+    { name: "Bahasa Indonesia Akademik", category: "communication_ethics" },
+    { name: "Bahasa Inggris Akademik", category: "communication_ethics" },
+    { name: "Metodologi Penelitian & Penulisan Karya Ilmiah", category: "analysis_research" },
+    { name: "Pengabdian Masyarakat / KKN", category: "professional_practice" },
   ],
 }
 
@@ -412,28 +327,42 @@ const buildProgramBenchmarks = (
   groupKey: ProgramStudiGroupKey,
   groupLabel: string
 ): Benchmark[] => {
-  if (groupKey === "general") {
-    return BENCHMARKS["Umum"]
-  }
-  const template = BENCHMARK_TEMPLATES[groupKey]
   const slug = slugifyBenchmarkId(prodi)
+
+  if (groupKey === "general") {
+    // For unrecognized prodi, return a general SN-Dikti benchmark
+    return [
+      {
+        id: `sndikti-${slug}`,
+        name: `SN-Dikti (${prodi})`,
+        description: `Standar nasional capaian pembelajaran minimum untuk program studi ${prodi}.`,
+        courses: SNDIKTI_UNIVERSAL.courses,
+      },
+      SNDIKTI_UNIVERSAL,
+    ]
+  }
+
+  const template = BENCHMARK_TEMPLATES[groupKey]
+
   return [
     {
       id: `sndikti-${slug}`,
       name: `SN-Dikti (${prodi})`,
-      description: `Standar nasional capaian pembelajaran untuk program studi ${prodi}, disesuaikan dengan rumpun ${groupLabel}.`,
+      description: `Standar nasional capaian pembelajaran untuk program studi ${prodi} — rumpun ${groupLabel} sesuai Permendikbud No. 3 Tahun 2020.`,
       courses: template,
     },
     {
       id: `kkni-${slug}`,
-      name: `KKNI Level 6 (${groupLabel})`,
-      description: `Kerangka kualifikasi sarjana Indonesia untuk rumpun ${groupLabel}.`,
+      name: `KKNI Level 6 — ${groupLabel}`,
+      description: `Kerangka Kualifikasi Nasional Indonesia Level 6 (Sarjana) untuk rumpun ${groupLabel}. Mencakup kompetensi inti dan kompetensi pendukung.`,
       courses: [
         ...template.slice(0, 4),
-        { name: "Metode Penelitian dan Proyek Akhir", category: template[template.length - 1]?.category || "analysis_research" },
-        { name: "Etika Profesi dan Komunikasi Akademik", category: template[0]?.category || "communication_ethics" },
+        { name: "Metodologi Penelitian dan Proyek Akhir", category: template[template.length - 1]?.category || "analysis_research" },
+        { name: "Etika Profesi, Komunikasi Akademik & Soft Skills", category: template[0]?.category || "communication_ethics" },
       ],
     },
+    // Universal SN-Dikti always available as additional reference
+    SNDIKTI_UNIVERSAL,
   ]
 }
 
@@ -547,33 +476,17 @@ export default function ExplorePage() {
     return fallbackSkillCategories
   }, [academicProfile, fallbackSkillCategories])
 
-  // ── Benchmarks ──
-  const exactBenchmarkKey = Object.keys(BENCHMARKS).find(
-    key => userProdi.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(userProdi.toLowerCase())
-  )
+  // ── Benchmarks — fully dynamic based on inferProgramStudiGroup ──
+  // No hardcoded IT-specific benchmarks. All prodi are handled uniformly.
   const matchedBenchmarks = React.useMemo(() => {
-    if (exactBenchmarkKey) return BENCHMARKS[exactBenchmarkKey] || BENCHMARKS["Umum"]
     return buildProgramBenchmarks(userProdi, programGroup.key, programGroup.label)
-  }, [exactBenchmarkKey, programGroup.key, programGroup.label, userProdi])
-
-  const allBenchmarks = React.useMemo(() => {
-    const staticBenchmarks = Object.entries(BENCHMARKS).flatMap(([category, list]) =>
-      list.map(b => ({ ...b, category }))
-    )
-    const matchedIds = new Set(matchedBenchmarks.map(b => b.id))
-    return [
-      ...matchedBenchmarks.map(b => ({ ...b, category: userProdi })),
-      ...staticBenchmarks.filter(b => !matchedIds.has(b.id)),
-    ]
-  }, [matchedBenchmarks, userProdi])
+  }, [programGroup.key, programGroup.label, userProdi])
 
   const benchmarkGroups = React.useMemo(() => {
-    return allBenchmarks.reduce<Record<string, Benchmark[]>>((groups, benchmark) => {
-      if (!groups[benchmark.category]) groups[benchmark.category] = []
-      groups[benchmark.category].push(benchmark)
-      return groups
-    }, {})
-  }, [allBenchmarks])
+    // Group by a friendly label
+    const groupLabel = programGroup.key === "general" ? "Standar Nasional" : programGroup.label
+    return { [groupLabel]: matchedBenchmarks }
+  }, [matchedBenchmarks, programGroup])
 
   React.useEffect(() => {
     if (matchedBenchmarks && matchedBenchmarks.length > 0) {
@@ -651,7 +564,7 @@ export default function ExplorePage() {
   }
 
   // ── Derived state ──
-  const activeBenchmark = allBenchmarks.find(b => b.id === selectedBenchmarkId) || matchedBenchmarks[0]
+  const activeBenchmark = matchedBenchmarks.find(b => b.id === selectedBenchmarkId) || matchedBenchmarks[0]
   const readinessScore = clampPercent(academicProfile?.readiness_score, academicProfile ? 58 : 0)
   const confidenceScore = clampPercent(academicProfile?.confidence_score, academicProfile ? 70 : 0)
   const careerPaths = getCareerPaths(academicProfile?.career_recommendations || "", userProdi)
