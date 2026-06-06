@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check, BookOpen } from "lucide-react"
-import { api, getUser } from "@/lib/api"
+import { api, getUser, getToken } from "@/lib/api"
 
 interface Module {
   id: number
@@ -84,9 +84,17 @@ export default function ExplorePage() {
   }, [loading])
 
   const fetchActiveCourses = () => {
+    const token = getToken()
+    if (!token) return
     const u = getUser()
     if (u?.is_instructor) return // Instructors do not have enrollments
-    fetch("http://127.0.0.1:8001/api/dashboard/")
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    }
+
+    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
       .then((res) => {
         if (res.ok) return res.json()
         throw new Error()
@@ -216,11 +224,20 @@ export default function ExplorePage() {
   }
 
   const handleEnroll = (courseCode: string) => {
+    const token = getToken()
+    if (!token) {
+      router.push(`/login?redirect=explore`)
+      return
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    }
+
     fetch("http://127.0.0.1:8001/api/courses/enroll/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers,
       body: JSON.stringify({ course_code: courseCode })
     })
       .then((res) => {

@@ -25,7 +25,7 @@ import {
   ExternalLink,
   Laptop
 } from "lucide-react"
-import { api, getToken, getUser } from "@/lib/api"
+import { api, getToken, getUser, setUser } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -87,16 +87,32 @@ export default function CoursePreviewPage({ params }: PageProps) {
     const token = getToken()
     if (token) {
       setIsLoggedIn(true)
-      const u = getUser()
-      setCurrentUser(u)
       
-      if (u?.is_instructor) return // Instructors do not have enrollments
-      
-      // Fetch enrolled courses to check enrollment status
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       }
+
+      // Fetch fresh profile data to keep premium status in sync
+      fetch("http://127.0.0.1:8001/api/auth/me/", { headers })
+        .then((res) => {
+          if (res.ok) return res.json()
+          throw new Error()
+        })
+        .then((userData: any) => {
+          setCurrentUser(userData)
+          setUser(userData)
+        })
+        .catch(() => {
+          // Fallback to local storage
+          const u = getUser()
+          setCurrentUser(u)
+        })
+      
+      const u = getUser()
+      if (u?.is_instructor) return // Instructors do not have enrollments
+      
+      // Fetch enrolled courses to check enrollment status
       fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
         .then((res) => {
           if (res.ok) return res.json()
@@ -412,7 +428,11 @@ export default function CoursePreviewPage({ params }: PageProps) {
                       if (!isLoggedIn) {
                         router.push(`/login?redirect=catalog/preview/${course.code}`)
                       } else {
-                        setShowEnrollModal(true)
+                        if (currentUser?.is_premium) {
+                          handleEnroll('verified')
+                        } else {
+                          setShowEnrollModal(true)
+                        }
                       }
                     }}
                     className="flex-1 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] hover:opacity-90 text-white font-extrabold text-xs h-10 rounded-lg shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
