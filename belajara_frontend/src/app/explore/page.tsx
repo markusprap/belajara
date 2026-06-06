@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check, BookOpen } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, getUser } from "@/lib/api"
 
 interface Module {
   id: number
@@ -84,6 +84,8 @@ export default function ExplorePage() {
   }, [loading])
 
   const fetchActiveCourses = () => {
+    const u = getUser()
+    if (u?.is_instructor) return // Instructors do not have enrollments
     fetch("http://127.0.0.1:8001/api/dashboard/")
       .then((res) => {
         if (res.ok) return res.json()
@@ -537,6 +539,8 @@ export default function ExplorePage() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -8,6 +8,10 @@ Covers:
 - Subscription status endpoint
 - Subscription cancellation
 """
+import os
+os.environ["MIDTRANS_SERVER_KEY"] = ""
+os.environ["MIDTRANS_CLIENT_KEY"] = ""
+
 import pytest
 from django.urls import reverse
 from django.utils import timezone
@@ -512,5 +516,96 @@ def test_user_transactions_api(auth_client, mahasiswa, course_premium):
     assert float(response.data[0]["amount"]) == 150000.00
     assert response.data[0]["status"] == "pending"
     assert response.data[0]["transaction_type"] == "course_purchase"
+
+
+# ─── Cancel Transaction Tests ──────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_cancel_transaction_success(auth_client, mahasiswa, course_premium):
+    """Cancelling a pending course purchase transaction should update status to failed."""
+    tx = Transaction.objects.create(
+        order_id="BLJR-TX-CANCEL-001",
+        mahasiswa=mahasiswa,
+        course=course_premium,
+        amount=150000.00,
+        status="pending",
+        transaction_type="course_purchase"
+    )
+
+    url = reverse("payment_cancel_transaction")
+    response = auth_client.post(url, {"order_id": tx.order_id}, format="json")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["status"] == "failed"
+    assert "dibatalkan" in response.data["detail"]
+
+    tx.refresh_from_db()
+    assert tx.status == "failed"
+
+
+@pytest.mark.django_db
+def test_cancel_subscription_transaction_success(auth_client, mahasiswa):
+    """Cancelling a pending subscription transaction should update transaction status to failed and subscription to cancelled."""
+    from datetime import timedelta
+
+    sub = Subscription.objects.create(
+        mahasiswa=mahasiswa,
+        tier="scholar",
+        status="suspended",
+        current_period_start=timezone.now(),
+        current_period_end=timezone.now() + timedelta(days=30),
+    )
+
+    tx = Transaction.objects.create(
+        order_id="BLJR-SUB-CANCEL-001",
+        mahasiswa=mahasiswa,
+        subscription=sub,
+        amount=49000.00,
+        status="pending",
+        transaction_type="subscription_new"
+    )
+
+    url = reverse("payment_cancel_transaction")
+    response = auth_client.post(url, {"order_id": tx.order_id}, format="json")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["status"] == "failed"
+
+    tx.refresh_from_db()
+    assert tx.status == "failed"
+
+    sub.refresh_from_db()
+    assert sub.status == "cancelled"
+
+
+@pytest.mark.django_db
+def test_cancel_transaction_not_found(auth_client):
+    """Cancelling a non-existent transaction should return 404."""
+    url = reverse("payment_cancel_transaction")
+    response = auth_client.post(url, {"order_id": "NON-EXISTENT-TX"}, format="json")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_cancel_transaction_already_final(auth_client, mahasiswa, course_premium):
+    """Cancelling an already successful transaction should return 400."""
+    tx = Transaction.objects.create(
+        order_id="BLJR-TX-CANCEL-FINAL",
+        mahasiswa=mahasiswa,
+        course=course_premium,
+        amount=150000.00,
+        status="success",
+        transaction_type="course_purchase"
+    )
+
+    url = reverse("payment_cancel_transaction")
+    response = auth_client.post(url, {"order_id": tx.order_id}, format="json")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "tidak dapat dibatalkan" in response.data["detail"]
+
+    tx.refresh_from_db()
+    assert tx.status == "success"
+
 
 

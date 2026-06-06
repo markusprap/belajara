@@ -30,7 +30,8 @@ import {
   ArrowUp,
   Award,
   Video,
-  UserCheck
+  UserCheck,
+  ChevronDown
 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -50,6 +51,7 @@ export default function LandingPage() {
   // Interactive video modal state
   const [isVideoOpen, setIsVideoOpen] = React.useState(false)
   const [showBackToTop, setShowBackToTop] = React.useState(false)
+  const [openFaq, setOpenFaq] = React.useState<number | null>(null)
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -267,7 +269,15 @@ export default function LandingPage() {
           {/* Hero CTA Button */}
           <div className="pt-2">
             <Button
-              onClick={() => router.push(isLoggedIn ? "/dashboard" : "/register")}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  router.push("/register")
+                } else if (currentUser?.is_instructor) {
+                  router.push("/instructor")
+                } else {
+                  router.push("/dashboard")
+                }
+              }}
               className="bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-extrabold text-xs px-8 py-5.5 rounded-xl shadow-md transition-all w-full sm:w-auto"
             >
               Start Learning
@@ -730,7 +740,15 @@ export default function LandingPage() {
 
               <div className="pt-8">
                 <Button
-                  onClick={() => router.push(isLoggedIn ? "/dashboard" : "/register")}
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      router.push("/register")
+                    } else if (currentUser?.is_instructor) {
+                      router.push("/instructor")
+                    } else {
+                      router.push("/dashboard")
+                    }
+                  }}
                   className="w-full bg-[#FAF9FB] hover:bg-[#E8E5E9] text-[#060708] border border-[#E8E5E9] text-xs uppercase tracking-wider font-extrabold py-6 rounded-lg cursor-pointer"
                 >
                   Mulai Belajar Gratis
@@ -835,13 +853,51 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 8. Footer Section */}
+      {/* 8. FAQ Section */}
+      <section id="faq" className="py-20 md:py-28 px-6 bg-white border-b border-[#E8E5E9]">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center space-y-3 mb-16">
+            <span className="text-[9px] font-extrabold text-[#CF3A1F] uppercase tracking-widest bg-[#CF3A1F]/5 border border-[#CF3A1F]/15 px-3 py-1 rounded-full">
+              FAQ
+            </span>
+            <h2 className="font-heading text-3xl md:text-4xl font-bold text-[#060708]">
+              Pertanyaan Umum
+            </h2>
+            <p className="text-xs text-slate-500 max-w-lg mx-auto font-sans font-medium">
+              Temukan jawaban untuk pertanyaan yang sering ditanyakan mengenai sistem pembelajaran, sertifikasi, dan opsi langganan Belajara.
+            </p>
+          </div>
+
+          <div className="divide-y divide-[#E8E5E9]">
+            {FAQS.map((faq, i) => (
+              <div key={i} className="py-4 first:pt-0 last:pb-0">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between text-left py-4 text-[#060708] hover:text-[#CF3A1F] transition-colors focus:outline-none cursor-pointer group"
+                >
+                  <span className="text-sm font-sans font-bold leading-relaxed">{faq.q}</span>
+                  <ChevronDown className={`h-4.5 w-4.5 text-slate-400 group-hover:text-[#CF3A1F] transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`grid transition-all duration-300 ease-in-out ${openFaq === i ? 'grid-rows-[1fr] opacity-100 mt-2 pb-4' : 'grid-rows-[0fr] opacity-0'}`}>
+                  <div className="overflow-hidden">
+                    <p className="text-xs font-medium text-slate-500 leading-relaxed font-sans">
+                      {faq.a}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 9. Footer Section */}
       <footer className="bg-[#060708] text-[#FAF9FB] px-6 py-16 md:py-20 mt-auto border-t border-[#060708]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
           <div className="space-y-4 max-w-sm">
             <h3 className="font-heading text-2xl font-bold tracking-tight text-[#FAF9FB]">Belajara.</h3>
             <p className="text-xs text-slate-400 leading-relaxed font-sans font-medium">
-              Platform Pembelajaran Interaktif Berbasis AI dengan Sistem Rekomendasi Mata Kuliah untuk Mahasiswa Indonesia. Inspirasi dari Qurtuba (Phenomenon Studio).
+              Platform Pembelajaran Interaktif Berbasis AI dengan Sistem Rekomendasi Mata Kuliah untuk Mahasiswa Indonesia.
             </p>
           </div>
 
@@ -870,7 +926,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto border-t border-[#E8E5E9]/10 mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] text-slate-500 font-semibold">
           <p>&copy; {new Date().getFullYear()} Belajara. Seluruh Hak Cipta Dilindungi Undang-Undang.</p>
           <p className="flex items-center gap-1">
-            Build with <Sparkles className="h-3 w-3 text-[#CF3A1F]" /> for Indonesia Higher Education
+            Platform Pembelajaran Interaktif Berbasis AI untuk Mahasiswa Indonesia
           </p>
         </div>
       </footer>
@@ -911,3 +967,26 @@ export default function LandingPage() {
     </div>
   )
 }
+
+const FAQS = [
+  {
+    q: "Apakah saya bisa membatalkan langganan kapan saja?",
+    a: "Ya. Batalkan kapan saja tanpa penalti. Akses premium tetap aktif hingga akhir periode pembayaran saat ini.",
+  },
+  {
+    q: "Metode pembayaran apa saja yang tersedia?",
+    a: "Kami mendukung QRIS, GoPay, OVO, Dana, ShopeePay, Transfer Bank (BCA, BRI, BNI, Mandiri), Kartu Kredit/Debit, dan Alfamart/Indomaret via Midtrans.",
+  },
+  {
+    q: "Apakah ada masa percobaan gratis?",
+    a: "Tier Free kami sudah tersedia selamanya! Anda dapat mencoba 3 kursus dengan 1 modul gratis per kursus tanpa batas waktu.",
+  },
+  {
+    q: "Bisakah saya membeli kursus satu per satu tanpa berlangganan?",
+    a: "Ya! Kursus premium tersedia juga secara per-kursus (Rp99.000–Rp299.000) dengan akses seumur hidup. Klik tombol 'Beli Kursus' di halaman detail kursus.",
+  },
+  {
+    q: "Apakah sertifikat diakui secara formal?",
+    a: "Sertifikat Belajara adalah sertifikat penyelesaian digital yang dapat dibagikan ke LinkedIn. Kami bekerja menuju akreditasi formal di iterasi berikutnya.",
+  },
+]

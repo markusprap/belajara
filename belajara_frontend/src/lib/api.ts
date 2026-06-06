@@ -273,6 +273,7 @@ export const api = {
             last_name: "Santoso",
             is_mahasiswa: true,
             is_premium: (username === "premium" || username === "pro") ? true : false,
+            is_onboarded: true,
             subscription_tier: username === "pro" ? "pro" : (username === "premium" ? "scholar" : "free"),
             nim: "2201010101",
             jurusan: "Informatika",
@@ -318,6 +319,7 @@ export const api = {
           is_mahasiswa: !isInstructor,
           is_instructor: isInstructor,
           is_premium: false,
+          is_onboarded: username !== "newgoogle", // Simulated onboarding check
           subscription_tier: "free",
           nim: isInstructor ? undefined : "2201010102",
           jurusan: isInstructor ? undefined : "Informatika",
@@ -368,9 +370,14 @@ export const api = {
       } catch (err) {
         console.warn("API updateProfile failed, simulating mock update success:", err);
         const currentUser = getUser() || {};
-        const isInst = currentUser.is_instructor;
+        const role = profileData.role;
+        const isMahasiswa = role ? (role === 'student' || role === 'mahasiswa') : (currentUser.is_mahasiswa || false);
+        const isInst = role ? (role === 'instructor' || role === 'dosen') : (currentUser.is_instructor || false);
         const updatedUser = {
           ...currentUser,
+          is_mahasiswa: isMahasiswa,
+          is_instructor: isInst,
+          is_onboarded: true, // Mark onboarded on successful profile update
           first_name: profileData.first_name !== undefined ? profileData.first_name : currentUser.first_name,
           last_name: profileData.last_name !== undefined ? profileData.last_name : currentUser.last_name,
           nim: !isInst ? (profileData.nim || profileData.mahasiswa_profile?.nim || currentUser.nim) : undefined,
@@ -697,6 +704,21 @@ export const api = {
     },
 
     /**
+     * Cancel a pending transaction and its subscription.
+     */
+    cancelTransaction: async (orderId: string) => {
+      try {
+        return await request("/payments/cancel-transaction/", {
+          method: "POST",
+          body: JSON.stringify({ order_id: orderId }),
+        });
+      } catch (err) {
+        console.warn("Failed cancelling transaction:", err);
+        return { detail: "Transaksi berhasil dibatalkan (Simulated)." };
+      }
+    },
+
+    /**
      * Get billing transactions history.
      */
     transactions: async () => {
@@ -755,11 +777,22 @@ export const api = {
     createModule: async (courseCode: string, data: any) => { try { return await request(`/courses/${courseCode}/modules/create/`, { method: 'POST', body: JSON.stringify(data) }); } catch(e) { throw e; } },
     updateModule: async (moduleId: number, data: any) => { try { return await request(`/modules/${moduleId}/manage/`, { method: 'PUT', body: JSON.stringify(data) }); } catch(e) { throw e; } },
     deleteModule: async (moduleId: number) => { try { return await request(`/modules/${moduleId}/manage/`, { method: 'DELETE' }); } catch(e) { throw e; } },
-    generateQuiz: async (moduleId: number) => { try { return await request(`/modules/${moduleId}/quizzes/generate/`, { method: 'POST' }); } catch(e) { throw e; } },
+    generateQuiz: async (moduleId: number) => { try { return await request(`/courses/modules/${moduleId}/quiz/generate/`, { method: 'POST' }); } catch(e) { throw e; } },
     createSubChapter: async (moduleId: number, data: any) => { try { return await request(`/modules/${moduleId}/subchapters/create/`, { method: 'POST', body: JSON.stringify(data) }); } catch(e) { throw e; } },
     updateSubChapter: async (subchapterId: number, data: any) => { try { return await request(`/subchapters/${subchapterId}/manage/`, { method: 'PUT', body: JSON.stringify(data) }); } catch(e) { throw e; } },
     deleteSubChapter: async (subchapterId: number) => { try { return await request(`/subchapters/${subchapterId}/manage/`, { method: 'DELETE' }); } catch(e) { throw e; } },
     saveQuiz: async (moduleId: number, questionsJson: any[]) => { try { return await request(`/courses/modules/${moduleId}/quiz/manage/`, { method: 'POST', body: JSON.stringify({ questions_json: questionsJson }) }); } catch(e) { throw e; } },
+    generateMaterial: async (params: {
+      topic: string;
+      template_type: string;
+      subchapter_title?: string;
+      course_title?: string;
+    }): Promise<{ content: string }> => {
+      return await request('/courses/ai/generate-material/', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      });
+    },
   },
 
   explore: {

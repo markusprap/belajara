@@ -8,6 +8,7 @@ class User(AbstractUser):
     is_mahasiswa = models.BooleanField(default=False)
     is_premium = models.BooleanField(default=False)
     is_instructor = models.BooleanField(default=False)
+    is_onboarded = models.BooleanField(default=True)
     
     # Override groups and user_permissions if needed, or leave as default.
     # AbstractUser provides username, first_name, last_name, email, password.

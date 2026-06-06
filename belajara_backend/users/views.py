@@ -45,6 +45,16 @@ class MeView(APIView):
         # Update user fields
         user.first_name = data.get('first_name', user.first_name)
         user.last_name = data.get('last_name', user.last_name)
+        
+        # Support setting/switching role during onboarding
+        role = data.get('role')
+        if role:
+            if role in ['student', 'mahasiswa']:
+                user.is_mahasiswa = True
+                user.is_instructor = False
+            elif role in ['instructor', 'dosen']:
+                user.is_instructor = True
+                user.is_mahasiswa = False
         user.save()
         
         if user.is_mahasiswa:
@@ -91,6 +101,11 @@ class MeView(APIView):
             profile.bidang_keahlian = profile_data.get('bidang_keahlian', profile.bidang_keahlian)
             profile.universitas = profile_data.get('universitas', profile.universitas)
             profile.save()
+            
+        # Set onboarded to True once profile is updated
+        if not user.is_onboarded:
+            user.is_onboarded = True
+            user.save()
             
         serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -153,7 +168,8 @@ class GoogleOAuthView(APIView):
                     first_name=first_name,
                     last_name=last_name,
                     is_instructor=True,
-                    is_mahasiswa=False
+                    is_mahasiswa=False,
+                    is_onboarded=False
                 )
                 
                 # Generate random NIDN
@@ -175,7 +191,8 @@ class GoogleOAuthView(APIView):
                     first_name=first_name,
                     last_name=last_name,
                     is_mahasiswa=True,
-                    is_instructor=False
+                    is_instructor=False,
+                    is_onboarded=False
                 )
 
                 # Generate random NIM

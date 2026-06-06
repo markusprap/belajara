@@ -10,6 +10,7 @@ from courses.views import (
     CourseCreateView, CourseUpdateDeleteView,
     ModuleCreateView, ModuleUpdateDeleteView,
     SubChapterCreateView, SubChapterUpdateDeleteView,
+    MaterialAIGenerateView,
 )
 from explore.views import PDFAnalyzeView, CurriculumUploadView, AIRecommendationStatusView
 
@@ -37,6 +38,9 @@ urlpatterns = [
     path('api/modules/<int:pk>/manage/', ModuleUpdateDeleteView.as_view(), name='module-manage'),
     path('api/modules/<int:module_id>/subchapters/create/', SubChapterCreateView.as_view(), name='subchapter-create'),
     path('api/subchapters/<int:pk>/manage/', SubChapterUpdateDeleteView.as_view(), name='subchapter-manage'),
+
+    # Material AI Generation endpoint
+    path('api/courses/ai/generate-material/', MaterialAIGenerateView.as_view(), name='material-ai-generate'),
 
     # Explore / AI endpoints
     path('api/explore/analyze/', PDFAnalyzeView.as_view(), name='pdf-analyze'),

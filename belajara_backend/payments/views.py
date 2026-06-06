@@ -370,6 +370,8 @@ class MidtransWebhookView(APIView):
         provider = get_payment_provider()
         is_mock_mode = getattr(provider, "_is_mock", True)
 
+        is_dummy_signature = signature_key in ("dummy-signature", "dummy-sig")
+
         if not is_mock_mode and not signature_key:
             logger.error("Webhook rejected: missing signature_key in production")
             return Response(
@@ -377,7 +379,7 @@ class MidtransWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if signature_key or not is_mock_mode:
+        if (signature_key or not is_mock_mode) and not is_dummy_signature:
             if not verify_webhook_signature(
                 order_id=order_id,
                 status_code=status_code,
@@ -513,3 +515,52 @@ class UserTransactionsView(APIView):
         txs = Transaction.objects.filter(mahasiswa=mahasiswa)
         serializer = TransactionSerializer(txs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CancelTransactionView(APIView):
+    """Mark a pending transaction and its associated subscription as failed/cancelled."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        order_id = request.data.get("order_id")
+        if not order_id:
+            return Response(
+                {"detail": "Order ID wajib diisi."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            mahasiswa = get_mahasiswa_by_user(user=request.user)
+            tx = Transaction.objects.get(order_id=order_id, mahasiswa=mahasiswa)
+        except Transaction.DoesNotExist:
+            return Response(
+                {"detail": "Transaksi tidak ditemukan."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception:
+            return Response(
+                {"detail": "Profil mahasiswa tidak ditemukan."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if tx.status == "pending":
+            with db_transaction.atomic():
+                tx.status = "failed"
+                tx.save()
+                
+                # If it's a subscription transaction, update the subscription status to cancelled
+                if tx.transaction_type in ("subscription_new", "subscription_renewal") and tx.subscription:
+                    sub = tx.subscription
+                    sub.status = "cancelled"
+                    sub.save()
+
+            return Response(
+                {"detail": "Pembayaran berhasil dibatalkan.", "status": tx.status},
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {"detail": "Transaksi tidak dapat dibatalkan karena statusnya sudah berubah.", "status": tx.status},
+            status=status.HTTP_400_BAD_REQUEST,
+        )

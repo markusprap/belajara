@@ -88,6 +88,7 @@ def test_google_oauth_new_user():
     assert response.data["user"]["email"] == "newgoogle@example.com"
     assert response.data["user"]["is_mahasiswa"] is True
     assert response.data["user"]["mahasiswa_profile"]["nim"] is not None
+    assert response.data["user"]["is_onboarded"] is False
 
 @pytest.mark.django_db
 def test_google_oauth_existing_user():
@@ -112,6 +113,7 @@ def test_google_oauth_existing_user():
     assert "tokens" in response.data
     assert response.data["user"]["username"] == "existinggoogle"
     assert response.data["user"]["mahasiswa_profile"]["nim"] == "77776666"
+    assert response.data["user"]["is_onboarded"] is True
 
 @pytest.mark.django_db
 def test_register_instructor_api():
@@ -184,6 +186,36 @@ def test_google_oauth_new_instructor():
     assert response.data["user"]["email"] == "newinstructor@example.com"
     assert response.data["user"]["is_instructor"] is True
     assert response.data["user"]["instructor_profile"]["nidn"] is not None
+    assert response.data["user"]["is_onboarded"] is False
+
+@pytest.mark.django_db
+def test_onboarding_profile_update():
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    user = User.objects.create_user(
+        username="onboardtest",
+        email="onboard@example.com",
+        password="password123",
+        is_onboarded=False
+    )
+    
+    client = APIClient()
+    client.force_authenticate(user=user)
+    
+    url = reverse('auth_me')
+    data = {
+        "role": "mahasiswa",
+        "nim": "2201019999",
+        "jurusan": "Sistem Informasi",
+        "universitas": "Universitas Indonesia",
+        "semester": 2
+    }
+    response = client.put(url, data, format='json')
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["is_onboarded"] is True
+    assert response.data["is_mahasiswa"] is True
+    assert response.data["mahasiswa_profile"]["nim"] == "2201019999"
+    assert response.data["mahasiswa_profile"]["jurusan"] == "Sistem Informasi"
 
 @pytest.mark.django_db
 def test_profile_update_api():

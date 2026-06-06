@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Loader2, CheckCircle, Sparkles, Compass, Clock, MessageSquare } from "lucide-react"
+import { AlertCircle, Loader2, CheckCircle, Sparkles, Compass, Clock, MessageSquare, Eye, EyeOff } from "lucide-react"
 
 const GoogleIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
@@ -40,6 +40,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState(false)
+  const [showPassword, setShowPassword] = React.useState(false)
 
   // Google OAuth Simulation states
   const [showGoogleModal, setShowGoogleModal] = React.useState(false)
@@ -223,7 +224,7 @@ export default function RegisterPage() {
 
         {/* Footer */}
         <p className="text-[10px] text-slate-500 font-semibold relative z-10">
-          &copy; {new Date().getFullYear()} Belajara. Platform Terintegrasi Midtrans & AI untuk Perguruan Tinggi.
+          &copy; {new Date().getFullYear()} Belajara. Platform Pembelajaran Interaktif Berbasis AI untuk Mahasiswa Indonesia.
         </p>
       </div>
 
@@ -337,16 +338,29 @@ export default function RegisterPage() {
 
                   <div className="space-y-1.5">
                     <Label htmlFor="password" className="text-xs font-semibold text-primary">Password *</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="Minimal 6 karakter"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="bg-white border border-border rounded-lg"
-                      disabled={loading}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Minimal 6 karakter"
+                        value={formData.password}
+                        onChange={handleChange}
+                        className="bg-white border border-border rounded-lg pr-10"
+                        disabled={loading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer border-0 bg-transparent p-0 flex items-center justify-center h-5 w-5"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">

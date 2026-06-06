@@ -72,6 +72,11 @@ export default function CoursesPage() {
     }
 
     const u = getUser()
+    if (u?.is_instructor) {
+      router.push("/instructor")
+      return
+    }
+
     if (u) {
       setUsername(u.username || "mahasiswa")
     }

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   BookOpen,
   Compass,
@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge"
 import { getUser, clearToken } from "@/lib/api"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const router = useRouter()
   const [user, setUser] = React.useState<any>(null)
   const [isInstructor, setIsInstructor] = React.useState(false)
   const pathname = usePathname()
@@ -49,7 +50,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const u = getUser()
     setUser(u)
     setIsInstructor(!!u?.is_instructor)
-  }, [])
+
+    // Onboarding guard: redirect if profile is incomplete
+    if (u && u.is_onboarded === false && pathname !== "/onboarding") {
+      router.push("/onboarding")
+    }
+  }, [pathname, router])
 
   const handleLogout = () => {
     clearToken()

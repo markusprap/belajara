@@ -596,11 +596,27 @@ export default function CourseDetailPage({ params }: PageProps) {
           onPending: () => {
             setPaymentStatus("pending")
           },
-          onError: () => {
+          onError: async () => {
             setPaymentStatus("failed")
+            if (response.order_id) {
+              try {
+                await api.payment.cancelTransaction(response.order_id)
+              } catch (e) {
+                console.warn(e)
+              }
+            }
           },
-          onClose: () => {
+          onClose: async () => {
             console.log("Snap checkout popup closed")
+            setCheckoutOpen(false)
+            setPaymentStatus("idle")
+            if (response.order_id) {
+              try {
+                await api.payment.cancelTransaction(response.order_id)
+              } catch (e) {
+                console.warn(e)
+              }
+            }
           }
         })
       }
@@ -609,6 +625,21 @@ export default function CourseDetailPage({ params }: PageProps) {
     } finally {
       setCheckoutLoading(false)
     }
+  }
+
+  const handleCancelPayment = async () => {
+    if (orderId) {
+      setCheckoutLoading(true)
+      try {
+        await api.payment.cancelTransaction(orderId)
+      } catch (err) {
+        console.warn("Gagal membatalkan transaksi:", err)
+      } finally {
+        setCheckoutLoading(false)
+      }
+    }
+    setCheckoutOpen(false)
+    setPaymentStatus("idle")
   }
 
   // Mock confirm payment callback for sandbox simulation
@@ -1514,7 +1545,14 @@ export default function CourseDetailPage({ params }: PageProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => {
+                const u = getUser()
+                if (u?.is_instructor) {
+                  router.push("/instructor")
+                } else {
+                  router.push("/dashboard")
+                }
+              }}
               className="h-9 px-2.5 hover:bg-secondary/40 text-muted-foreground hover:text-primary gap-1.5 font-bold rounded-lg"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -1526,7 +1564,14 @@ export default function CourseDetailPage({ params }: PageProps) {
             </span>
             
             <button
-              onClick={() => router.push("/courses")}
+              onClick={() => {
+                const u = getUser()
+                if (u?.is_instructor) {
+                  router.push("/instructor")
+                } else {
+                  router.push("/courses")
+                }
+              }}
               className="h-8 w-8 flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-colors cursor-pointer border-none bg-transparent"
               title="Tutup Workspace Kelas"
             >
@@ -1928,10 +1973,7 @@ export default function CourseDetailPage({ params }: PageProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-primary/45 backdrop-blur-xs">
           <Card className="w-full max-w-md bg-white border border-border shadow-2xl rounded-xl overflow-hidden p-6 relative">
             <button
-              onClick={() => {
-                setCheckoutOpen(false)
-                setPaymentStatus("idle")
-              }}
+              onClick={handleCancelPayment}
               className="absolute right-4 top-4 text-muted-foreground hover:text-primary h-8 w-8 cursor-pointer rounded-full border border-transparent hover:border-border flex items-center justify-center border-none bg-transparent"
               disabled={checkoutLoading}
             >
@@ -2032,13 +2074,24 @@ export default function CourseDetailPage({ params }: PageProps) {
                   </div>
                 )}
 
-                <Button
-                  onClick={handleMockPaymentSuccess}
-                  className="w-full bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white cursor-pointer py-2.5 rounded-lg flex items-center justify-center gap-2 font-bold shadow-xs border-none"
-                >
-                  <CreditCard className="h-4.5 w-4.5" />
-                  Konfirmasi Bayar Rp 49.000
-                </Button>
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    onClick={handleCancelPayment}
+                    variant="outline"
+                    className="flex-1 text-xs h-10 cursor-pointer border border-[#E8E5E9]"
+                    disabled={checkoutLoading}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    onClick={handleMockPaymentSuccess}
+                    className="flex-2 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white cursor-pointer h-10 rounded-lg flex items-center justify-center gap-2 font-bold shadow-xs border-none"
+                    disabled={checkoutLoading}
+                  >
+                    <CreditCard className="h-4.5 w-4.5" />
+                    Bayar
+                  </Button>
+                </div>
                 
                 <p className="text-[9px] text-[#060708] text-center italic mt-1">Menggunakan integrasi pembayaran Midtrans Snap Sandbox.</p>
               </div>

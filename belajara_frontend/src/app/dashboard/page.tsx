@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, Trophy, Sparkles, AlertCircle } from "lucide-react"
 
 import { useRouter } from "next/navigation"
-import { getToken, clearToken } from "@/lib/api"
+import { getToken, clearToken, getUser } from "@/lib/api"
 
 interface Student {
   name: string
@@ -110,9 +110,21 @@ export default function Page() {
     const token = getToken()
     if (!token) {
       router.push("/login")
-    } else {
-      fetchDashboardData()
+      return
     }
+
+    const user = getUser()
+    if (user && user.is_onboarded === false) {
+      router.push("/onboarding")
+      return
+    }
+
+    if (user?.is_instructor) {
+      router.push("/instructor")
+      return
+    }
+
+    fetchDashboardData()
   }, [router])
 
   return (

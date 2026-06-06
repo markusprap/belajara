@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Loader2, Sparkles, Compass, Clock, MessageSquare } from "lucide-react"
+import { AlertCircle, Loader2, Sparkles, Compass, Clock, MessageSquare, Eye, EyeOff } from "lucide-react"
 
 const GoogleIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
@@ -24,6 +24,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [username, setUsername] = React.useState("")
   const [password, setPassword] = React.useState("")
+  const [showPassword, setShowPassword] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   
@@ -66,7 +67,9 @@ export default function LoginPage() {
       const resolvedRole = roleParam || (googleRole === "instruktur" ? "instructor" : "student");
       const res = await api.auth.googleLogin(email, firstName, lastName, "mock-google-id", resolvedRole)
       const user = res?.user || api.auth.getUser()
-      if (user?.is_instructor) {
+      if (user && user.is_onboarded === false) {
+        router.push('/onboarding')
+      } else if (user?.is_instructor) {
         router.push('/instructor')
       } else {
         router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard')
@@ -91,7 +94,9 @@ export default function LoginPage() {
     try {
       const res = await api.auth.login(username, password)
       const user = res?.user || api.auth.getUser()
-      if (user?.is_instructor) {
+      if (user && user.is_onboarded === false) {
+        router.push('/onboarding')
+      } else if (user?.is_instructor) {
         router.push('/instructor')
       } else {
         router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard')
@@ -167,7 +172,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="text-[10px] text-slate-500 font-semibold relative z-10">
-          &copy; {new Date().getFullYear()} Belajara. Platform Terintegrasi Midtrans & AI untuk Perguruan Tinggi.
+          &copy; {new Date().getFullYear()} Belajara. Platform Pembelajaran Interaktif Berbasis AI untuk Mahasiswa Indonesia.
         </p>
       </div>
 
@@ -222,15 +227,28 @@ export default function LoginPage() {
                       Lupa password?
                     </Link>
                   </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="bg-white border border-border focus:ring-accent rounded-lg text-xs"
-                    disabled={loading}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="bg-white border border-border focus:ring-accent rounded-lg text-xs pr-10"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer border-0 bg-transparent p-0 flex items-center justify-center h-5 w-5"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </CardContent>
 

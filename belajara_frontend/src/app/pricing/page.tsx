@@ -281,7 +281,7 @@ export default function PricingPage() {
         // Fetch subscription tier from API
         api.payment.mySubscription?.()
           .then((data: any) => {
-            if (data?.subscription?.tier) {
+            if (data?.subscription?.is_active && data?.subscription?.tier) {
               setCurrentTier(data.subscription.tier);
             } else if (u.is_premium) {
               setCurrentTier("scholar"); // fallback
@@ -328,9 +328,9 @@ export default function PricingPage() {
             process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
           );
           document.body.appendChild(script);
-          script.onload = () => openSnap(data.snap_token, tierId);
+          script.onload = () => openSnap(data.snap_token, tierId, data.order_id);
         } else {
-          openSnap(data.snap_token, tierId);
+          openSnap(data.snap_token, tierId, data.order_id);
         }
       }
     } catch (err: any) {
@@ -339,7 +339,7 @@ export default function PricingPage() {
     }
   };
 
-  const openSnap = (token: string, tierId: string) => {
+  const openSnap = (token: string, tierId: string, orderId?: string) => {
     (window as any).snap?.pay(token, {
       onSuccess: () => {
         setCurrentTier(tierId);
@@ -350,12 +350,27 @@ export default function PricingPage() {
         setIsLoading(null);
         window.location.href = "/dashboard?payment=pending";
       },
-      onError: () => {
+      onError: async () => {
         setError("Pembayaran gagal. Silakan coba lagi.");
         setIsLoading(null);
+        if (orderId) {
+          try {
+            await api.payment.cancelTransaction(orderId);
+          } catch (e) {
+            console.warn(e);
+          }
+        }
       },
-      onClose: () => {
+      onClose: async () => {
         setIsLoading(null);
+        setError("Pembayaran dibatalkan atau ditutup.");
+        if (orderId) {
+          try {
+            await api.payment.cancelTransaction(orderId);
+          } catch (e) {
+            console.warn(e);
+          }
+        }
       },
     });
   };

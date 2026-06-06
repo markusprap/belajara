@@ -2,9 +2,30 @@
 
 import * as React from "react"
 import { useParams } from "next/navigation"
-import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarFooter,
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
@@ -98,7 +119,6 @@ const navGroups = [
     title: "Insights",
     items: [
       { id: "dashboard", label: "Dashboard" },
-      { id: "insights", label: "Course insights" },
       { id: "ai-insights", label: "AI Course insights" },
       { id: "activity", label: "Activity matrix" },
       { id: "users", label: "Users" },
@@ -109,6 +129,23 @@ const navGroups = [
     ]
   }
 ]
+
+// ── Cover gradient helper ──────────────────────────────────────────────────
+const COVER_PALETTES = [
+  ['#1a1a2e', '#16213e', '#0f3460'],
+  ['#1b4332', '#2d6a4f', '#40916c'],
+  ['#3d0066', '#560090', '#7b2fff'],
+  ['#7b2d00', '#a44200', '#cc5500'],
+  ['#0d2137', '#0a3d62', '#1a6fa8'],
+  ['#2c2c54', '#474787', '#706fd3'],
+  ['#1a3a4a', '#0d6e8c', '#17a8b5'],
+  ['#4a1942', '#6d2b6e', '#9b4dca'],
+]
+const getCoverPalette = (code: string) => {
+  let hash = 0
+  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash)
+  return COVER_PALETTES[Math.abs(hash) % COVER_PALETTES.length]
+}
 
 const getSidebarIcon = (id: string) => {
   const size = "h-4 w-4 shrink-0"
@@ -132,7 +169,6 @@ const getSidebarIcon = (id: string) => {
     case "automations":
       return <Sliders className={size} />
     case "dashboard":
-    case "insights":
       return <PieChart className={size} />
     case "ai-insights":
       return <Sparkles className={size} />
@@ -268,6 +304,81 @@ export default function CourseManagePage() {
   ])
   const [newCouponCode, setNewCouponCode] = React.useState("")
   const [newCouponDiscount, setNewCouponDiscount] = React.useState(10)
+
+  // Persistent settings states (using localStorage)
+  const [navType, setNavType] = React.useState<string>("sticky")
+  const [coverPattern, setCoverPattern] = React.useState<string>("solid")
+  
+  const [showChat, setShowChat] = React.useState<boolean>(true)
+  const [autoplay, setAutoplay] = React.useState<boolean>(false)
+  const [allowDownload, setAllowDownload] = React.useState<boolean>(true)
+
+  const [minPassScore, setMinPassScore] = React.useState<number>(60)
+  const [certTemplate, setCertTemplate] = React.useState<string>("modern")
+  const [autoIssue, setAutoIssue] = React.useState<boolean>(true)
+
+  const [webhookUrl, setWebhookUrl] = React.useState<string>("")
+  const [webhookEnabled, setWebhookEnabled] = React.useState<boolean>(false)
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedNav = localStorage.getItem(`course_nav_${code}`)
+      if (savedNav) setNavType(savedNav)
+      
+      const savedCover = localStorage.getItem(`course_cover_${code}`)
+      if (savedCover) setCoverPattern(savedCover)
+
+      const savedChat = localStorage.getItem(`course_chat_${code}`)
+      if (savedChat !== null) setShowChat(savedChat === "true")
+
+      const savedAuto = localStorage.getItem(`course_autoplay_${code}`)
+      if (savedAuto !== null) setAutoplay(savedAuto === "true")
+
+      const savedDownload = localStorage.getItem(`course_download_${code}`)
+      if (savedDownload !== null) setAllowDownload(savedDownload === "true")
+
+      const savedScore = localStorage.getItem(`course_cert_score_${code}`)
+      if (savedScore) setMinPassScore(Number(savedScore))
+
+      const savedTemplate = localStorage.getItem(`course_cert_template_${code}`)
+      if (savedTemplate) setCertTemplate(savedTemplate)
+
+      const savedAutoIssue = localStorage.getItem(`course_cert_auto_${code}`)
+      if (savedAutoIssue !== null) setAutoIssue(savedAutoIssue === "true")
+
+      const savedWebhookUrl = localStorage.getItem(`course_webhook_url_${code}`)
+      if (savedWebhookUrl) setWebhookUrl(savedWebhookUrl)
+
+      const savedWebhookEnabled = localStorage.getItem(`course_webhook_enabled_${code}`)
+      if (savedWebhookEnabled !== null) setWebhookEnabled(savedWebhookEnabled === "true")
+    }
+  }, [code])
+
+  const handleSaveLayoutSettings = () => {
+    localStorage.setItem(`course_nav_${code}`, navType)
+    localStorage.setItem(`course_cover_${code}`, coverPattern)
+    showToast("success", "Tata letak halaman kelas berhasil disimpan.")
+  }
+
+  const handleSavePlayerSettings = () => {
+    localStorage.setItem(`course_chat_${code}`, String(showChat))
+    localStorage.setItem(`course_autoplay_${code}`, String(autoplay))
+    localStorage.setItem(`course_download_${code}`, String(allowDownload))
+    showToast("success", "Pengaturan workspace player disimpan.")
+  }
+
+  const handleSaveCertificateSettings = () => {
+    localStorage.setItem(`course_cert_score_${code}`, String(minPassScore))
+    localStorage.setItem(`course_cert_template_${code}`, certTemplate)
+    localStorage.setItem(`course_cert_auto_${code}`, String(autoIssue))
+    showToast("success", "Pengaturan sertifikat berhasil diperbarui.")
+  }
+
+  const handleSaveAutomationSettings = () => {
+    localStorage.setItem(`course_webhook_url_${code}`, webhookUrl)
+    localStorage.setItem(`course_webhook_enabled_${code}`, String(webhookEnabled))
+    showToast("success", "Pengaturan integrasi disimpan.")
+  }
 
   const handleAddCoupon = (e: React.FormEvent) => {
     e.preventDefault()
@@ -482,202 +593,60 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
 
   const handleAIGenerateDraft = async () => {
     if (!aiTopic.trim()) {
-      alert("Harap masukkan topik fokus materi.")
+      showToast("error", "Harap masukkan topik fokus materi terlebih dahulu.")
       return
     }
 
     setAiLoading(true)
+
+    // Progressive status messages to show while waiting for Gemini
     const messages = [
-      "Mengumpulkan data topik akademis...",
-      "Menyusun silabus pembelajaran...",
-      "Menghasilkan konten edukasi Markdown...",
-      "Membuat code snippet & visualisasi tabel...",
-      "Melakukan formatting Qurtuba Aesthetic...",
-      "Menyelesaikan draf materi kuliah..."
+      "Menyambungkan ke Gemini AI...",
+      "Menganalisis topik dan konteks materi...",
+      "Menyusun struktur materi kuliah...",
+      "Menulis konten & penjelasan mendalam...",
+      "Membuat contoh, tabel, dan ilustrasi...",
+      "Memformat output ke Markdown...",
+      "Melakukan review dan finalisasi draf...",
     ]
 
-    let currentMsgIdx = 0
+    let msgIdx = 0
     setAiStatusMsg(messages[0])
-
     const interval = setInterval(() => {
-      currentMsgIdx++
-      if (currentMsgIdx < messages.length) {
-        setAiStatusMsg(messages[currentMsgIdx])
-      }
-    }, 800)
+      msgIdx = Math.min(msgIdx + 1, messages.length - 1)
+      setAiStatusMsg(messages[msgIdx])
+    }, 1200)
 
-    await new Promise(resolve => setTimeout(resolve, 3500))
-    clearInterval(interval)
+    try {
+      const result = await api.instructor.generateMaterial({
+        topic: aiTopic.trim(),
+        template_type: aiTemplateType,
+        subchapter_title: subchapterForm.title || "",
+        course_title: course?.title || "",
+      })
 
-    const title = subchapterForm.title || "Materi Kuliah Baru"
-    let content = ""
+      clearInterval(interval)
 
-    if (aiTemplateType === "theory") {
-      content = `# Pembahasan Mendalam: ${title}
+      // Append generated content (separator if there's existing content)
+      setSubchapterForm(f => ({
+        ...f,
+        content: f.content
+          ? `${f.content}\n\n---\n\n${result.content}`
+          : result.content,
+      }))
 
-Materi ini dirancang untuk membekali mahasiswa dengan pemahaman konseptual yang kuat mengenai **${aiTopic}**.
-
-## 1. Pendahuluan & Konsep Dasar
-Secara umum, ${aiTopic} merujuk pada prinsip penting di mana kita mengelola data, struktur program, atau metodologi penyelesaian masalah secara optimal.
-
-> **Definisi:** ${aiTopic} adalah konsep teoretis yang mendefinisikan hubungan terstruktur antara elemen-elemen instruksi dalam menyelesaikan problem komputasi atau akademik secara efisien.
-
-## 2. Karakteristik Utama
-Ada beberapa aspek penting yang harus Anda pahami:
-- **Efisiensi:** Mengurangi waktu pengerjaan (time complexity) dan penggunaan memori (space complexity).
-- **Keterbacaan (Readability):** Mempermudah kolaborasi antar pengembang.
-- **Skalabilitas:** Menjamin sistem tetap berjalan lancar saat ukuran input data meningkat secara eksponensial.
-
-## 3. Perbandingan Metode Terkait
-Berikut adalah perbandingan ringkas antara pendekatan konvensional dan pendekatan modern terkait topik ini:
-
-| Kriteria Analisis | Metode Konvensional | Pendekatan Modern |
-|---|---|---|
-| Kompleksitas | Cenderung tinggi / O(n^2) | Lebih rendah / O(n log n) |
-| Konsumsi Memori | Sangat besar | Efisien & adaptif |
-| Implementasi | Manual dan prosedural | Berorientasi objek & deklaratif |
-
-## 4. Kesimpulan & Diskusi
-Memahami dasar dari ${aiTopic} adalah pondasi utama sebelum melangkah ke teknik yang lebih rumit. Pastikan Anda mencoba latihan di bagian bawah.
-
----
-**Pertanyaan Diskusi:** Mengapa pendekatan modern jauh lebih direkomendasikan pada sistem berskala enterprise dibandingkan metode konvensional? Tulis jawaban Anda di forum diskusi kelas!`
-    } else if (aiTemplateType === "code") {
-      content = `# Tutorial & Praktik Pemrograman: ${title}
-
-Dalam modul praktis ini, kita akan mengimplementasikan secara langsung konsep **${aiTopic}** menggunakan bahasa pemrograman terpopuler.
-
-## 1. Persiapan Lingkungan Pengembangan
-Pastikan Anda sudah menginstal runtime compiler yang sesuai. Kita akan menggunakan kode Python/JavaScript terstruktur.
-
-## 2. Alur Algoritma
-Langkah-langkah implementasi:
-1. Membaca input dataset secara terstruktur.
-2. Melakukan deklarasi variabel dan struktur data pendukung.
-3. Melakukan iterasi/pemrosesan logika utama dari ${aiTopic}.
-4. Mengembalikan nilai output yang tervalidasi.
-
-## 3. Implementasi Kode Lengkap
-Di bawah ini adalah contoh kode lengkap untuk menyelesaikan studi kasus:
-
-\`\`\`python
-# Implementasi ${aiTopic}
-# Dibuat otomatis oleh Asisten AI Belajara
-
-def jalankan_logika_materi(data_input, opsi_tambahan=True):
-    """
-    Fungsi utama untuk memproses ${aiTopic}.
-    Parameter:
-      data_input (list): Data mentah yang akan diproses.
-      opsi_tambahan (bool): Konfigurasi mode optimal.
-    """
-    print(f"[Belajara-AI] Memulai pemrosesan ${aiTopic}...")
-    
-    if not data_input:
-        return []
-        
-    hasil_proses = []
-    for indeks, item in enumerate(data_input):
-        # Proses pemetaan logika utama
-        nilai_kalkulasi = item * 2 if opsi_tambahan else item
-        hasil_proses.append({
-            "indeks": indeks,
-            "nilai_awal": item,
-            "nilai_akhir": nilai_kalkulasi
-        })
-        
-    print("[Belajara-AI] Pemrosesan selesai dengan sukses.")
-    return hasil_proses
-
-# Pengujian kode
-if __name__ == "__main__":
-    dataset_uji = [12, 45, 78, 23, 56]
-    hasil = jalankan_logika_materi(dataset_uji)
-    print("Hasil kalkulasi:", hasil)
-\`\`\`
-
-## 4. Analisis Kode
-Dari kode di atas, kita dapat melihat bahwa:
-- Loop berjalan linear dengan kompleksitas waktu **O(n)**.
-- Penggunaan list sekunder menghasilkan kompleksitas ruang **O(n)**.
-
----
-**Tugas Praktikum:** Modifikasi fungsi di atas agar mendukung pencarian data secara spesifik (filtering) sebelum dikembalikan ke user!`
-    } else if (aiTemplateType === "case_study") {
-      content = `# Analisis Kasus Nyata: Implementasi ${title}
-
-Studi kasus ini meninjau bagaimana konsep **${aiTopic}** diimplementasikan di industri teknologi skala besar (enterprise).
-
-## 1. Latar Belakang Masalah
-Banyak perusahaan teknologi menghadapi kendala performa ketika skala transaksi data meningkat tajam. Masalah utama meliputi:
-- Terjadinya bottleneck pada query database.
-- Latensi respon server yang melebihi batas toleransi user (>200ms).
-- Penumpukan beban memori akibat eksekusi algoritma yang tidak efisien.
-
-## 2. Solusi dengan ${aiTopic}
-Dengan mengadopsi teknik ${aiTopic}, tim engineer berhasil merestrukturisasi alur sistem dengan hasil sebagai berikut:
-- Mengganti loop nested yang berat menjadi operasi terindeks.
-- Melakukan caching memori pada data yang sering diakses.
-
-## 3. Hasil & Metrik Performa
-Berikut adalah perbandingan data performa sistem sebelum dan sesudah optimasi:
-
-| Indikator Performa | Sebelum Optimasi | Setelah Optimasi | Dampak Perubahan |
-|---|---|---|---|
-| Latensi API | 480 ms | 45 ms | Naik 90% Lebih Cepat |
-| RAM Server | 8.4 GB | 2.1 GB | Hemat 75% Resources |
-| Throughput | 1,200 req/s | 8,500 req/s | Skalabilitas 7x Lipat |
-
-## 4. Kesimpulan Praktis
-Pelajaran penting dari studi kasus ini adalah bahwa pilihan arsitektur dan pemahaman terhadap ${aiTopic} memiliki dampak finansial nyata bagi efisiensi operasional server perusahaan cloud.
-
----
-**Refleksi:** Coba hitung potensi penghematan biaya server bulanan jika resource yang digunakan berkurang sebesar 75%!`
-    } else {
-      content = `# Latihan Soal & Evaluasi: ${title}
-
-Gunakan latihan mandiri ini untuk menguji pemahaman Anda mengenai topik **${aiTopic}**.
-
-## Soal 1: Pemahaman Teoretis
-Jelaskan perbedaan mendasar antara implementasi konvensional dan implementasi modern pada konsep ${aiTopic}, khususnya terkait efisiensi pemrosesan data!
-
-### Pembahasan
-> Pendekatan modern memanfaatkan struktur data indeks (seperti hash map atau tree) yang memungkinkan operasi pencarian dan pembaruan data berjalan dalam waktu **O(1)** atau **O(log n)**, dibandingkan pencarian linear **O(n)** pada metode konvensional.
-
----
-
-## Soal 2: Analisis Kode Program
-Diberikan cuplikan kode berikut:
-
-\`\`\`javascript
-function hitungData(n) {
-  let count = 0;
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      count++;
+      showToast("success", "Draf materi berhasil dibuat oleh AI! Silakan edit sesuai kebutuhan Anda.")
+      setAiTopic("")
+      setAiPanelOpen(false)
+    } catch (err: any) {
+      clearInterval(interval)
+      showToast("error", err.message || "Gagal menghasilkan materi. Periksa koneksi ke backend.")
+    } finally {
+      setAiLoading(false)
+      setAiStatusMsg("")
     }
   }
-  return count;
-}
-\`\`\`
 
-Tentukan kompleksitas waktu dari fungsi di atas dalam notasi Big O dan berikan alasannya!
-
-### Pembahasan
-Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing beriterasi sebanyak \`n\` kali. Oleh karena itu, jumlah total operasi adalah $n \times n = n^2$. Notasi Big O-nya adalah **O(n^2)** (Kuadratik).
-
----
-**Tips Belajar:** Coba tulis ulang fungsi di atas agar berjalan dalam kompleksitas linear **O(n)** dengan teknik memoization!`
-    }
-
-    setSubchapterForm(f => ({
-      ...f,
-      content: (f.content ? f.content + "\n\n" : "") + content
-    }))
-    setAiLoading(false)
-    setAiTopic("")
-    setAiPanelOpen(false)
-  }
 
   // Quiz states
   const [quizOpen, setQuizOpen] = React.useState(false)
@@ -887,6 +856,14 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
     try {
       await api.instructor.generateQuiz(moduleId)
       showToast("success", "Evaluasi AI berhasil dibuat secara otomatis!")
+      
+      // Auto-refresh the editor questions if open
+      const quizzes = await api.quizzes.listByModule(moduleId)
+      if (quizzes && quizzes.length > 0) {
+        const fullQuiz = await api.quizzes.get(quizzes[0].id)
+        setQuizQuestions(fullQuiz.questions_json || [])
+      }
+      
       fetchCourse()
     } catch (err: any) {
       showToast("error", err.message || "Gagal membuat evaluasi pembelajaran.")
@@ -942,7 +919,57 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <Sidebar variant="inset" className="border-r border-[#E8E5E9] bg-white">
+        {/* Header: Back Link & Title */}
+        <SidebarHeader className="p-4 border-b border-[#E8E5E9]/60">
+          <div className="flex items-center justify-between">
+            <a
+              href="/instructor"
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-650 hover:text-[#060708] transition-colors truncate max-w-[80%]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{course?.title || "Kembali"}</span>
+            </a>
+            <button type="button" className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-[#060708] transition-all cursor-pointer">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
+        </SidebarHeader>
+
+        {/* Nav Groups */}
+        <SidebarContent className="p-3 space-y-5 no-scrollbar">
+          {navGroups.map((group) => (
+            <SidebarGroup key={group.title} className="p-0">
+              <SidebarGroupLabel className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {group.title}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-0.5">
+                  {group.items.map((item) => {
+                    const isActive = activeView === item.id
+                    return (
+                      <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton
+                          onClick={() => setActiveView(item.id)}
+                          className={`w-full text-left px-3 py-2.5 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+                            isActive
+                              ? "bg-[#FAF9FB] text-[#060708] border-l-4 border-[#060708] font-bold shadow-xs"
+                              : "text-slate-500 hover:bg-[#FAF9FB]/70 hover:text-[#060708] border-l-4 border-transparent"
+                          }`}
+                        >
+                          {getSidebarIcon(item.id)}
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+        </SidebarContent>
+      </Sidebar>
+
       <SidebarInset>
         {/* Header */}
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white">
@@ -971,60 +998,8 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
           </div>
         )}
 
-        {/* Horizontal Container for Sub-sidebar and Content */}
-        <div className="flex flex-1 overflow-hidden">
-          
-          {/* Sub-sidebar (Left) */}
-          <aside className="w-60 border-r border-[#E8E5E9] bg-white flex flex-col shrink-0 select-none hidden md:flex">
-            {/* Header: Back Link & Title */}
-            <div className="p-4 flex items-center justify-between border-b border-[#E8E5E9]/60">
-              <a
-                href="/instructor"
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-650 hover:text-[#060708] transition-colors truncate max-w-[80%]"
-              >
-                <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{course?.title || "Kembali"}</span>
-              </a>
-              <button type="button" className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-[#060708] transition-all cursor-pointer">
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Nav Groups */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-5">
-              {navGroups.map((group) => (
-                <div key={group.title} className="space-y-1.5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3">
-                    {group.title}
-                  </h4>
-                  <ul className="space-y-0.5">
-                    {group.items.map((item) => {
-                      const isActive = activeView === item.id
-                      return (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            onClick={() => setActiveView(item.id)}
-                            className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-                              isActive
-                                ? "bg-[#FAF9FB] text-[#060708] border-l-4 border-[#060708]"
-                                : "text-slate-500 hover:bg-[#FAF9FB]/70 hover:text-[#060708] border-l-4 border-transparent"
-                            }`}
-                          >
-                            {getSidebarIcon(item.id)}
-                            <span>{item.label}</span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </aside>
-
-          {/* Main workspace area (Right) */}
-          <div className="flex-1 overflow-y-auto bg-[#FAF9FB]">
+        {/* Main workspace area (Right) */}
+        <div className="flex-1 overflow-y-auto bg-[#FAF9FB]">
             <div className="flex flex-1 flex-col gap-6 p-6">
               {loading ? (
                 <div className="flex items-center justify-center py-20">
@@ -1043,42 +1018,103 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                 <>
                   {activeView === 'outline' && (
                     <>
-                      {/* Course Header Card */}
-                      <Card className="bg-white border border-[#E8E5E9] shadow-sm">
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-[#C6B5BF]/20 text-[#060708] border border-[#C6B5BF]/30">
-                                  {course.code}
-                                </span>
-                                <span className="text-xs text-muted-foreground">{course.department}</span>
+                      {/* ── Course Cover Banner ───────────────────────── */}
+                      {(() => {
+                        const palette = getCoverPalette(course.code)
+                        const totalActivities = sortedModules.reduce((acc, m) => acc + (m.subchapters?.length ?? 0), 0)
+                        return (
+                          <div
+                            className="relative rounded-2xl overflow-hidden shadow-md"
+                            style={{ background: `linear-gradient(135deg, ${palette[0]} 0%, ${palette[1]} 60%, ${palette[2]} 100%)` }}
+                          >
+                            {/* dot pattern overlay */}
+                            <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:18px_18px]" />
+                            <div className="relative z-10 p-7">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                    <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur-sm">
+                                      {course.code}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-white/60 uppercase tracking-wider">
+                                      {course.department}
+                                    </span>
+                                    {course.is_premium && (
+                                      <span className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full bg-[#CF3A1F] text-white shadow-sm">
+                                        PREMIUM
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h1 className="font-heading text-2xl sm:text-3xl font-bold text-white leading-tight mb-2 drop-shadow-sm">
+                                    {course.title}
+                                  </h1>
+                                  {course.description && (
+                                    <p className="text-sm text-white/60 leading-relaxed line-clamp-2 max-w-2xl">
+                                      {course.description}
+                                    </p>
+                                  )}
+                                </div>
+                                {/* Instructor Avatar */}
+                                <div className="shrink-0 hidden sm:flex flex-col items-center gap-2">
+                                  <div className="h-14 w-14 rounded-full bg-white/20 border-2 border-white/40 backdrop-blur-sm flex items-center justify-center shadow-inner">
+                                    <span className="font-heading text-xl font-bold text-white">
+                                      {((course as any).instructor_name || 'IN').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-white/60 font-medium text-center max-w-[100px] truncate">
+                                    {(course as any).instructor_name || 'Instruktur'}
+                                  </span>
+                                </div>
                               </div>
-                              <CardTitle className="font-heading text-2xl text-[#060708]">{course.title}</CardTitle>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {course.sks} SKS &bull; Semester {course.semester}
-                              </p>
+
+                              {/* Stats Row */}
+                              <div className="flex items-center gap-5 mt-5 pt-4 border-t border-white/15 flex-wrap">
+                                <div className="flex items-center gap-1.5">
+                                  <BookOpen className="h-3.5 w-3.5 text-white/50" />
+                                  <span className="text-sm font-bold text-white">{sortedModules.length}</span>
+                                  <span className="text-xs text-white/50">Modul</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <PlayCircle className="h-3.5 w-3.5 text-white/50" />
+                                  <span className="text-sm font-bold text-white">{totalActivities}</span>
+                                  <span className="text-xs text-white/50">Aktivitas</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-bold text-white">{course.sks} SKS</span>
+                                  <span className="text-xs text-white/50">· Semester {course.semester}</span>
+                                </div>
+                                <div className="flex items-center gap-2 ml-auto">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/15 border border-white/20 text-white/80 backdrop-blur-sm capitalize">
+                                    {(course as any).level || 'Beginner'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/15 border border-white/20 text-white hover:bg-white/25 transition-colors cursor-pointer backdrop-blur-sm flex items-center gap-1"
+                                    onClick={() => window.open(`/courses/${course.code}`, '_blank')}
+                                  >
+                                    <Eye className="h-3 w-3" /> Preview
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          {course.description && (
-                            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{course.description}</p>
-                          )}
-                        </CardHeader>
-                      </Card>
+                        )
+                      })()}
 
-                      {/* Modules Section */}
-                      <div className="space-y-4">
+                      {/* ── Modules Section ──────────────────────────── */}
+                      <div className="space-y-3">
+                        {/* Header row */}
                         <div className="flex items-center justify-between">
-                          <h2 className="font-heading text-xl font-bold text-[#060708]">
-                            Silabus & Modul Kuliah
-                            <span className="ml-2 text-sm font-normal text-muted-foreground font-sans">
-                              ({sortedModules.length} modul)
-                            </span>
-                          </h2>
+                          <div>
+                            <h2 className="font-heading text-lg font-bold text-[#060708]">Course Outline</h2>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {sortedModules.length} modul · {sortedModules.reduce((acc, m) => acc + (m.subchapters?.length ?? 0), 0)} aktivitas
+                            </p>
+                          </div>
                           <Dialog open={addOpen} onOpenChange={setAddOpen}>
                             <DialogTrigger asChild>
-                              <Button className="bg-[#060708] hover:bg-[#060708]/80 text-white gap-2">
-                                <Plus className="h-4 w-4" /> Tambah Modul
+                              <Button className="bg-[#060708] hover:bg-[#060708]/80 text-white gap-1.5 h-9 px-4 text-xs font-semibold">
+                                <Plus className="h-3.5 w-3.5" /> Tambah Modul
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-md bg-white">
@@ -1119,7 +1155,7 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                                   disabled={addLoading}
                                 >
                                   {addLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                                  {addLoading ? "Menyimpan..." : "Tambah Modul"}
+                                  {addLoading ? 'Menyimpan...' : 'Tambah Modul'}
                                 </Button>
                               </form>
                             </DialogContent>
@@ -1127,57 +1163,56 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                         </div>
 
                         {sortedModules.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-[#C6B5BF]/50 rounded-xl bg-white text-center">
-                            <GripVertical className="h-10 w-10 text-[#C6B5BF] mb-3" />
-                            <p className="font-heading text-lg font-semibold text-[#060708]">Belum Ada Modul</p>
-                            <p className="text-sm text-muted-foreground mt-1">Tambahkan modul pertama untuk mulai mengelola sub-bab.</p>
+                          /* Empty State */
+                          <div
+                            className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-[#C6B5BF]/50 rounded-2xl bg-white text-center cursor-pointer hover:border-[#C6B5BF] hover:bg-[#FAF9FB] transition-all group"
+                            onClick={() => setAddOpen(true)}
+                          >
+                            <div className="h-14 w-14 rounded-2xl bg-[#060708]/5 flex items-center justify-center mb-4 group-hover:bg-[#060708]/10 transition-colors">
+                              <Plus className="h-7 w-7 text-[#060708]/30 group-hover:text-[#060708]/60" />
+                            </div>
+                            <p className="font-heading text-base font-semibold text-[#060708]">Tambah Modul Pertama</p>
+                            <p className="text-xs text-muted-foreground mt-1 max-w-xs">Klik di sini untuk mulai membangun silabus dan course outline kelas Anda.</p>
                           </div>
                         ) : (
-                          <div className="space-y-3">
-                            {sortedModules.map((mod) => {
+                          <div className="space-y-2">
+                            {sortedModules.map((mod, modIdx) => {
                               const isExpanded = expandedModuleId === mod.id
                               const subchapters = mod.subchapters || []
+                              const moduleNum = String(modIdx + 1).padStart(2, '0')
+                              const videoCount = subchapters.filter(s => s.type === 'video').length
+                              const readingCount = subchapters.filter(s => s.type === 'reading').length
+                              const quizCount = subchapters.filter(s => s.type === 'quiz').length
 
                               return (
-                                <Card key={mod.id} className="bg-white border border-[#E8E5E9] shadow-sm overflow-hidden">
+                                <div
+                                  key={mod.id}
+                                  className={`rounded-xl border bg-white overflow-hidden transition-all duration-200 ${
+                                    isExpanded
+                                      ? 'border-[#060708]/25 shadow-md'
+                                      : 'border-[#E8E5E9] hover:border-[#C6B5BF] shadow-sm'
+                                  }`}
+                                >
                                   {editId === mod.id ? (
-                                    /* Inline Module Edit */
-                                    <CardContent className="pt-4">
+                                    /* Inline Edit Form */
+                                    <div className="p-4">
                                       <form onSubmit={handleUpdateModule} className="space-y-3">
                                         <div className="grid grid-cols-3 gap-3">
                                           <div className="col-span-2 space-y-1">
                                             <Label className="text-xs font-semibold">Judul Modul</Label>
-                                            <Input
-                                              value={editForm.title}
-                                              onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
-                                              required
-                                            />
+                                            <Input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} required />
                                           </div>
                                           <div className="space-y-1">
                                             <Label className="text-xs font-semibold">Urutan</Label>
-                                            <Input
-                                              type="number" min={1}
-                                              value={editForm.order}
-                                              onChange={e => setEditForm(f => ({ ...f, order: parseInt(e.target.value) }))}
-                                              required
-                                            />
+                                            <Input type="number" min={1} value={editForm.order} onChange={e => setEditForm(f => ({ ...f, order: parseInt(e.target.value) }))} required />
                                           </div>
                                         </div>
                                         <div className="space-y-1">
                                           <Label className="text-xs font-semibold">Deskripsi</Label>
-                                          <Textarea
-                                            rows={2}
-                                            value={editForm.description}
-                                            onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                                          />
+                                          <Textarea rows={2} value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
                                         </div>
                                         <div className="flex gap-2">
-                                          <Button
-                                            type="submit"
-                                            size="sm"
-                                            className="bg-[#060708] hover:bg-[#060708]/80 text-white text-xs cursor-pointer"
-                                            disabled={editLoading}
-                                          >
+                                          <Button type="submit" size="sm" className="bg-[#060708] hover:bg-[#060708]/80 text-white text-xs cursor-pointer" disabled={editLoading}>
                                             {editLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
                                             Simpan
                                           </Button>
@@ -1186,161 +1221,245 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                                           </Button>
                                         </div>
                                       </form>
-                                    </CardContent>
+                                    </div>
                                   ) : (
-                                    /* Normal Module Row */
                                     <>
-                                      <CardContent className="p-4 flex items-center justify-between gap-4 border-b border-border bg-slate-50/50">
-                                        <div
-                                          className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer select-none"
-                                          onClick={() => setExpandedModuleId(isExpanded ? null : mod.id)}
-                                        >
-                                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#C6B5BF]/20 border border-[#C6B5BF]/30 flex items-center justify-center">
-                                            <span className="text-xs font-bold text-[#060708]">{mod.order}</span>
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <h3 className="font-heading font-semibold text-[#060708] leading-tight flex items-center gap-1.5">
-                                              {mod.title}
-                                              {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                                            </h3>
-                                            {mod.description && (
-                                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{mod.description}</p>
+                                      {/* Module Header Row */}
+                                      <div
+                                        className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors ${
+                                          isExpanded
+                                            ? 'bg-[#060708] text-white'
+                                            : 'bg-white hover:bg-slate-50/80'
+                                        }`}
+                                        onClick={() => setExpandedModuleId(isExpanded ? null : mod.id)}
+                                      >
+                                        {/* Number Badge */}
+                                        <div className={`flex-shrink-0 h-9 w-9 rounded-lg flex items-center justify-center font-heading text-sm font-bold border transition-colors ${
+                                          isExpanded
+                                            ? 'bg-white/15 border-white/25 text-white'
+                                            : 'bg-[#FAF9FB] border-[#E8E5E9] text-[#060708]'
+                                        }`}>
+                                          {moduleNum}
+                                        </div>
+
+                                        {/* Title + Description */}
+                                        <div className="flex-1 min-w-0">
+                                          <h3 className={`font-heading font-semibold leading-tight text-sm ${
+                                            isExpanded ? 'text-white' : 'text-[#060708]'
+                                          }`}>
+                                            {mod.title}
+                                          </h3>
+                                          {mod.description && (
+                                            <p className={`text-[11px] mt-0.5 line-clamp-1 ${
+                                              isExpanded ? 'text-white/55' : 'text-muted-foreground'
+                                            }`}>{mod.description}</p>
+                                          )}
+                                        </div>
+
+                                        {/* Activity chips */}
+                                        {subchapters.length > 0 && (
+                                          <div className={`hidden sm:flex items-center gap-2 text-[10px] font-bold flex-shrink-0`}>
+                                            {videoCount > 0 && (
+                                              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${
+                                                isExpanded ? 'bg-white/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                              }`}>
+                                                <PlayCircle className="h-2.5 w-2.5" /> {videoCount}
+                                              </span>
+                                            )}
+                                            {readingCount > 0 && (
+                                              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${
+                                                isExpanded ? 'bg-white/15 text-sky-300' : 'bg-sky-50 text-sky-700 border border-sky-100'
+                                              }`}>
+                                                <FileText className="h-2.5 w-2.5" /> {readingCount}
+                                              </span>
+                                            )}
+                                            {quizCount > 0 && (
+                                              <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${
+                                                isExpanded ? 'bg-white/15 text-amber-300' : 'bg-amber-50 text-amber-700 border border-amber-100'
+                                              }`}>
+                                                <HelpCircle className="h-2.5 w-2.5" /> {quizCount}
+                                              </span>
                                             )}
                                           </div>
-                                        </div>
+                                        )}
 
-                                        <div className="flex items-center gap-2 shrink-0">
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleOpenQuizEditor(mod.id)}
-                                            disabled={quizLoading[mod.id]}
-                                            className="gap-1 text-xs border-[#C6B5BF] hover:bg-[#C6B5BF]/10 text-primary cursor-pointer h-8"
-                                          >
-                                            {quizLoading[mod.id] ? <Loader2 className="h-3 w-3 animate-spin" /> : <HelpCircle className="h-3.5 w-3.5 text-accent" />}
-                                            Kelola Evaluasi
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleGenerateQuiz(mod.id)}
-                                            disabled={quizLoading[mod.id]}
-                                            className="gap-1 text-xs border-[#C6B5BF] hover:bg-[#C6B5BF]/10 text-[#CF3A1F] cursor-pointer h-8"
-                                            title="Generate Evaluasi otomatis menggunakan AI"
-                                          >
-                                            <Sparkles className="h-3 w-3" />
-                                            Generate AI
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-8 w-8 p-0 hover:bg-[#C6B5BF]/20 cursor-pointer"
-                                            onClick={() => startEditModule(mod)}
-                                          >
-                                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-8 w-8 p-0 hover:bg-destructive/10 cursor-pointer"
-                                            onClick={() => handleDeleteModule(mod.id)}
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                          </Button>
-                                        </div>
-                                      </CardContent>
+                                        {/* Chevron */}
+                                        {isExpanded
+                                          ? <ChevronUp className="h-4 w-4 text-white/50 shrink-0" />
+                                          : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                                        }
 
-                                      {/* Nested Subchapters Content */}
+                                        {/* Context Menu — stop propagation so click doesn't expand */}
+                                        <div onClick={e => e.stopPropagation()}>
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger
+                                              className={`h-7 w-7 rounded-md flex items-center justify-center transition-colors cursor-pointer border-0 bg-transparent ${
+                                                isExpanded
+                                                  ? 'hover:bg-white/20 text-white/60'
+                                                  : 'hover:bg-slate-100 text-slate-400'
+                                              }`}
+                                            >
+                                              <MoreVertical className="h-3.5 w-3.5" />
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-56 text-xs">
+                                              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-slate-400 py-1.5">
+                                                Modul {moduleNum}
+                                              </DropdownMenuLabel>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => startEditModule(mod)}>
+                                                <Pencil className="h-3.5 w-3.5 text-slate-500" /> Edit Judul & Deskripsi
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => window.open(`/courses/${course.code}`, '_blank')}>
+                                                <Eye className="h-3.5 w-3.5 text-slate-500" /> Preview di Halaman Mahasiswa
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => { openAddSubchapter(mod.id, 'video'); setExpandedModuleId(mod.id) }}>
+                                                <PlayCircle className="h-3.5 w-3.5 text-emerald-600" /> Tambah Video
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={() => { openAddSubchapter(mod.id, 'reading'); setExpandedModuleId(mod.id) }}>
+                                                <FileText className="h-3.5 w-3.5 text-sky-600" /> Tambah Materi Bacaan
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                className="cursor-pointer gap-2 text-xs"
+                                                onClick={() => handleOpenQuizEditor(mod.id)}
+                                                disabled={!!quizLoading[mod.id]}
+                                              >
+                                                <HelpCircle className="h-3.5 w-3.5 text-amber-500" /> Kelola Evaluasi / Quiz
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                className="cursor-pointer gap-2 text-xs text-[#CF3A1F] focus:text-[#CF3A1F]"
+                                                onClick={() => handleGenerateQuiz(mod.id)}
+                                                disabled={!!quizLoading[mod.id]}
+                                              >
+                                                <Sparkles className="h-3.5 w-3.5" /> Generate Quiz dengan AI
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem
+                                                className="cursor-pointer gap-2 text-xs text-destructive focus:text-destructive"
+                                                onClick={() => handleDeleteModule(mod.id)}
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" /> Hapus Modul
+                                              </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </div>
+                                      </div>
+
+                                      {/* Expanded Subchapters Panel */}
                                       {isExpanded && (
-                                        <div className="bg-white p-4 space-y-3 animate-in slide-in-from-top-1 duration-200">
-                                          <div className="flex items-center justify-between border-b pb-2 mb-2">
-                                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daftar Sub-bab Materi Kuliah</h4>
-                                            <div className="flex gap-2">
-                                              <Button
-                                                size="xs"
-                                                variant="outline"
-                                                className="h-7 text-[10px] gap-1 cursor-pointer"
-                                                onClick={() => openAddSubchapter(mod.id, "video")}
-                                              >
-                                                <PlayCircle className="h-3 w-3 text-emerald-600" />
-                                                + Video
-                                              </Button>
-                                              <Button
-                                                size="xs"
-                                                variant="outline"
-                                                className="h-7 text-[10px] gap-1 cursor-pointer"
-                                                onClick={() => openAddSubchapter(mod.id, "reading")}
-                                              >
-                                                <FileText className="h-3 w-3 text-blue-600" />
-                                                + Materi
-                                              </Button>
-                                            </div>
+                                        <div className="border-t border-[#060708]/10 bg-[#FAF9FB] animate-in slide-in-from-top-2 duration-200">
+                                          {/* Subchapter list */}
+                                          <div className="p-3 space-y-1.5">
+                                            {subchapters.length === 0 ? (
+                                              <p className="text-xs text-muted-foreground text-center py-6">
+                                                Belum ada aktivitas. Gunakan tombol di bawah untuk menambahkan materi.
+                                              </p>
+                                            ) : (
+                                              subchapters.map((sub) => (
+                                                <div
+                                                  key={sub.id}
+                                                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[#E8E5E9] bg-white hover:border-slate-300 hover:shadow-sm transition-all group/sub text-xs"
+                                                >
+                                                  {/* Type icon badge */}
+                                                  <div className={`h-7 w-7 rounded-md flex items-center justify-center shrink-0 ${
+                                                    sub.type === 'video' ? 'bg-emerald-50 border border-emerald-100' :
+                                                    sub.type === 'reading' ? 'bg-sky-50 border border-sky-100' :
+                                                    sub.type === 'quiz' ? 'bg-amber-50 border border-amber-100' :
+                                                    'bg-purple-50 border border-purple-100'
+                                                  }`}>
+                                                    {sub.type === 'video' && <PlayCircle className="h-3.5 w-3.5 text-emerald-600" />}
+                                                    {sub.type === 'reading' && <FileText className="h-3.5 w-3.5 text-sky-600" />}
+                                                    {sub.type === 'quiz' && <HelpCircle className="h-3.5 w-3.5 text-amber-500" />}
+                                                    {sub.type === 'forum' && <MessageSquare className="h-3.5 w-3.5 text-purple-500" />}
+                                                  </div>
+
+                                                  {/* Title + meta */}
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold text-[#060708] truncate">{sub.title}</p>
+                                                    <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide font-medium">
+                                                      {sub.type} · {sub.duration} · #{sub.order}
+                                                    </p>
+                                                  </div>
+
+                                                  {/* Row actions (visible on hover) */}
+                                                  <div className="flex items-center gap-1 opacity-0 group-hover/sub:opacity-100 transition-opacity shrink-0">
+                                                    {sub.type !== 'forum' && (
+                                                      <button
+                                                        type="button"
+                                                        title={sub.type === 'quiz' ? "Edit kuis" : "Edit materi"}
+                                                        className="h-6 w-6 rounded flex items-center justify-center hover:bg-slate-100 cursor-pointer transition-colors"
+                                                        onClick={() => {
+                                                          if (sub.type === 'quiz') {
+                                                            handleOpenQuizEditor(mod.id)
+                                                          } else {
+                                                            openEditSubchapter(sub)
+                                                          }
+                                                        }}
+                                                      >
+                                                        <Pencil className="h-3 w-3 text-slate-500" />
+                                                      </button>
+                                                    )}
+                                                    {typeof sub.id === 'number' && (
+                                                      <button
+                                                        type="button"
+                                                        title="Hapus"
+                                                        className="h-6 w-6 rounded flex items-center justify-center hover:bg-destructive/10 cursor-pointer transition-colors"
+                                                        onClick={() => handleDeleteSubChapter(sub)}
+                                                      >
+                                                        <Trash className="h-3 w-3 text-destructive" />
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              ))
+                                            )}
                                           </div>
 
-                                          {subchapters.length === 0 ? (
-                                            <p className="text-xs text-muted-foreground text-center py-4">Belum ada materi sub-bab. Silakan tambahkan materi video atau materi kuliah di atas.</p>
-                                          ) : (
-                                            <div className="space-y-2">
-                                              {subchapters.map((sub, sIdx) => {
-                                                return (
-                                                  <div
-                                                    key={sub.id}
-                                                    className="p-2.5 rounded-lg border border-border hover:border-slate-300 transition-all flex items-center justify-between gap-3 text-xs bg-[#FAF9FB]"
-                                                  >
-                                                    <div className="flex items-center gap-2.5 min-w-0">
-                                                      {sub.type === "video" ? (
-                                                        <PlayCircle className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
-                                                      ) : sub.type === "reading" ? (
-                                                        <FileText className="h-4.5 w-4.5 text-blue-600 shrink-0" />
-                                                      ) : sub.type === "quiz" ? (
-                                                        <HelpCircle className="h-4.5 w-4.5 text-amber-500 shrink-0" />
-                                                      ) : (
-                                                        <MessageSquare className="h-4.5 w-4.5 text-purple-500 shrink-0" />
-                                                      )}
-                                                      <div className="min-w-0">
-                                                        <p className="font-semibold text-primary truncate leading-snug">{sub.title}</p>
-                                                        <p className="text-[10px] text-muted-foreground mt-0.5 uppercase font-bold tracking-wide">
-                                                          Urutan {sub.order} &bull; {sub.duration} &bull; {sub.type}
-                                                        </p>
-                                                      </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-1.5 shrink-0">
-                                                      {sub.type !== "quiz" && sub.type !== "forum" && (
-                                                        <Button
-                                                          size="xs"
-                                                          variant="ghost"
-                                                          className="h-7 w-7 p-0 cursor-pointer hover:bg-slate-200"
-                                                          onClick={() => openEditSubchapter(sub)}
-                                                          title="Edit materi sub-bab"
-                                                        >
-                                                          <Pencil className="h-3 w-3 text-muted-foreground" />
-                                                        </Button>
-                                                      )}
-                                                      {typeof sub.id === "number" && (
-                                                        <Button
-                                                          size="xs"
-                                                          variant="ghost"
-                                                          className="h-7 w-7 p-0 cursor-pointer hover:bg-destructive/10"
-                                                          onClick={() => handleDeleteSubChapter(sub)}
-                                                          title="Hapus sub-bab"
-                                                        >
-                                                          <Trash className="h-3 w-3 text-destructive" />
-                                                        </Button>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                )
-                                              })}
-                                            </div>
-                                          )}
+                                          {/* Add Activity Action Bar */}
+                                          <div className="px-3 pb-3 pt-2 flex items-center gap-2 flex-wrap border-t border-[#E8E5E9]">
+                                            <button
+                                              type="button"
+                                              className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-dashed border-[#C6B5BF] bg-white text-xs font-semibold text-[#060708] hover:border-[#060708] hover:bg-[#060708] hover:text-white transition-all cursor-pointer"
+                                              onClick={() => openAddSubchapter(mod.id, 'video')}
+                                            >
+                                              <PlayCircle className="h-3.5 w-3.5 text-emerald-500" />
+                                              + Video
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-dashed border-[#C6B5BF] bg-white text-xs font-semibold text-[#060708] hover:border-[#060708] hover:bg-[#060708] hover:text-white transition-all cursor-pointer"
+                                              onClick={() => openAddSubchapter(mod.id, 'reading')}
+                                            >
+                                              <FileText className="h-3.5 w-3.5 text-sky-500" />
+                                              + Materi
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-dashed border-[#C6B5BF] bg-white text-xs font-semibold text-[#060708] hover:border-[#060708] hover:bg-[#060708] hover:text-white transition-all cursor-pointer"
+                                              onClick={() => handleOpenQuizEditor(mod.id)}
+                                              disabled={!!quizLoading[mod.id]}
+                                            >
+                                              <HelpCircle className="h-3.5 w-3.5 text-amber-500" />
+                                              + Evaluasi
+                                            </button>
+                                          </div>
                                         </div>
                                       )}
                                     </>
                                   )}
-                                </Card>
+                                </div>
                               )
                             })}
+
+                            {/* Footer: Add Module */}
+                            <button
+                              type="button"
+                              className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed border-[#C6B5BF]/50 text-xs font-semibold text-slate-400 hover:border-[#060708]/40 hover:text-[#060708] hover:bg-white transition-all cursor-pointer"
+                              onClick={() => setAddOpen(true)}
+                            >
+                              <Plus className="h-4 w-4" />
+                              Tambah Modul Baru
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2340,7 +2459,6 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                       <div className="flex items-center gap-1.5 border-b border-[#E8E5E9]/60 pb-5">
                         <h1 className="font-heading text-2xl font-bold text-[#060708] capitalize">
                           {activeView === 'dashboard' ? 'Overview Dashboard' : 
-                           activeView === 'insights' ? 'Course Insights Analytics' : 
                            activeView === 'activity' ? 'Activity Matrix' : 
                            activeView === 'users' ? 'Direktori Mahasiswa' : 
                            activeView === 'certificates' ? 'Sertifikat Kelulusan' : 
@@ -2353,7 +2471,7 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                       </div>
 
                       {/* View Specific Templates */}
-                      {(activeView === 'dashboard' || activeView === 'insights') && (
+                      {activeView === 'dashboard' && (
                         <div className="space-y-6">
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="bg-white border rounded-xl p-4 shadow-xs">
@@ -2510,7 +2628,8 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                               <input
                                 type="checkbox"
                                 id="cert-auto"
-                                defaultChecked={true}
+                                checked={autoIssue}
+                                onChange={e => setAutoIssue(e.target.checked)}
                                 className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer"
                               />
                             </div>
@@ -2518,11 +2637,20 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold">Batas Minimum Kelulusan (Kuis Avg)</Label>
-                                <Input type="number" defaultValue={60} className="text-xs" />
+                                <Input
+                                  type="number"
+                                  value={minPassScore}
+                                  onChange={e => setMinPassScore(Number(e.target.value) || 0)}
+                                  className="text-xs"
+                                />
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold">Pilih Desain Template</Label>
-                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                <select
+                                  value={certTemplate}
+                                  onChange={e => setCertTemplate(e.target.value)}
+                                  className="w-full text-xs border rounded-md p-2 bg-white"
+                                >
                                   <option value="modern">Belajara Modern Minimalist (Playfair)</option>
                                   <option value="classic">Akademis Klasik (Serif)</option>
                                 </select>
@@ -2530,7 +2658,11 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                             </div>
 
                             <div className="flex justify-end pt-3">
-                              <Button size="sm" onClick={() => showToast("success", "Pengaturan sertifikat berhasil diperbarui.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                              <Button
+                                size="sm"
+                                onClick={handleSaveCertificateSettings}
+                                className="bg-[#060708] text-white text-xs cursor-pointer"
+                              >
                                 Perbarui Sertifikat
                               </Button>
                             </div>
@@ -2572,20 +2704,28 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold">Tipe Navigasi Kelas</Label>
-                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                <select
+                                  value={navType}
+                                  onChange={e => setNavType(e.target.value)}
+                                  className="w-full text-xs border rounded-md p-2 bg-white"
+                                >
                                   <option value="sticky">Sticky Sidebar Navigation</option>
                                   <option value="top">Top Bar Course Navigation</option>
                                 </select>
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold">Header Cover Pattern</Label>
-                                <select className="w-full text-xs border rounded-md p-2 bg-white">
+                                <select
+                                  value={coverPattern}
+                                  onChange={e => setCoverPattern(e.target.value)}
+                                  className="w-full text-xs border rounded-md p-2 bg-white"
+                                >
                                   <option value="solid">Minimalist Off-White (#FAF9FB)</option>
                                   <option value="mesh">Sophisticated Mauve Gradient</option>
                                 </select>
                               </div>
                             </div>
-                            <Button size="sm" onClick={() => showToast("success", "Tata letak halaman kelas berhasil disimpan.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                            <Button size="sm" onClick={handleSaveLayoutSettings} className="bg-[#060708] text-white text-xs cursor-pointer">
                               Simpan Tata Letak
                             </Button>
                           </CardContent>
@@ -2601,19 +2741,37 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                           <CardContent className="space-y-4">
                             <div className="space-y-3">
                               <div className="flex items-center gap-3">
-                                <input type="checkbox" id="play-disc" defaultChecked={true} className="h-4 w-4 border-gray-300 text-[#060708] rounded" />
-                                <Label htmlFor="play-disc" className="text-xs font-semibold">Tampilkan Kolom Chat & Diskusi Modul</Label>
+                                <input
+                                  type="checkbox"
+                                  id="play-disc"
+                                  checked={showChat}
+                                  onChange={e => setShowChat(e.target.checked)}
+                                  className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer"
+                                />
+                                <Label htmlFor="play-disc" className="text-xs font-semibold cursor-pointer">Tampilkan Kolom Chat & Diskusi Modul</Label>
                               </div>
                               <div className="flex items-center gap-3">
-                                <input type="checkbox" id="play-auto" defaultChecked={false} className="h-4 w-4 border-gray-300 text-[#060708] rounded" />
-                                <Label htmlFor="play-auto" className="text-xs font-semibold">Autoplay Video (Putar Otomatis Sub-bab Selanjutnya)</Label>
+                                <input
+                                  type="checkbox"
+                                  id="play-auto"
+                                  checked={autoplay}
+                                  onChange={e => setAutoplay(e.target.checked)}
+                                  className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer"
+                                />
+                                <Label htmlFor="play-auto" className="text-xs font-semibold cursor-pointer">Autoplay Video (Putar Otomatis Sub-bab Selanjutnya)</Label>
                               </div>
                               <div className="flex items-center gap-3">
-                                <input type="checkbox" id="play-download" defaultChecked={true} className="h-4 w-4 border-gray-300 text-[#060708] rounded" />
-                                <Label htmlFor="play-download" className="text-xs font-semibold">Izinkan Pengunduhan Berkas PDF & Bahan Bacaan</Label>
+                                <input
+                                  type="checkbox"
+                                  id="play-download"
+                                  checked={allowDownload}
+                                  onChange={e => setAllowDownload(e.target.checked)}
+                                  className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer"
+                                />
+                                <Label htmlFor="play-download" className="text-xs font-semibold cursor-pointer">Izinkan Pengunduhan Berkas PDF & Bahan Bacaan</Label>
                               </div>
                             </div>
-                            <Button size="sm" onClick={() => showToast("success", "Pengaturan workspace player disimpan.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                            <Button size="sm" onClick={handleSavePlayerSettings} className="bg-[#060708] text-white text-xs cursor-pointer">
                               Simpan Workspace Player
                             </Button>
                           </CardContent>
@@ -2667,21 +2825,32 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                           <CardContent className="space-y-4">
                             <div className="flex items-center justify-between border-b pb-4">
                               <div className="space-y-0.5">
-                                <Label className="font-bold text-xs text-primary">Integrasikan dengan Discord/Slack Webhook</Label>
+                                <Label htmlFor="automations-webhook" className="font-bold text-xs text-primary cursor-pointer">Integrasikan dengan Discord/Slack Webhook</Label>
                                 <p className="text-[10px] text-slate-500 leading-normal">
                                   Kirim peringatan instan ke kanal koordinasi dosen setiap kali ada transaksi pendaftaran baru.
                                 </p>
                               </div>
-                              <input type="checkbox" defaultChecked={false} className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer" />
+                              <input
+                                type="checkbox"
+                                id="automations-webhook"
+                                checked={webhookEnabled}
+                                onChange={e => setWebhookEnabled(e.target.checked)}
+                                className="h-4 w-4 border-gray-300 text-[#060708] rounded cursor-pointer"
+                              />
                             </div>
 
                             <div className="space-y-1.5">
                               <Label className="text-xs font-semibold">Slack/Discord Webhook URL</Label>
-                              <Input placeholder="https://hooks.slack.com/services/..." className="text-xs" />
+                              <Input
+                                value={webhookUrl}
+                                onChange={e => setWebhookUrl(e.target.value)}
+                                placeholder="https://hooks.slack.com/services/..."
+                                className="text-xs"
+                              />
                             </div>
 
                             <div className="flex justify-end pt-3">
-                              <Button size="sm" onClick={() => showToast("success", "Pengaturan integrasi disimpan.")} className="bg-[#060708] text-white text-xs cursor-pointer">
+                              <Button size="sm" onClick={handleSaveAutomationSettings} className="bg-[#060708] text-white text-xs cursor-pointer">
                                 Simpan Integrasi
                               </Button>
                             </div>
@@ -2694,34 +2863,63 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
               )}
             </div>
           </div>
-        </div>
 
-        {/* Sub-Chapter Add/Edit Dialog */}
-        {subchapterOpen && (
-          <Dialog open={subchapterOpen} onOpenChange={setSubchapterOpen}>
-            <DialogContent className={`bg-white flex flex-col p-6 overflow-hidden transition-all duration-300 ${
-              subchapterForm.type === "reading" 
-                ? editorFullScreen
-                  ? "fixed inset-0 z-[100] w-screen max-w-none h-screen max-h-none rounded-none left-0 top-0 translate-x-0 translate-y-0"
-                  : "w-[95vw] max-w-7xl h-[90vh] max-h-[90vh]" 
-                : "max-w-2xl max-h-[85vh]"
-            }`}>
-              <DialogHeader className="border-b pb-3 shrink-0 flex flex-row items-center justify-between">
-                <div>
-                  <DialogTitle className="font-heading text-lg font-bold text-[#060708]">
-                    {subchapterEditId !== null ? "Edit Sub-bab" : "Tambah Sub-bab Baru"}
-                  </DialogTitle>
-                  {subchapterForm.type === "reading" && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
-                      Gunakan Markdown workspace di bawah ini untuk membuat buku pelajaran mandiri yang komprehensif.
-                    </p>
-                  )}
+        {/* ──────────────────────────────────────────────────────────────────
+            Sub-Chapter: FULL-WINDOW Editor (Reading type only)
+        ────────────────────────────────────────────────────────────────── */}
+        {subchapterOpen && subchapterForm.type === "reading" && (
+          <div className="fixed inset-0 z-[150] flex flex-col bg-[#FAF9FB] animate-in fade-in duration-200">
+
+            {/* Top Navigation Bar */}
+            <header className="shrink-0 h-14 bg-white border-b border-[#E8E5E9] flex items-center px-6 gap-4 shadow-sm">
+              {/* Left: Course Breadcrumb */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => { setSubchapterOpen(false) }}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E8E5E9] text-slate-500 hover:text-[#060708] hover:bg-slate-100 transition-all cursor-pointer shrink-0"
+                  title="Tutup Editor"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="w-px h-5 bg-[#E8E5E9] shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Editor Materi Kuliah
+                  </p>
+                  <p className="text-xs font-bold text-[#060708] truncate max-w-xs">
+                    {subchapterForm.title || "Sub-bab Baru (Belum Berjudul)"}
+                  </p>
                 </div>
-                {subchapterForm.type === "reading" && typeof window !== "undefined" && localStorage.getItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`) && (
+              </div>
+
+              {/* Center: Word/Char Stats */}
+              <div className="hidden md:flex items-center gap-4 text-[10px] font-semibold text-slate-400">
+                <span className="flex items-center gap-1">
+                  <span className="font-bold text-[#060708]">
+                    {((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length).toLocaleString()}
+                  </span> kata
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="font-bold text-[#060708]">
+                    {((subchapterForm.content || "").length).toLocaleString()}
+                  </span> karakter
+                </span>
+                <span className="flex items-center gap-1">
+                  ~<span className="font-bold text-[#060708]">
+                    {Math.max(1, Math.ceil(((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length) / 200))}
+                  </span> mnt baca
+                </span>
+              </div>
+
+              {/* Right: Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Restore Draft */}
+                {typeof window !== "undefined" && localStorage.getItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`) && (
                   <Button
                     type="button"
                     variant="outline"
-                    size="xs"
+                    size="sm"
                     onClick={() => {
                       const saved = localStorage.getItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`)
                       if (saved) {
@@ -2729,12 +2927,294 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                         showToast("success", "Draf berhasil dipulihkan dari penyimpanan lokal.")
                       }
                     }}
-                    className="h-7 text-[10px] gap-1 mr-6 border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100/70"
+                    className="h-8 text-[10px] gap-1 border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100/70 cursor-pointer"
                   >
                     <BookOpen className="h-3 w-3" />
-                    Pulihkan Draf Tersimpan
+                    Pulihkan Draf
                   </Button>
                 )}
+
+                {/* AI Toggle */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                  className={`h-8 gap-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    aiPanelOpen
+                      ? "bg-[#060708] text-white hover:bg-[#060708]/90 border-[#060708]"
+                      : "border-[#C6B5BF] text-[#060708] hover:bg-[#C6B5BF]/10"
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Asisten AI
+                </Button>
+
+                <div className="w-px h-5 bg-[#E8E5E9]" />
+
+                {/* Cancel */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSubchapterOpen(false)}
+                  className="h-8 text-xs border-[#E8E5E9] text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Batal
+                </Button>
+
+                {/* Save */}
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    if (!subchapterModuleId) return
+                    setSubchapterLoading(true)
+                    try {
+                      if (subchapterEditId !== null && typeof subchapterEditId === "number") {
+                        await api.instructor.updateSubChapter(subchapterEditId, {
+                          ...subchapterForm,
+                          order: Number(subchapterForm.order)
+                        })
+                        showToast("success", "Sub-bab berhasil diperbarui.")
+                      } else {
+                        await api.instructor.createSubChapter(subchapterModuleId, {
+                          ...subchapterForm,
+                          order: Number(subchapterForm.order)
+                        })
+                        showToast("success", "Sub-bab berhasil ditambahkan.")
+                      }
+                      localStorage.removeItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`)
+                      setSubchapterOpen(false)
+                      fetchCourse()
+                    } catch (err: any) {
+                      showToast("error", err.message || "Gagal menyimpan sub-bab.")
+                    } finally {
+                      setSubchapterLoading(false)
+                    }
+                  }}
+                  disabled={subchapterLoading}
+                  className="h-8 text-xs bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg cursor-pointer font-semibold gap-1.5"
+                >
+                  {subchapterLoading
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Save className="h-3.5 w-3.5" />
+                  }
+                  Simpan Materi
+                </Button>
+              </div>
+            </header>
+
+            {/* Meta Fields Strip */}
+            <div className="shrink-0 px-6 py-3 border-b border-[#E8E5E9] bg-white">
+              <div className="flex items-center gap-4">
+                <div className="flex-1 space-y-0.5">
+                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Judul Sub-bab</Label>
+                  <Input
+                    value={subchapterForm.title}
+                    onChange={e => setSubchapterForm(f => ({ ...f, title: e.target.value }))}
+                    required
+                    placeholder="cth: Pengenalan Logika Kebenaran dan Proposisi"
+                    className="h-8 text-sm font-semibold rounded-lg bg-[#FAF9FB] border-[#E8E5E9] focus-visible:ring-1"
+                  />
+                </div>
+                <div className="w-28 space-y-0.5 shrink-0">
+                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Urutan</Label>
+                  <Input
+                    type="number" min={1}
+                    value={subchapterForm.order}
+                    onChange={e => setSubchapterForm(f => ({ ...f, order: parseInt(e.target.value) || 1 }))}
+                    required
+                    className="h-8 text-xs rounded-lg bg-[#FAF9FB] border-[#E8E5E9]"
+                  />
+                </div>
+                <div className="w-36 space-y-0.5 shrink-0">
+                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Estimasi Durasi</Label>
+                  <Input
+                    value={subchapterForm.duration}
+                    onChange={e => setSubchapterForm(f => ({ ...f, duration: e.target.value }))}
+                    required
+                    placeholder="15 mnt"
+                    className="h-8 text-xs rounded-lg bg-[#FAF9FB] border-[#E8E5E9]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Main Editor Body */}
+            <div className="flex-1 flex overflow-hidden">
+
+              {/* Markdown Editor Column */}
+              <div className={`flex flex-col border-r border-[#E8E5E9] transition-all duration-300 ${aiPanelOpen ? "w-[40%]" : "w-1/2"}`}>
+                {/* Markdown Toolbar */}
+                <div className="shrink-0 flex flex-wrap items-center gap-0.5 px-4 py-2 border-b border-[#E8E5E9] bg-white">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mr-2">Markdown</span>
+                  {[
+                    { action: "bold", icon: <Bold className="h-3.5 w-3.5" />, title: "Tebal (Bold)" },
+                    { action: "italic", icon: <Italic className="h-3.5 w-3.5" />, title: "Miring (Italic)" },
+                  ].map(btn => (
+                    <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
+                      className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
+                      {btn.icon}
+                    </button>
+                  ))}
+                  <div className="w-px h-4 bg-slate-200 mx-1" />
+                  {["H1","H2","H3"].map(h => (
+                    <button key={h} type="button" onClick={() => insertMarkdown(h.toLowerCase())}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer" title={`Heading ${h[1]}`}>
+                      {h}
+                    </button>
+                  ))}
+                  <div className="w-px h-4 bg-slate-200 mx-1" />
+                  {[
+                    { action: "code-block", icon: <Code className="h-3.5 w-3.5" />, title: "Code Block" },
+                    { action: "bullet", icon: <List className="h-3.5 w-3.5" />, title: "Bullet List" },
+                    { action: "number", icon: <ListOrdered className="h-3.5 w-3.5" />, title: "Numbered List" },
+                    { action: "quote", icon: <Quote className="h-3.5 w-3.5" />, title: "Blockquote" },
+                  ].map(btn => (
+                    <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
+                      className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
+                      {btn.icon}
+                    </button>
+                  ))}
+                  <div className="w-px h-4 bg-slate-200 mx-1" />
+                  {[
+                    { action: "link", icon: <Link className="h-3.5 w-3.5" />, title: "Sisipkan Tautan" },
+                    { action: "image", icon: <Image className="h-3.5 w-3.5" />, title: "Sisipkan Gambar" },
+                    { action: "table", icon: <Table className="h-3.5 w-3.5" />, title: "Sisipkan Tabel" },
+                  ].map(btn => (
+                    <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
+                      className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
+                      {btn.icon}
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => insertMarkdown("hr")}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer" title="Garis Pemisah">
+                    ---
+                  </button>
+                </div>
+
+                {/* Textarea */}
+                <Textarea
+                  ref={textareaRef}
+                  value={subchapterForm.content}
+                  onChange={e => setSubchapterForm(f => ({ ...f, content: e.target.value }))}
+                  required
+                  placeholder={"# Judul Materi Kuliah\n\nTulis konten materi menggunakan format Markdown di sini. Dukung bold, italic, heading, code block, link, tabel, dan lainnya..."}
+                  className="flex-1 resize-none rounded-none border-none bg-[#FAF9FB] font-mono text-sm leading-relaxed text-[#060708] p-6 focus-visible:ring-0 focus-visible:outline-none min-h-0"
+                />
+              </div>
+
+              {/* Live Preview Column */}
+              <div className={`flex flex-col transition-all duration-300 ${aiPanelOpen ? "w-[35%]" : "w-1/2"} border-r border-[#E8E5E9]`}>
+                <div className="shrink-0 px-6 py-2.5 border-b border-[#E8E5E9] bg-white flex items-center gap-2">
+                  <Eye className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Pratinjau Langsung</span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 bg-white">
+                  <h1 className="text-2xl font-bold font-heading border-b border-[#E8E5E9] pb-3 mb-5 text-[#060708]">
+                    {subchapterForm.title || "Judul Sub-bab"}
+                  </h1>
+                  {subchapterForm.content ? (
+                    <div className="prose prose-slate max-w-none leading-relaxed">
+                      <MarkdownRenderer content={subchapterForm.content} />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-48 text-center">
+                      <Edit3 className="h-10 w-10 text-slate-200 mb-3" />
+                      <p className="text-sm font-semibold text-slate-400">Pratinjau akan muncul di sini</p>
+                      <p className="text-xs text-slate-300 mt-1">Mulai menulis di panel kiri atau gunakan Asisten AI</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Assistant Panel (collapsible) */}
+              {aiPanelOpen && (
+                <div className="w-[25%] flex flex-col bg-[#060708] text-white animate-in slide-in-from-right-4 duration-300">
+                  <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-[#C6B5BF] animate-pulse" />
+                      <span className="text-xs font-bold font-heading">Asisten AI Belajara</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAiPanelOpen(false)}
+                      className="h-6 w-6 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {aiLoading ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                        <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF] mb-3" />
+                        <p className="text-[11px] font-medium text-slate-200 animate-pulse">{aiStatusMsg}</p>
+                        <p className="text-[9px] text-slate-500 mt-1">Sedang menyusun materi kuliah...</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Topik Fokus Materi</Label>
+                          <Textarea
+                            value={aiTopic}
+                            onChange={e => setAiTopic(e.target.value)}
+                            placeholder="cth: Cara kerja Quicksort dan kompleksitas Big-O"
+                            className="bg-slate-900 border-slate-800 text-white rounded-lg text-xs p-2.5 h-24 resize-none focus-visible:ring-1 focus-visible:ring-[#C6B5BF]/50 placeholder:text-slate-600"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Jenis Draf</Label>
+                          <select
+                            value={aiTemplateType}
+                            onChange={e => setAiTemplateType(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#C6B5BF]/50 cursor-pointer"
+                          >
+                            <option value="theory">Pembahasan Teoretis</option>
+                            <option value="code">Praktik & Contoh Kode</option>
+                            <option value="case_study">Studi Kasus Industri</option>
+                            <option value="evaluation">Latihan Soal & Pembahasan</option>
+                          </select>
+                        </div>
+
+                        <Button
+                          type="button"
+                          onClick={handleAIGenerateDraft}
+                          className="w-full bg-[#FAF9FB] hover:bg-white text-[#060708] font-bold text-xs h-9 rounded-lg cursor-pointer gap-1.5 shadow-md"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" />
+                          Buat Draf AI
+                        </Button>
+
+                        <div className="border-t border-slate-800 pt-4 space-y-2">
+                          <h5 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Tips Penulisan</h5>
+                          <ul className="space-y-1.5 text-[10px] text-slate-400">
+                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Gunakan heading untuk struktur materi</li>
+                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Sematkan code block untuk algoritma</li>
+                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Gunakan tabel untuk merangkum data</li>
+                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Tambahkan referensi dengan format link</li>
+                          </ul>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────────────────
+            Sub-Chapter: Compact Dialog (Video / Forum types)
+        ────────────────────────────────────────────────────────────────── */}
+        {subchapterOpen && subchapterForm.type !== "reading" && (
+          <Dialog open={subchapterOpen} onOpenChange={setSubchapterOpen}>
+            <DialogContent className="max-w-2xl bg-white max-h-[85vh] flex flex-col p-6 overflow-hidden">
+              <DialogHeader className="border-b pb-3 shrink-0">
+                <DialogTitle className="font-heading text-lg font-bold text-[#060708]">
+                  {subchapterEditId !== null ? "Edit Sub-bab" : "Tambah Sub-bab Baru"}
+                </DialogTitle>
               </DialogHeader>
 
               <form onSubmit={async (e) => {
@@ -2755,7 +3235,6 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                     })
                     showToast("success", "Sub-bab berhasil ditambahkan.")
                   }
-                  localStorage.removeItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`)
                   setSubchapterOpen(false)
                   fetchCourse()
                 } catch (err: any) {
@@ -2763,330 +3242,75 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                 } finally {
                   setSubchapterLoading(false)
                 }
-              }} className="flex-1 flex flex-col overflow-hidden space-y-4 mt-2">
-                
-                {/* Meta details top header */}
-                <div className="flex items-center justify-between gap-4 shrink-0 bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Judul Sub-bab *</Label>
-                      <Input
-                        value={subchapterForm.title}
-                        onChange={e => setSubchapterForm(f => ({ ...f, title: e.target.value }))}
-                        required
-                        placeholder="cth: Pengenalan Logika Kebenaran"
-                        className="h-8 text-xs rounded-lg bg-white"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Urutan Tampil *</Label>
-                      <Input
-                        type="number" min={1}
-                        value={subchapterForm.order}
-                        onChange={e => setSubchapterForm(f => ({ ...f, order: parseInt(e.target.value) || 1 }))}
-                        required
-                        className="h-8 text-xs rounded-lg bg-white"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Estimasi Durasi Belajar *</Label>
-                      <Input
-                        value={subchapterForm.duration}
-                        onChange={e => setSubchapterForm(f => ({ ...f, duration: e.target.value }))}
-                        required
-                        placeholder="10 mnt"
-                        className="h-8 text-xs rounded-lg bg-white"
-                      />
-                    </div>
+              }} className="flex-1 flex flex-col overflow-hidden space-y-4 mt-4">
+
+                {/* Meta Fields */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Judul Sub-bab *</Label>
+                    <Input
+                      value={subchapterForm.title}
+                      onChange={e => setSubchapterForm(f => ({ ...f, title: e.target.value }))}
+                      required
+                      placeholder="cth: Pengenalan Logika"
+                      className="h-8 text-xs rounded-lg"
+                    />
                   </div>
-                  
-                  {subchapterForm.type === "reading" && (
-                    <div className="flex items-center gap-2 self-end h-8 shrink-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAiPanelOpen(!aiPanelOpen)}
-                        className={`h-8 gap-1.5 text-xs font-semibold rounded-lg transition-all ${
-                          aiPanelOpen 
-                            ? "bg-[#060708] text-white hover:bg-[#060708]/90" 
-                            : "border-[#C6B5BF] text-[#060708] hover:bg-[#C6B5BF]/10"
-                        }`}
-                      >
-                        <Wand2 className="h-3.5 w-3.5" />
-                        Asisten AI
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditorFullScreen(!editorFullScreen)}
-                        className="h-8 gap-1.5 text-xs font-semibold border-[#C6B5BF] text-[#060708] hover:bg-[#C6B5BF]/10 rounded-lg"
-                        title={editorFullScreen ? "Perkecil Tampilan" : "Layar Penuh"}
-                      >
-                        {editorFullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                        {editorFullScreen ? "Layar Biasa" : "Layar Penuh"}
-                      </Button>
-                    </div>
-                  )}
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Urutan *</Label>
+                    <Input
+                      type="number" min={1}
+                      value={subchapterForm.order}
+                      onChange={e => setSubchapterForm(f => ({ ...f, order: parseInt(e.target.value) || 1 }))}
+                      required
+                      className="h-8 text-xs rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Durasi *</Label>
+                    <Input
+                      value={subchapterForm.duration}
+                      onChange={e => setSubchapterForm(f => ({ ...f, duration: e.target.value }))}
+                      required
+                      placeholder="15 mnt"
+                      className="h-8 text-xs rounded-lg"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex-1 flex flex-col min-h-0 space-y-2">
-                  {subchapterForm.type === "video" ? (
-                    <div className="space-y-2 border border-border bg-[#FAF9FB] p-5 rounded-xl">
-                      <Label className="text-xs font-bold text-[#060708]">URL Sematan Video (Iframe/YouTube) *</Label>
-                      <Input
-                        value={subchapterForm.video_url}
-                        onChange={e => setSubchapterForm(f => ({ ...f, video_url: e.target.value }))}
-                        required
-                        placeholder="https://www.youtube.com/embed/..."
-                        className="h-9 text-xs rounded-lg bg-white mt-1.5"
-                      />
-                      <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                        Pastikan menggunakan link embed YouTube (mengandung kata <strong>/embed/</strong>) agar dapat diputar dengan lancar oleh mahasiswa.
-                      </p>
-                    </div>
-                  ) : subchapterForm.type === "reading" ? (
-                    <div className="flex-1 flex flex-col min-h-0 space-y-2">
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 min-h-0">
-                        {/* Editor Pane: 5 columns (or 6 if AI panel is closed) */}
-                        <div className={`flex flex-col min-h-0 space-y-2 transition-all ${
-                          aiPanelOpen ? "md:col-span-5" : "md:col-span-6"
-                        }`}>
-                          <div className="flex items-center justify-between shrink-0">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Editor Teks (Markdown)</span>
-                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-semibold">
-                              <span>Kata: {((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length)}</span>
-                              <span>Karakter: {((subchapterForm.content || "").length)}</span>
-                              <span>Estimasi Baca: {Math.max(1, Math.ceil(((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length) / 200))} mnt</span>
-                            </div>
-                          </div>
+                {/* Video URL Field */}
+                {subchapterForm.type === "video" && (
+                  <div className="space-y-2 border border-border bg-[#FAF9FB] p-5 rounded-xl">
+                    <Label className="text-xs font-bold text-[#060708]">URL Sematan Video (Iframe/YouTube) *</Label>
+                    <Input
+                      value={subchapterForm.video_url}
+                      onChange={e => setSubchapterForm(f => ({ ...f, video_url: e.target.value }))}
+                      required
+                      placeholder="https://www.youtube.com/embed/..."
+                      className="h-9 text-xs rounded-lg bg-white mt-1.5"
+                    />
+                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
+                      Pastikan menggunakan link embed YouTube (mengandung kata <strong>/embed/</strong>) agar dapat diputar dengan lancar oleh mahasiswa.
+                    </p>
+                  </div>
+                )}
 
-                          {/* Markdown Toolbar */}
-                          <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-50 border border-border rounded-lg text-slate-600 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("bold")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Teks Tebal (Bold)"
-                            >
-                              <Bold className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("italic")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Teks Miring (Italic)"
-                            >
-                              <Italic className="h-3.5 w-3.5" />
-                            </button>
-                            <div className="w-px h-4 bg-slate-300 mx-1" />
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("h1")}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Heading 1"
-                            >
-                              H1
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("h2")}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Heading 2"
-                            >
-                              H2
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("h3")}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-bold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Heading 3"
-                            >
-                              H3
-                            </button>
-                            <div className="w-px h-4 bg-slate-300 mx-1" />
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("code-block")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Code Block"
-                            >
-                              <Code className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("inline-code")}
-                              className="px-1.5 py-0.5 rounded text-[10px] font-mono hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Inline Code"
-                            >
-                              `code`
-                            </button>
-                            <div className="w-px h-4 bg-slate-300 mx-1" />
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("bullet")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="List Bullet"
-                            >
-                              <List className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("number")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="List Numbered"
-                            >
-                              <ListOrdered className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("quote")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Blockquote"
-                            >
-                              <Quote className="h-3.5 w-3.5" />
-                            </button>
-                            <div className="w-px h-4 bg-slate-300 mx-1" />
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("link")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Insert Link"
-                            >
-                              <Link className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("image")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Insert Image"
-                            >
-                              <Image className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("table")}
-                              className="p-1.5 rounded hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Insert Table"
-                            >
-                              <Table className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => insertMarkdown("hr")}
-                              className="px-1 py-0.5 rounded text-[10px] font-semibold hover:bg-slate-200/80 hover:text-slate-800 transition-colors cursor-pointer"
-                              title="Horizontal Line"
-                            >
-                              ---
-                            </button>
-                          </div>
+                {/* Forum placeholder */}
+                {subchapterForm.type === "forum" && (
+                  <div className="space-y-2 border border-border bg-[#FAF9FB] p-5 rounded-xl">
+                    <Label className="text-xs font-bold text-[#060708]">Sub-bab Forum Diskusi</Label>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Sub-bab ini akan membuka ruang diskusi interaktif bagi mahasiswa untuk bertanya dan berdiskusi.
+                      Tidak ada konten tambahan yang perlu ditambahkan — cukup simpan sub-bab ini.
+                    </p>
+                  </div>
+                )}
 
-                          <Textarea
-                            ref={textareaRef}
-                            value={subchapterForm.content}
-                            onChange={e => setSubchapterForm(f => ({ ...f, content: e.target.value }))}
-                            required
-                            placeholder="# Judul Materi Kuliah&#10;&#10;Tulis materi teks di sini dengan format Markdown..."
-                            className="flex-1 text-xs rounded-lg p-4 font-mono resize-none focus-visible:ring-1 border-border bg-white leading-relaxed text-[#060708] min-h-0"
-                          />
-                        </div>
-
-                        {/* Preview Pane: 5 columns (or 6 if AI panel is closed) */}
-                        <div className={`flex flex-col min-h-0 space-y-2 transition-all ${
-                          aiPanelOpen ? "md:col-span-5" : "md:col-span-6"
-                        }`}>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pratinjau Langsung (Live Preview)</span>
-                          <div className="flex-1 rounded-lg border border-border bg-white p-6 overflow-y-auto leading-relaxed prose prose-slate max-w-none shadow-sm min-h-0">
-                            <h1 className="text-xl font-bold font-heading border-b pb-2 mb-4 text-[#060708]">
-                              {subchapterForm.title || "Judul Sub-bab"}
-                            </h1>
-                            {subchapterForm.content ? (
-                              <MarkdownRenderer content={subchapterForm.content} />
-                            ) : (
-                              <p className="text-xs text-muted-foreground italic">
-                                Tulis materi kuliah di panel kiri atau gunakan Asisten AI untuk melihat pratinjau langsung di sini...
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* AI Assistant Pane: 2 columns (only shown if aiPanelOpen is true) */}
-                        {aiPanelOpen && (
-                          <div className="md:col-span-2 flex flex-col min-h-0 space-y-3 bg-[#060708] text-white p-4 rounded-xl shadow-md border border-slate-800 animate-in slide-in-from-right-4 duration-300">
-                            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
-                              <div className="flex items-center gap-1.5">
-                                <Sparkles className="h-4 w-4 text-[#C6B5BF] animate-pulse" />
-                                <span className="text-xs font-bold font-heading text-white">Asisten AI Belajara</span>
-                              </div>
-                            </div>
-
-                            {aiLoading ? (
-                              <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                                <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF] mb-3" />
-                                <p className="text-[11px] font-medium text-slate-200 animate-pulse">{aiStatusMsg}</p>
-                                <p className="text-[9px] text-slate-400 mt-1">Mengolah struktur materi...</p>
-                              </div>
-                            ) : (
-                              <div className="flex-1 flex flex-col space-y-3.5 text-xs min-h-0 overflow-y-auto pr-1">
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Topik Fokus Materi</Label>
-                                  <Textarea
-                                    value={aiTopic}
-                                    onChange={e => setAiTopic(e.target.value)}
-                                    placeholder="cth: Cara kerja Quicksort atau Kompleksitas waktu Big O"
-                                    className="bg-slate-900 border-slate-800 text-white rounded-lg text-xs p-2 h-20 resize-none focus-visible:ring-1 focus-visible:ring-slate-700"
-                                  />
-                                </div>
-
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Jenis Draf</Label>
-                                  <select
-                                    value={aiTemplateType}
-                                    onChange={e => setAiTemplateType(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none cursor-pointer"
-                                  >
-                                    <option value="theory">Pembahasan Teoretis</option>
-                                    <option value="code">Praktik & Contoh Kode</option>
-                                    <option value="case_study">Studi Kasus Industri</option>
-                                    <option value="evaluation">Latihan Soal & Pembahasan</option>
-                                  </select>
-                                </div>
-
-                                <Button
-                                  type="button"
-                                  onClick={handleAIGenerateDraft}
-                                  className="w-full bg-[#FAF9FB] hover:bg-[#FAF9FB]/90 text-[#060708] font-bold text-xs h-9 rounded-lg mt-2 cursor-pointer gap-1.5 shadow"
-                                >
-                                  <Sparkles className="h-3.5 w-3.5" />
-                                  Buat Draf AI
-                                </Button>
-
-                                <div className="border-t border-slate-800 pt-3">
-                                  <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tips Menulis</h5>
-                                  <ul className="space-y-1 text-[10px] text-slate-300 list-disc list-inside">
-                                    <li>Gunakan link untuk referensi luar.</li>
-                                    <li>Sematkan code block untuk algoritma.</li>
-                                    <li>Gunakan tabel untuk rangkuman.</li>
-                                  </ul>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="flex justify-end gap-2 border-t pt-3 shrink-0">
+                <div className="flex justify-end gap-2 border-t pt-3 shrink-0 mt-auto">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      setEditorFullScreen(false)
-                      setSubchapterOpen(false)
-                    }}
+                    onClick={() => setSubchapterOpen(false)}
                     className="h-8 text-xs rounded-lg cursor-pointer"
                   >
                     Batal
@@ -3097,7 +3321,7 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                     disabled={subchapterLoading}
                   >
                     {subchapterLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                    Simpan Materi Kuliah
+                    Simpan Sub-bab
                   </Button>
                 </div>
               </form>
@@ -3105,6 +3329,7 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
           </Dialog>
         )}
 
+        {/* Quiz Manual Editor Dialog */}
         {/* Quiz Manual Editor Dialog */}
         {quizOpen && (
           <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
@@ -3118,14 +3343,29 @@ Fungsi tersebut memiliki dua loop bersarang (nested loop) yang masing-masing ber
                     Edit daftar soal evaluasi, pilihan ganda, kunci jawaban, dan penjelasan.
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  onClick={addQuizQuestion}
-                  size="xs"
-                  className="bg-[#060708] text-white hover:bg-[#060708]/90 gap-1.5 cursor-pointer h-7 mr-6 text-[10px]"
-                >
-                  + Tambah Soal
-                </Button>
+                <div className="flex gap-2 mr-6 shrink-0">
+                  <Button
+                    type="button"
+                    onClick={() => handleGenerateQuiz(quizModuleId!)}
+                    disabled={!!quizLoading[quizModuleId!]}
+                    size="xs"
+                    className="bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/20 hover:bg-[#CF3A1F] hover:text-white gap-1.5 cursor-pointer h-7 text-[10px] font-semibold"
+                  >
+                    {quizLoading[quizModuleId!]
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <Sparkles className="h-3 w-3" />
+                    }
+                    Generate dengan AI
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={addQuizQuestion}
+                    size="xs"
+                    className="bg-[#060708] text-white hover:bg-[#060708]/90 gap-1.5 cursor-pointer h-7 text-[10px]"
+                  >
+                    + Tambah Soal
+                  </Button>
+                </div>
               </DialogHeader>
 
               <div className="flex-1 overflow-y-auto pr-1 py-3 space-y-4 min-h-0">

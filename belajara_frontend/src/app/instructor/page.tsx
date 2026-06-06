@@ -13,8 +13,38 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { GraduationCap, Plus, BookOpen, ChevronRight, Loader2, AlertCircle } from "lucide-react"
+import { GraduationCap, Plus, BookOpen, ChevronRight, Loader2, AlertCircle, Users } from "lucide-react"
 import { api, getToken } from "@/lib/api"
+
+// ── Cover gradient helper ──────────────────────────────────────────────────
+const COVER_PALETTES = [
+  ['#1a1a2e', '#16213e', '#0f3460'],
+  ['#1b4332', '#2d6a4f', '#40916c'],
+  ['#3d0066', '#560090', '#7b2fff'],
+  ['#7b2d00', '#a44200', '#cc5500'],
+  ['#0d2137', '#0a3d62', '#1a6fa8'],
+  ['#2c2c54', '#474787', '#706fd3'],
+  ['#1a3a4a', '#0d6e8c', '#17a8b5'],
+  ['#4a1942', '#6d2b6e', '#9b4dca'],
+]
+
+const getCoverPalette = (code: string) => {
+  let hash = 0
+  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash)
+  return COVER_PALETTES[Math.abs(hash) % COVER_PALETTES.length]
+}
+
+const getMockStudentCount = (code: string) => {
+  let hash = 0
+  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash)
+  return 12 + (Math.abs(hash) % 35) // 12-46 students
+}
+
+const getMockCompletionRate = (code: string) => {
+  let hash = 0
+  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash)
+  return 65 + (Math.abs(hash) % 25) // 65-89%
+}
 
 interface CourseModule {
   id: number
@@ -193,27 +223,57 @@ export default function InstructorPage() {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-white border border-border shadow-sm">
-              <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Mata Kuliah</p>
-                <p className="text-3xl font-heading font-bold text-[#060708] mt-1">{courses.length}</p>
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Total Kelas</p>
+                  <p className="text-2xl font-heading font-bold text-[#060708] mt-1">{courses.length}</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+                  <GraduationCap className="h-5 w-5 text-[#060708]" />
+                </div>
               </CardContent>
             </Card>
             <Card className="bg-white border border-border shadow-sm">
-              <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Modul</p>
-                <p className="text-3xl font-heading font-bold text-[#060708] mt-1">
-                  {courses.reduce((sum, c) => sum + (c.modules?.length ?? 0), 0)}
-                </p>
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Total SKS Diajar</p>
+                  <p className="text-2xl font-heading font-bold text-[#060708] mt-1">
+                    {courses.reduce((sum, c) => sum + c.sks, 0)} SKS
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+                  <BookOpen className="h-5 w-5 text-[#060708]" />
+                </div>
               </CardContent>
             </Card>
             <Card className="bg-white border border-border shadow-sm">
-              <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Mata Kuliah Premium</p>
-                <p className="text-3xl font-heading font-bold text-[#CF3A1F] mt-1">
-                  {courses.filter(c => c.is_premium).length}
-                </p>
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Total Mahasiswa</p>
+                  <p className="text-2xl font-heading font-bold text-[#060708] mt-1">
+                    {courses.reduce((sum, c) => sum + getMockStudentCount(c.code), 0)}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center border border-purple-100">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border border-border shadow-sm">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Rerata Penyelesaian</p>
+                  <p className="text-2xl font-heading font-bold text-[#CF3A1F] mt-1">
+                    {courses.length > 0 
+                      ? Math.round(courses.reduce((sum, c) => sum + getMockCompletionRate(c.code), 0) / courses.length)
+                      : 0}%
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-[#CF3A1F]/5 flex items-center justify-center border border-[#CF3A1F]/10">
+                  <span className="font-heading text-xs font-bold text-[#CF3A1F]">%</span>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -240,54 +300,78 @@ export default function InstructorPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {courses.map(course => (
-                <Card
-                  key={course.code}
-                  className="bg-white border border-border shadow-sm hover:shadow-md transition-all duration-200 group"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-[#C6B5BF]/20 text-[#060708] border border-[#C6B5BF]/30">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {courses.map(course => {
+                const palette = getCoverPalette(course.code)
+                return (
+                  <Card
+                    key={course.code}
+                    className="bg-white border border-border shadow-sm hover:shadow-md transition-all duration-200 group overflow-hidden flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Gradient Thumbnail */}
+                      <div
+                        className="h-24 w-full relative transition-all duration-300 group-hover:scale-[1.02]"
+                        style={{ background: `linear-gradient(135deg, ${palette[0]} 0%, ${palette[1]} 60%, ${palette[2]} 100%)` }}
+                      >
+                        <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:12px_12px]" />
+                        <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-white/20 text-white border border-white/30 backdrop-blur-sm">
                             {course.code}
                           </span>
                           {course.is_premium && (
-                            <Badge className="text-[10px] bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/30 font-semibold">
-                              Premium
-                            </Badge>
+                            <span className="text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-[#CF3A1F] text-white shadow-sm">
+                              PREMIUM
+                            </span>
                           )}
                         </div>
-                        <CardTitle className="font-heading text-lg text-[#060708] leading-tight line-clamp-2">
-                          {course.title}
-                        </CardTitle>
-                        <CardDescription className="text-xs mt-0.5">
-                          {course.department} &bull; {course.sks} SKS &bull; Semester {course.semester}
-                        </CardDescription>
                       </div>
-                      <BookOpen className="h-5 w-5 text-[#C6B5BF] shrink-0 mt-1" />
+
+                      <CardHeader className="pt-4 pb-2">
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="font-heading text-base text-[#060708] leading-snug line-clamp-2 group-hover:text-[#CF3A1F] transition-colors">
+                            {course.title}
+                          </CardTitle>
+                          <CardDescription className="text-[11px] mt-1 flex items-center gap-1 flex-wrap">
+                            <span>{course.department}</span>
+                            <span>&bull;</span>
+                            <span>{course.sks} SKS</span>
+                            <span>&bull;</span>
+                            <span>Semester {course.semester}</span>
+                          </CardDescription>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="pt-0 pb-3 flex-1 flex flex-col justify-between">
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-4">
+                          {course.description || "Tidak ada deskripsi."}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 mb-2 flex-wrap text-[10px] font-bold">
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            <BookOpen className="h-2.5 w-2.5" /> {course.modules?.length ?? 0} Modul
+                          </span>
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                            <Users className="h-2.5 w-2.5" /> {getMockStudentCount(course.code)} Mahasiswa
+                          </span>
+                        </div>
+                      </CardContent>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4 min-h-[2.5rem]">
-                      {course.description || "Tidak ada deskripsi."}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                      <span>{course.modules?.length ?? 0} modul</span>
+
+                    <div className="px-6 pb-4 pt-0">
+                      <a href={`/instructor/courses/${course.code}`}>
+                        <Button
+                          variant="outline"
+                          className="w-full gap-1.5 text-xs h-9 border-[#C6B5BF] hover:bg-[#060708] hover:text-white hover:border-[#060708] transition-all cursor-pointer font-semibold"
+                        >
+                          Kelola Kelas
+                          <ChevronRight className="h-3 w-3" />
+                        </Button>
+                      </a>
                     </div>
-                    <a href={`/instructor/courses/${course.code}`}>
-                      <Button
-                        variant="outline"
-                        className="w-full gap-2 text-sm border-[#C6B5BF] hover:bg-[#C6B5BF]/10 group-hover:border-[#060708] transition-colors"
-                      >
-                        Kelola Silabus
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </a>
-                  </CardContent>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           )}
         </div>

@@ -86,6 +86,8 @@ export default function CatalogPage() {
   const fetchActiveCourses = React.useCallback(() => {
     const token = getToken()
     if (!token) return
+    const u = getUser()
+    if (u?.is_instructor) return // Instructors do not have enrollments
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
@@ -239,11 +241,27 @@ export default function CatalogPage() {
           onPending: () => {
             setPaymentStatus("pending")
           },
-          onError: () => {
+          onError: async () => {
             setPaymentStatus("failed")
+            if (response.order_id) {
+              try {
+                await api.payment.cancelTransaction(response.order_id)
+              } catch (e) {
+                console.warn(e)
+              }
+            }
           },
-          onClose: () => {
+          onClose: async () => {
             console.log("Snap checkout popup closed")
+            setCheckoutOpen(false)
+            setPaymentStatus("idle")
+            if (response.order_id) {
+              try {
+                await api.payment.cancelTransaction(response.order_id)
+              } catch (e) {
+                console.warn(e)
+              }
+            }
           }
         })
       }
@@ -254,6 +272,21 @@ export default function CatalogPage() {
     } finally {
       setCheckoutLoading(false)
     }
+  }
+
+  const handleCancelPayment = async () => {
+    if (orderId) {
+      setCheckoutLoading(true)
+      try {
+        await api.payment.cancelTransaction(orderId)
+      } catch (err) {
+        console.warn("Gagal membatalkan transaksi:", err)
+      } finally {
+        setCheckoutLoading(false)
+      }
+    }
+    setCheckoutOpen(false)
+    setPaymentStatus("idle")
   }
 
   const handleMockPaymentSuccess = async () => {
@@ -675,12 +708,10 @@ export default function CatalogPage() {
 
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
-                    onClick={() => {
-                      setCheckoutOpen(false)
-                      setPaymentStatus("idle")
-                    }}
+                    onClick={handleCancelPayment}
                     variant="outline"
                     className="flex-1 text-xs h-9 cursor-pointer"
+                    disabled={checkoutLoading}
                   >
                     Batal
                   </Button>
@@ -770,10 +801,10 @@ export default function CatalogPage() {
 
       {/* Simple Footer */}
       <footer className="bg-[#060708] text-[#FAF9FB] px-6 py-8 border-t border-[#060708]">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] text-muted-foreground">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] text-slate-500 font-semibold">
           <p>&copy; {new Date().getFullYear()} Belajara. Seluruh Hak Cipta Dilindungi Undang-Undang.</p>
           <p className="flex items-center gap-1">
-            Build with <Sparkles className="h-3 w-3 text-[#CF3A1F]" /> for Indonesia Higher Education
+            Platform Pembelajaran Interaktif Berbasis AI untuk Mahasiswa Indonesia
           </p>
         </div>
       </footer>

@@ -10,7 +10,7 @@ from quizzes.services import generate_quiz_for_module
 from users.selectors import get_mahasiswa_by_user
 
 class QuizGenerateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructor]
 
 
     def post(self, request, module_id):
@@ -158,4 +158,21 @@ class QuizManageView(APIView):
         )
         serializer = QuizSerializer(quiz)
         return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
+
+
+class ModuleQuizListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, module_id):
+        try:
+            module = CourseModule.objects.select_related('course').get(pk=module_id)
+        except CourseModule.DoesNotExist:
+            return Response({"detail": "Modul tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        if module.course.is_premium and not request.user.is_premium:
+            return Response({"detail": "Evaluasi modul premium ini hanya dapat diakses oleh pengguna premium."}, status=status.HTTP_403_FORBIDDEN)
+
+        quizzes = Quiz.objects.filter(module=module)
+        serializer = QuizSerializer(quizzes, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 

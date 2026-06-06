@@ -87,7 +87,10 @@ export default function CoursePreviewPage({ params }: PageProps) {
     const token = getToken()
     if (token) {
       setIsLoggedIn(true)
-      setCurrentUser(getUser())
+      const u = getUser()
+      setCurrentUser(u)
+      
+      if (u?.is_instructor) return // Instructors do not have enrollments
       
       // Fetch enrolled courses to check enrollment status
       const headers: Record<string, string> = {
@@ -219,11 +222,27 @@ export default function CoursePreviewPage({ params }: PageProps) {
           onPending: () => {
             setPaymentStatus("pending")
           },
-          onError: () => {
+          onError: async () => {
             setPaymentStatus("failed")
+            if (response.order_id) {
+              try {
+                await api.payment.cancelTransaction(response.order_id)
+              } catch (e) {
+                console.warn(e)
+              }
+            }
           },
-          onClose: () => {
+          onClose: async () => {
             console.log("Snap checkout popup closed")
+            setCheckoutOpen(false)
+            setPaymentStatus("idle")
+            if (response.order_id) {
+              try {
+                await api.payment.cancelTransaction(response.order_id)
+              } catch (e) {
+                console.warn(e)
+              }
+            }
           }
         })
       }
@@ -234,6 +253,21 @@ export default function CoursePreviewPage({ params }: PageProps) {
     } finally {
       setCheckoutLoading(false)
     }
+  }
+
+  const handleCancelPayment = async () => {
+    if (orderId) {
+      setCheckoutLoading(true)
+      try {
+        await api.payment.cancelTransaction(orderId)
+      } catch (err) {
+        console.warn("Gagal membatalkan transaksi:", err)
+      } finally {
+        setCheckoutLoading(false)
+      }
+    }
+    setCheckoutOpen(false)
+    setPaymentStatus("idle")
   }
 
   // Simulated sandbox mock payment
@@ -1043,12 +1077,10 @@ export default function CoursePreviewPage({ params }: PageProps) {
 
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
-                    onClick={() => {
-                      setCheckoutOpen(false)
-                      setPaymentStatus("idle")
-                    }}
+                    onClick={handleCancelPayment}
                     variant="outline"
                     className="flex-1 text-xs h-9 cursor-pointer"
+                    disabled={checkoutLoading}
                   >
                     Batal
                   </Button>

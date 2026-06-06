@@ -318,3 +318,45 @@ class SubChapterUpdateDeleteView(APIView):
         subchapter.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+class MaterialAIGenerateView(APIView):
+    """
+    POST /api/courses/ai/generate-material/
+    Body: { topic, template_type, subchapter_title, course_title }
+    Returns: { content: "<markdown string>" }
+
+    Calls Gemini AI to generate a comprehensive course material draft in Markdown.
+    Falls back to rich static templates when GEMINI_API_KEY is not configured.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        topic = (request.data.get("topic") or "").strip()
+        template_type = (request.data.get("template_type") or "theory").strip()
+        subchapter_title = (request.data.get("subchapter_title") or "").strip()
+        course_title = (request.data.get("course_title") or "").strip()
+
+        if not topic:
+            return Response(
+                {"detail": "Field 'topic' wajib diisi."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        valid_types = ("theory", "code", "case_study", "evaluation")
+        if template_type not in valid_types:
+            template_type = "theory"
+
+        try:
+            from .services import generate_material_draft
+            content = generate_material_draft(
+                topic=topic,
+                template_type=template_type,
+                subchapter_title=subchapter_title,
+                course_title=course_title,
+            )
+            return Response({"content": content}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"detail": f"Gagal menghasilkan materi: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

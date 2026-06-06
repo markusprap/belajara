@@ -80,6 +80,38 @@ class CourseModuleSerializer(serializers.ModelSerializer):
                     "duration": "10 mnt"
                 }
             ]
+        else:
+            # If there are subchapters in the DB, make sure we include quiz and forum subchapters if they are not already there.
+            subchapters = data['subchapters']
+            has_quiz = any(s.get('type') == 'quiz' for s in subchapters)
+            has_forum = any(s.get('type') == 'forum' for s in subchapters)
+
+            if not has_quiz:
+                # Find maximum order to place quiz at the end
+                max_order = max([s.get('order', 0) for s in subchapters]) if subchapters else 0
+                subchapters.append({
+                    "id": f"{instance.id}_sub4",
+                    "module": instance.id,
+                    "title": f"Kuis Kompetensi Modul {instance.order}",
+                    "type": "quiz",
+                    "order": max_order + 1,
+                    "video_url": None,
+                    "content": "",
+                    "duration": "15 mnt"
+                })
+
+            if not has_forum:
+                max_order = max([s.get('order', 0) for s in subchapters]) if subchapters else 0
+                subchapters.append({
+                    "id": f"{instance.id}_sub5",
+                    "module": instance.id,
+                    "title": f"Diskusi Tanya Jawab Modul {instance.order}",
+                    "type": "forum",
+                    "order": max_order + 1,
+                    "video_url": None,
+                    "content": "",
+                    "duration": "10 mnt"
+                })
         return data
 
 class CourseSerializer(serializers.ModelSerializer):
