@@ -869,7 +869,7 @@ export default function ExplorePage() {
             {/* ─── Left Column ─────────────────────────────── */}
             <div className="lg:col-span-1 space-y-4">
               {/* Target Prodi Card */}
-              <Card className="border border-border shadow-sm bg-white p-6 rounded-xl">
+              <Card className="border border-border shadow-sm bg-white p-6 rounded-xl !overflow-visible">
                 <h3 className="font-heading text-base font-bold text-primary mb-2">
                   Program Studi Target
                 </h3>
