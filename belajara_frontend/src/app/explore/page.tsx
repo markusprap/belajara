@@ -14,10 +14,10 @@ import { Card } from "@/components/ui/card"
 import {
   Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle,
   Check, BookOpen, ChevronDown, ChevronUp, Lock, Lightbulb,
-  TrendingUp, Map, Eye, EyeOff,
+  TrendingUp, Map, Eye, EyeOff, Search,
 } from "lucide-react"
 import { api, getUser, getToken } from "@/lib/api"
-import { inferProgramStudiGroup, type ProgramStudiGroupKey, PROGRAM_STUDI_INDONESIA } from "@/lib/indonesia-academic-data"
+import { inferProgramStudiGroup, type ProgramStudiGroupKey, PROGRAM_STUDI_INDONESIA, searchProdi } from "@/lib/indonesia-academic-data"
 
 // ─────────────────────────────────────────────────────────────
 //  Types & Interfaces
@@ -423,6 +423,115 @@ const getPriorityDot = (priority: string) => {
   return "bg-amber-400"
 }
 
+// ─── Autocomplete Input Component ─────────────────────────────────────────
+function AutocompleteInput({
+  id,
+  name,
+  placeholder,
+  value,
+  onChange,
+  searchFn,
+  disabled,
+}: {
+  id: string
+  name: string
+  placeholder: string
+  value: string
+  onChange: (val: string) => void
+  searchFn: (q: string) => string[]
+  disabled?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [suggestions, setSuggestions] = React.useState<string[]>([])
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    onChange(val)
+    const results = Array.from(new Set(searchFn(val)))
+    setSuggestions(results)
+    if (results.length > 0) {
+      setOpen(true)
+    } else {
+      setOpen(false)
+    }
+  }
+
+  const handleSelect = (item: string) => {
+    onChange(item)
+    setOpen(false)
+    setSuggestions([])
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") setOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <input
+          id={id}
+          name={name}
+          type="text"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={value}
+          onChange={handleInput}
+          onFocus={() => {
+            const results = Array.from(new Set(searchFn(value)))
+            if (results.length > 0) {
+              setSuggestions(results)
+              setOpen(true)
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="w-full bg-[#FAF9FB] border border-border rounded-lg pl-8 pr-8 py-2 text-xs font-semibold text-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#060708]/10 focus:border-[#C6B5BF] transition disabled:opacity-50"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => { onChange(""); setSuggestions([]); setOpen(false) }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1 py-0.5 font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <div
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto"
+        >
+          {suggestions.map((item, i) => (
+            <button
+              key={i}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(item) }}
+              className="w-full text-left px-3 py-2 text-xs text-primary hover:bg-slate-50 transition-colors border-b border-border/40 last:border-0 cursor-pointer"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────
 //  Main Component
 // ─────────────────────────────────────────────────────────────
@@ -768,15 +877,14 @@ export default function ExplorePage() {
                   Pilih program studi target untuk memuat peta kompetensi default dan standar kurikulum benchmarking.
                 </p>
                 <div>
-                  <select
+                  <AutocompleteInput
+                    id="targetProdi"
+                    name="targetProdi"
+                    placeholder="Cari program studi target..."
                     value={userProdi}
-                    onChange={e => setUserProdi(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FAF9FB] border border-border rounded-lg text-xs font-semibold focus:outline-none focus:border-[#C6B5BF] cursor-pointer"
-                  >
-                    {Array.from(new Set(PROGRAM_STUDI_INDONESIA)).map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setUserProdi(val)}
+                    searchFn={searchProdi}
+                  />
                 </div>
               </Card>
 
