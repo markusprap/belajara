@@ -4,6 +4,24 @@ interface MarkdownRendererProps {
   content: string
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = React.useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      type="button"
+      className="absolute top-2 right-2 px-2 py-1 rounded bg-[#C6B5BF]/25 hover:bg-[#C6B5BF]/40 text-slate-300 hover:text-white text-[10px] font-sans transition-colors cursor-pointer z-10"
+    >
+      {copied ? "Tersalin!" : "Salin"}
+    </button>
+  )
+}
+
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   if (!content) return null
 
@@ -87,25 +105,6 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       }
     }
     return tokens
-  }
-
-  // State for copying code block success states
-  const CopyButton = ({ text }: { text: string }) => {
-    const [copied, setCopied] = React.useState(false)
-    const handleCopy = () => {
-      navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-    return (
-      <button
-        onClick={handleCopy}
-        type="button"
-        className="absolute top-2 right-2 px-2 py-1 rounded bg-[#C6B5BF]/25 hover:bg-[#C6B5BF]/40 text-slate-300 hover:text-white text-[10px] font-sans transition-colors cursor-pointer z-10"
-      >
-        {copied ? "Tersalin!" : "Salin"}
-      </button>
-    )
   }
 
   while (i < total) {

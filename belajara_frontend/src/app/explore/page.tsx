@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle, Check, BookOpen, ChevronDown, ChevronUp } from "lucide-react"
 import { api, getUser, getToken } from "@/lib/api"
+import { inferProgramStudiGroup, type ProgramStudiGroupKey } from "@/lib/indonesia-academic-data"
 
 interface Module {
   id: number
@@ -39,9 +40,35 @@ interface Recommendation {
 }
 
 interface AcademicProfile {
+  study_program?: string
+  detected_semester?: number | null
+  readiness_score?: number
+  confidence_score?: number
+  summary?: string
   completed_subjects: string[]
-  competency_gaps: string[]
-  career_recommendations: string
+  competency_scores?: Record<string, number>
+  competency_evidence?: Array<{
+    competency: string
+    evidence: string
+    confidence: number
+  }>
+  competency_gaps: Array<string | {
+    gap: string
+    priority: "high" | "medium" | "low"
+    reason: string
+    suggested_action?: string
+  }>
+  career_recommendations: string | Array<{
+    title: string
+    fit_score: number
+    missing_skills: string[]
+    why: string
+  }>
+  semester_plan?: Array<{
+    term: string
+    focus: string
+    actions: string[]
+  }>
 }
 
 interface StudentDashboardData {
@@ -67,6 +94,76 @@ interface SkillCategory {
 }
 
 const SKILL_CONFIGS: Record<string, SkillCategory[]> = {
+  "computing": [
+    { key: "softwareEng", label: "Software Eng.", keywords: ["pemrograman", "rpl", "perangkat lunak", "web", "pbo", "oop", "object", "algoritma", "struktur data", "coding", "programming"] },
+    { key: "dataSci", label: "Data Sci. & AI", keywords: ["data mining", "sains data", "data science", "kecerdasan buatan", "ai", "machine learning", "statistika", "statistik", "data analisis", "analisis data", "visualisasi", "pembelajaran mesin"] },
+    { key: "systemArch", label: "System Arch.", keywords: ["enterprise", "arsitektur", "jaringan", "cloud", "infrastruktur", "sistem enterprise", "tata kelola"] },
+    { key: "mathLogic", label: "Math & Logic", keywords: ["matematika", "diskrit", "kalkulus", "aljabar", "logika", "teori", "komputasi"] },
+    { key: "businessIntel", label: "Digital Business", keywords: ["sistem pendukung keputusan", "decision support", "spk", "manajemen", "bisnis", "proyek", "analitik", "informasi"] }
+  ],
+  "engineering": [
+    { key: "engineeringMath", label: "Eng. Math", keywords: ["matematika", "kalkulus", "fisika", "statistika", "numerik", "mekanika", "termodinamika"] },
+    { key: "designAnalysis", label: "Design & Analysis", keywords: ["perancangan", "desain", "analisis", "struktur", "sistem", "model", "simulasi"] },
+    { key: "materialsProcess", label: "Materials/Process", keywords: ["material", "proses", "manufaktur", "produksi", "kimia", "metalurgi", "pangan"] },
+    { key: "systemsControl", label: "Systems & Control", keywords: ["kontrol", "instrumentasi", "otomasi", "robotika", "elektro", "telekomunikasi", "jaringan"] },
+    { key: "professionalSafety", label: "Safety & Project", keywords: ["keselamatan", "lingkungan", "proyek", "manajemen", "etika", "k3", "mutu"] }
+  ],
+  "business": [
+    { key: "financeAcct", label: "Finance & Acct.", keywords: ["keuangan", "akuntansi", "investasi", "pajak", "perpajakan", "anggaran", "biaya"] },
+    { key: "marketing", label: "Marketing", keywords: ["pemasaran", "marketing", "promosi", "konsumen", "brand", "riset pasar"] },
+    { key: "opsLogistics", label: "Ops & Logistics", keywords: ["operasional", "logistik", "rantai pasok", "supply chain", "produksi", "proses"] },
+    { key: "strategyEntre", label: "Strategy & Biz", keywords: ["strategi", "bisnis", "kewirausahaan", "pengantar bisnis", "model bisnis", "inovasi"] },
+    { key: "orgPeople", label: "Org & People", keywords: ["sdm", "sumber daya manusia", "organisasi", "kepemimpinan", "perilaku organisasi", "komunikasi"] }
+  ],
+  "socialHumanities": [
+    { key: "theorySociety", label: "Theory & Society", keywords: ["teori", "sosiologi", "politik", "hukum", "sejarah", "filsafat", "masyarakat"] },
+    { key: "policyLaw", label: "Policy & Law", keywords: ["kebijakan", "hukum", "regulasi", "negara", "publik", "administrasi"] },
+    { key: "communicationMedia", label: "Comm. & Media", keywords: ["komunikasi", "media", "jurnalistik", "penyiaran", "humas", "periklanan", "film"] },
+    { key: "researchMethods", label: "Research Methods", keywords: ["metode penelitian", "metodologi", "riset", "statistika", "analisis data"] },
+    { key: "ethicsCulture", label: "Ethics & Culture", keywords: ["etika", "budaya", "antropologi", "psikologi", "kesejahteraan", "kriminologi"] }
+  ],
+  "education": [
+    { key: "pedagogy", label: "Pedagogy", keywords: ["pedagogik", "pembelajaran", "kurikulum", "didaktik", "strategi pembelajaran"] },
+    { key: "subjectMastery", label: "Subject Mastery", keywords: ["matematika", "fisika", "kimia", "biologi", "bahasa", "sejarah", "ekonomi", "agama"] },
+    { key: "assessment", label: "Assessment", keywords: ["evaluasi", "asesmen", "penilaian", "tes", "pengukuran"] },
+    { key: "classroomTech", label: "Classroom Tech", keywords: ["teknologi pendidikan", "media pembelajaran", "digital", "informatika"] },
+    { key: "studentGuidance", label: "Guidance & Ethics", keywords: ["bimbingan", "konseling", "karakter", "etika", "inklusi", "paud", "pgsd"] }
+  ],
+  "science": [
+    { key: "mathStats", label: "Math & Stats", keywords: ["matematika", "statistika", "aktuaria", "kalkulus", "aljabar", "probabilitas"] },
+    { key: "labExperiment", label: "Lab & Experiment", keywords: ["laboratorium", "praktikum", "eksperimen", "kimia", "biologi", "fisika"] },
+    { key: "naturalSystems", label: "Natural Systems", keywords: ["geologi", "geofisika", "meteorologi", "oseanografi", "astronomi", "lingkungan", "kelautan"] },
+    { key: "dataModeling", label: "Data & Modeling", keywords: ["pemodelan", "simulasi", "komputasi", "data", "analisis"] },
+    { key: "researchMethod", label: "Research Method", keywords: ["metode penelitian", "riset", "seminar", "penulisan ilmiah"] }
+  ],
+  "health": [
+    { key: "biomedicalCore", label: "Biomedical Core", keywords: ["anatomi", "fisiologi", "biokimia", "biomedik", "patologi", "farmakologi"] },
+    { key: "clinicalCare", label: "Clinical Care", keywords: ["klinik", "keperawatan", "kebidanan", "diagnosis", "terapi", "fisioterapi"] },
+    { key: "publicHealth", label: "Public Health", keywords: ["kesehatan masyarakat", "epidemiologi", "lingkungan", "gizi", "promosi kesehatan"] },
+    { key: "healthSystems", label: "Health Systems", keywords: ["rumah sakit", "administrasi", "rekam medis", "manajemen kesehatan", "kebijakan"] },
+    { key: "ethicsSafety", label: "Ethics & Safety", keywords: ["etika", "keselamatan pasien", "komunikasi", "profesionalisme"] }
+  ],
+  "agriculture": [
+    { key: "productionCultivation", label: "Cultivation", keywords: ["budidaya", "agroteknologi", "tanaman", "ternak", "perairan", "silvikultur"] },
+    { key: "soilEcosystem", label: "Soil & Ecosystem", keywords: ["tanah", "hama", "penyakit", "ekologi", "hutan", "kelautan", "lingkungan"] },
+    { key: "foodPostHarvest", label: "Food/Postharvest", keywords: ["pangan", "hasil pertanian", "pasca panen", "teknologi pangan", "gizi"] },
+    { key: "agribusiness", label: "Agribusiness", keywords: ["agribisnis", "ekonomi", "pemasaran", "manajemen", "penyuluhan"] },
+    { key: "researchFieldwork", label: "Research/Field", keywords: ["praktikum", "lapangan", "metode penelitian", "riset", "statistika"] }
+  ],
+  "artsCulture": [
+    { key: "creativePractice", label: "Creative Practice", keywords: ["studio", "praktik", "seni", "desain", "kriya", "pertunjukan"] },
+    { key: "historyTheory", label: "History & Theory", keywords: ["sejarah", "teori", "kritik", "estetika", "budaya"] },
+    { key: "languageLiteracy", label: "Language/Literacy", keywords: ["bahasa", "sastra", "linguistik", "penulisan", "terjemahan"] },
+    { key: "productionMedia", label: "Production Media", keywords: ["produksi", "media", "musik", "film", "teater", "digital"] },
+    { key: "portfolioResearch", label: "Portfolio/Research", keywords: ["portfolio", "metode penelitian", "riset", "kurasi", "pameran"] }
+  ],
+  "tourism": [
+    { key: "hospitalityOps", label: "Hospitality Ops", keywords: ["hotel", "perhotelan", "front office", "housekeeping", "layanan"] },
+    { key: "destinationMgmt", label: "Destination Mgmt.", keywords: ["destinasi", "pariwisata", "ekowisata", "perjalanan", "wisata"] },
+    { key: "culinaryService", label: "Culinary/Service", keywords: ["tata boga", "kuliner", "restoran", "makanan", "minuman"] },
+    { key: "marketingEvent", label: "Marketing/Event", keywords: ["pemasaran", "event", "mice", "promosi", "komunikasi"] },
+    { key: "sustainability", label: "Sustainability", keywords: ["berkelanjutan", "budaya", "lingkungan", "etika", "kewirausahaan"] }
+  ],
   "Informatika": [
     { key: "softwareEng", label: "Software Eng.", keywords: ["pemrograman", "rpl", "perangkat lunak", "web", "pbo", "oop", "object", "algoritma", "struktur data", "coding", "programming"] },
     { key: "dataSci", label: "Data Sci. & AI", keywords: ["data mining", "sains data", "data science", "kecerdasan buatan", "ai", "machine learning", "statistika", "statistik", "data analisis", "analisis data", "visualisasi", "pembelajaran mesin"] },
@@ -194,11 +291,123 @@ const BENCHMARKS: Record<string, Benchmark[]> = {
       name: "SN-Dikti (Standar Nasional Indonesia)",
       description: "Standar Nasional Pendidikan Tinggi Indonesia untuk seluruh Program Studi.",
       courses: [
-        { name: "Pendidikan Pancasila & Kewarganegaraan", category: "mathLogic" },
-        { name: "Pendidikan Agama", category: "mathLogic" },
-        { name: "Bahasa Indonesia", category: "mathLogic" },
-        { name: "Bahasa Inggris Akademik", category: "mathLogic" },
-        { name: "Metodologi Penelitian", category: "mathLogic" }
+        { name: "Pendidikan Pancasila & Kewarganegaraan", category: "softSkills" },
+        { name: "Pendidikan Agama", category: "softSkills" },
+        { name: "Bahasa Indonesia", category: "softSkills" },
+        { name: "Bahasa Inggris Akademik", category: "softSkills" },
+        { name: "Metodologi Penelitian", category: "methodology" }
+      ]
+    }
+  ]
+}
+
+const BENCHMARK_TEMPLATES: Record<Exclude<ProgramStudiGroupKey, "general">, BenchmarkCourse[]> = {
+  computing: [
+    { name: "Algoritma, Pemrograman & Struktur Data", category: "softwareEng" },
+    { name: "Basis Data dan Manajemen Informasi", category: "dataSci" },
+    { name: "Rekayasa Perangkat Lunak / Sistem Digital", category: "softwareEng" },
+    { name: "Jaringan, Infrastruktur atau Arsitektur Sistem", category: "systemArch" },
+    { name: "Matematika, Statistika atau Logika Komputasi", category: "mathLogic" },
+    { name: "Etika Profesi dan Manajemen Proyek Digital", category: "businessIntel" }
+  ],
+  engineering: [
+    { name: "Matematika Teknik dan Sains Dasar", category: "engineeringMath" },
+    { name: "Gambar/Desain Teknik dan Analisis Sistem", category: "designAnalysis" },
+    { name: "Proses, Material atau Teknologi Produksi", category: "materialsProcess" },
+    { name: "Sistem Kontrol, Instrumentasi atau Infrastruktur", category: "systemsControl" },
+    { name: "Keselamatan, Lingkungan dan Etika Profesi", category: "professionalSafety" },
+    { name: "Manajemen Proyek Rekayasa", category: "professionalSafety" }
+  ],
+  business: [
+    { name: "Akuntansi dan Dasar Keuangan", category: "financeAcct" },
+    { name: "Manajemen dan Strategi Bisnis", category: "strategyEntre" },
+    { name: "Pemasaran dan Perilaku Konsumen", category: "marketing" },
+    { name: "Operasi, Logistik atau Rantai Pasok", category: "opsLogistics" },
+    { name: "Organisasi, SDM dan Kepemimpinan", category: "orgPeople" },
+    { name: "Metode Kuantitatif Bisnis", category: "financeAcct" }
+  ],
+  socialHumanities: [
+    { name: "Teori Sosial/Humaniora/Hukum Dasar", category: "theorySociety" },
+    { name: "Kebijakan, Regulasi atau Administrasi Publik", category: "policyLaw" },
+    { name: "Komunikasi, Media atau Literasi Publik", category: "communicationMedia" },
+    { name: "Metode Penelitian Sosial", category: "researchMethods" },
+    { name: "Etika, Budaya dan Perspektif Masyarakat", category: "ethicsCulture" }
+  ],
+  education: [
+    { name: "Landasan Pendidikan dan Pedagogik", category: "pedagogy" },
+    { name: "Penguasaan Materi Bidang Studi", category: "subjectMastery" },
+    { name: "Perencanaan, Kurikulum dan Strategi Pembelajaran", category: "pedagogy" },
+    { name: "Evaluasi/Asesmen Pembelajaran", category: "assessment" },
+    { name: "Teknologi dan Media Pembelajaran", category: "classroomTech" },
+    { name: "Bimbingan, Etika dan Pengembangan Peserta Didik", category: "studentGuidance" }
+  ],
+  science: [
+    { name: "Matematika, Statistika dan Analisis Kuantitatif", category: "mathStats" },
+    { name: "Praktikum Laboratorium dan Eksperimen", category: "labExperiment" },
+    { name: "Konsep Sistem Alam sesuai Bidang Studi", category: "naturalSystems" },
+    { name: "Pemodelan, Simulasi atau Analisis Data", category: "dataModeling" },
+    { name: "Metode Penelitian dan Penulisan Ilmiah", category: "researchMethod" }
+  ],
+  health: [
+    { name: "Ilmu Biomedik dan Dasar Kesehatan", category: "biomedicalCore" },
+    { name: "Keterampilan Klinis/Asuhan sesuai Profesi", category: "clinicalCare" },
+    { name: "Kesehatan Masyarakat dan Epidemiologi", category: "publicHealth" },
+    { name: "Sistem Layanan Kesehatan dan Administrasi", category: "healthSystems" },
+    { name: "Etika Profesi dan Keselamatan Pasien", category: "ethicsSafety" }
+  ],
+  agriculture: [
+    { name: "Budidaya/Produksi sesuai Komoditas", category: "productionCultivation" },
+    { name: "Tanah, Ekosistem dan Pengelolaan Sumber Daya", category: "soilEcosystem" },
+    { name: "Teknologi Hasil, Pangan atau Pascapanen", category: "foodPostHarvest" },
+    { name: "Agribisnis, Penyuluhan dan Ekonomi Sumber Daya", category: "agribusiness" },
+    { name: "Praktikum Lapangan dan Metode Penelitian", category: "researchFieldwork" }
+  ],
+  artsCulture: [
+    { name: "Praktik Studio/Pertunjukan sesuai Bidang", category: "creativePractice" },
+    { name: "Sejarah, Teori dan Kritik Seni/Budaya", category: "historyTheory" },
+    { name: "Bahasa, Literasi atau Kajian Teks", category: "languageLiteracy" },
+    { name: "Produksi Media/Karya dan Dokumentasi", category: "productionMedia" },
+    { name: "Portofolio, Riset dan Presentasi Karya", category: "portfolioResearch" }
+  ],
+  tourism: [
+    { name: "Operasi Layanan Hotel/Pariwisata", category: "hospitalityOps" },
+    { name: "Manajemen Destinasi dan Perjalanan", category: "destinationMgmt" },
+    { name: "Kuliner, Tata Boga atau Layanan Tamu", category: "culinaryService" },
+    { name: "Pemasaran Pariwisata dan Event", category: "marketingEvent" },
+    { name: "Pariwisata Berkelanjutan, Budaya dan Etika", category: "sustainability" }
+  ]
+}
+
+const slugifyBenchmarkId = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "umum"
+
+const buildProgramBenchmarks = (
+  prodi: string,
+  groupKey: ProgramStudiGroupKey,
+  groupLabel: string
+): Benchmark[] => {
+  if (groupKey === "general") {
+    return BENCHMARKS["Umum"]
+  }
+
+  const template = BENCHMARK_TEMPLATES[groupKey]
+  const slug = slugifyBenchmarkId(prodi)
+
+  return [
+    {
+      id: `sndikti-${slug}`,
+      name: `SN-Dikti (${prodi})`,
+      description: `Standar nasional capaian pembelajaran untuk program studi ${prodi}, disesuaikan dengan rumpun ${groupLabel}.`,
+      courses: template
+    },
+    {
+      id: `kkni-${slug}`,
+      name: `KKNI Level 6 (${groupLabel})`,
+      description: `Kerangka kualifikasi sarjana Indonesia untuk rumpun ${groupLabel}.`,
+      courses: [
+        ...template.slice(0, 4),
+        { name: "Metode Penelitian dan Proyek Akhir", category: template[template.length - 1]?.category || "methodology" },
+        { name: "Etika Profesi dan Komunikasi Akademik", category: template[0]?.category || "softSkills" }
       ]
     }
   ]
@@ -206,11 +415,26 @@ const BENCHMARKS: Record<string, Benchmark[]> = {
 
 const isSubjectCompleted = (benchmarkName: string, completedList: string[]) => {
   const cleanBenchmark = benchmarkName.toLowerCase()
+  const benchmarkTokens = cleanBenchmark
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(token => token.length > 3 && !["atau", "yang", "dan", "dengan", "sesuai", "dasar", "mata", "kuliah"].includes(token))
+
   return completedList.some(comp => {
     const cleanComp = comp.toLowerCase()
     if (cleanComp.includes(cleanBenchmark) || cleanBenchmark.includes(cleanComp)) {
       return true
     }
+
+    const compTokens = cleanComp
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(token => token.length > 3)
+    const overlap = benchmarkTokens.filter(token => compTokens.some(compToken =>
+      compToken.includes(token) || token.includes(compToken)
+    )).length
+    if (overlap >= Math.min(2, benchmarkTokens.length)) return true
+
     if (cleanBenchmark.includes("algoritma") && cleanComp.includes("algoritma")) return true
     if (cleanBenchmark.includes("basis data") && cleanComp.includes("basis data")) return true
     if (cleanBenchmark.includes("pemrograman") && cleanComp.includes("pemrograman")) return true
@@ -218,8 +442,52 @@ const isSubjectCompleted = (benchmarkName: string, completedList: string[]) => {
     if (cleanBenchmark.includes("statistika") && cleanComp.includes("statistik")) return true
     if (cleanBenchmark.includes("sistem pendukung keputusan") && (cleanComp.includes("spk") || cleanComp.includes("decision support"))) return true
     if (cleanBenchmark.includes("sistem informasi manajemen") && cleanComp.includes("sim")) return true
+    if (cleanBenchmark.includes("matematika") && (cleanComp.includes("kalkulus") || cleanComp.includes("aljabar") || cleanComp.includes("statistik"))) return true
+    if (cleanBenchmark.includes("klinis") && (cleanComp.includes("klinik") || cleanComp.includes("asuhan") || cleanComp.includes("praktik"))) return true
+    if (cleanBenchmark.includes("kesehatan") && (cleanComp.includes("epidemiologi") || cleanComp.includes("gizi") || cleanComp.includes("farmakologi"))) return true
+    if (cleanBenchmark.includes("pedagogik") && (cleanComp.includes("pembelajaran") || cleanComp.includes("kurikulum") || cleanComp.includes("didaktik"))) return true
+    if (cleanBenchmark.includes("hukum") && (cleanComp.includes("regulasi") || cleanComp.includes("perundang") || cleanComp.includes("konstitusi"))) return true
+    if (cleanBenchmark.includes("produksi") && (cleanComp.includes("budidaya") || cleanComp.includes("manufaktur") || cleanComp.includes("operasi"))) return true
+    if (cleanBenchmark.includes("seni") && (cleanComp.includes("studio") || cleanComp.includes("praktik") || cleanComp.includes("karya"))) return true
     return false
   })
+}
+
+const clampPercent = (value: unknown, fallback = 50) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return fallback
+  return Math.max(0, Math.min(100, Math.round(numeric)))
+}
+
+const getGapLabel = (gap: AcademicProfile["competency_gaps"][number]) =>
+  typeof gap === "string" ? gap : gap.gap
+
+const getGapPriority = (gap: AcademicProfile["competency_gaps"][number]) =>
+  typeof gap === "string" ? "medium" : gap.priority || "medium"
+
+const getCareerPaths = (careerRecommendations: AcademicProfile["career_recommendations"], prodi: string) => {
+  if (Array.isArray(careerRecommendations)) {
+    return careerRecommendations
+  }
+  if (typeof careerRecommendations === "string" && careerRecommendations.trim()) {
+    return careerRecommendations
+      .split(/[,;]/)
+      .map(item => item.trim())
+      .filter(Boolean)
+      .map((title, index) => ({
+        title,
+        fit_score: Math.max(60, 82 - index * 7),
+        missing_skills: [],
+        why: `Jalur ini terdeteksi relevan dengan profil akademik ${prodi}.`
+      }))
+  }
+  return []
+}
+
+const getPriorityStyle = (priority: string) => {
+  if (priority === "high") return "bg-destructive/10 text-destructive border-destructive/20"
+  if (priority === "low") return "bg-emerald-50 text-emerald-700 border-emerald-100"
+  return "bg-amber-50 text-amber-700 border-amber-100"
 }
 
 export default function ExplorePage() {
@@ -238,6 +506,7 @@ export default function ExplorePage() {
   const [expandedRecs, setExpandedRecs] = React.useState<Record<string, boolean>>({})
   const [hoveredCourse, setHoveredCourse] = React.useState<Course | null>(null)
   const [viewMode, setViewMode] = React.useState<"cards" | "timeline">("cards")
+  const [selectedCareerIndex, setSelectedCareerIndex] = React.useState<number>(0)
 
   const [currentUser, setCurrentUser] = React.useState<any>(null)
   const [selectedBenchmarkId, setSelectedBenchmarkId] = React.useState<string>("")
@@ -246,28 +515,50 @@ export default function ExplorePage() {
     setCurrentUser(getUser())
   }, [])
 
-  const userProdi = currentUser?.mahasiswa_profile?.jurusan || currentUser?.jurusan || "Informatika"
-  const skillProdiKey = Object.keys(SKILL_CONFIGS).find(
+  const userProdi = currentUser?.mahasiswa_profile?.jurusan || currentUser?.jurusan || "Program Studi Umum"
+  const programGroup = React.useMemo(() => inferProgramStudiGroup(userProdi), [userProdi])
+  const exactSkillKey = Object.keys(SKILL_CONFIGS).find(
     key => userProdi.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(userProdi.toLowerCase())
-  ) || "Umum"
+  )
+  const skillProdiKey = exactSkillKey || programGroup.key
   const skillCategories = SKILL_CONFIGS[skillProdiKey] || SKILL_CONFIGS["Umum"]
 
-  const prodiKey = Object.keys(BENCHMARKS).find(
+  const exactBenchmarkKey = Object.keys(BENCHMARKS).find(
     key => userProdi.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(userProdi.toLowerCase())
-  ) || "Umum"
-  const matchedBenchmarks = BENCHMARKS[prodiKey] || BENCHMARKS["Umum"]
+  )
+  const matchedBenchmarks = React.useMemo(() => {
+    if (exactBenchmarkKey) {
+      return BENCHMARKS[exactBenchmarkKey] || BENCHMARKS["Umum"]
+    }
+    return buildProgramBenchmarks(userProdi, programGroup.key, programGroup.label)
+  }, [exactBenchmarkKey, programGroup.key, programGroup.label, userProdi])
 
   const allBenchmarks = React.useMemo(() => {
-    return Object.entries(BENCHMARKS).flatMap(([category, list]) =>
+    const staticBenchmarks = Object.entries(BENCHMARKS).flatMap(([category, list]) =>
       list.map(b => ({ ...b, category }))
     )
-  }, [])
+    const matchedIds = new Set(matchedBenchmarks.map(b => b.id))
+    return [
+      ...matchedBenchmarks.map(b => ({ ...b, category: userProdi })),
+      ...staticBenchmarks.filter(b => !matchedIds.has(b.id))
+    ]
+  }, [matchedBenchmarks, userProdi])
+
+  const benchmarkGroups = React.useMemo(() => {
+    return allBenchmarks.reduce<Record<string, Benchmark[]>>((groups, benchmark) => {
+      if (!groups[benchmark.category]) {
+        groups[benchmark.category] = []
+      }
+      groups[benchmark.category].push(benchmark)
+      return groups
+    }, {})
+  }, [allBenchmarks])
 
   React.useEffect(() => {
     if (matchedBenchmarks && matchedBenchmarks.length > 0) {
       setSelectedBenchmarkId(matchedBenchmarks[0].id)
     }
-  }, [currentUser, prodiKey])
+  }, [matchedBenchmarks])
 
   const toggleRecExpand = (courseCode: string) => {
     setExpandedRecs(prev => ({
@@ -279,8 +570,12 @@ export default function ExplorePage() {
   const getSkillData = (additionalSubject?: string) => {
     const skills: Record<string, number> = {}
     skillCategories.forEach(cat => {
-      skills[cat.key] = 20
+      skills[cat.key] = clampPercent(academicProfile?.competency_scores?.[cat.key], 20)
     })
+
+    if (academicProfile?.competency_scores && !additionalSubject) {
+      return skills
+    }
 
     const completed = academicProfile?.completed_subjects || []
     const subjects = additionalSubject ? [...completed, additionalSubject] : completed
@@ -362,6 +657,16 @@ export default function ExplorePage() {
   }
 
   const activeBenchmark = allBenchmarks.find(b => b.id === selectedBenchmarkId) || matchedBenchmarks[0]
+  const readinessScore = clampPercent(academicProfile?.readiness_score, academicProfile ? 58 : 0)
+  const confidenceScore = clampPercent(academicProfile?.confidence_score, academicProfile ? 70 : 0)
+  const careerPaths = getCareerPaths(academicProfile?.career_recommendations || "", userProdi)
+  const selectedCareer = careerPaths[selectedCareerIndex] || careerPaths[0]
+  const evidenceItems = academicProfile?.competency_evidence || []
+  const semesterPlan = academicProfile?.semester_plan || []
+
+  React.useEffect(() => {
+    setSelectedCareerIndex(0)
+  }, [academicProfile])
 
   const benchmarkStats = React.useMemo(() => {
     if (!activeBenchmark) return null
@@ -842,7 +1147,7 @@ export default function ExplorePage() {
                       onChange={(e) => setSelectedBenchmarkId(e.target.value)}
                       className="w-full px-3 py-2 bg-[#FAF9FB] border border-border rounded-lg text-xs font-medium focus:outline-none focus:border-[#C6B5BF] cursor-pointer"
                     >
-                      {Object.entries(BENCHMARKS).map(([category, list]) => (
+                      {Object.entries(benchmarkGroups).map(([category, list]) => (
                         <optgroup key={category} label={category}>
                           {list.map(b => (
                             <option key={b.id} value={b.id}>{b.name}</option>
@@ -962,6 +1267,38 @@ export default function ExplorePage() {
                         </Button>
                       </div>
 
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="rounded-xl border border-border bg-[#FAF9FB] p-4">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Academic Readiness</p>
+                          <div className="mt-2 flex items-end gap-2">
+                            <span className="font-heading text-4xl font-bold text-primary">{readinessScore}</span>
+                            <span className="pb-1 text-xs font-bold text-muted-foreground">/100</span>
+                          </div>
+                          <div className="mt-3 h-2 rounded-full bg-white border border-border overflow-hidden">
+                            <div className="h-full bg-destructive" style={{ width: `${readinessScore}%` }} />
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-border bg-white p-4">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Confidence AI</p>
+                          <p className="mt-2 font-heading text-3xl font-bold text-primary">{confidenceScore}%</p>
+                          <p className="mt-2 text-xs text-muted-foreground">Berdasarkan kelengkapan dokumen dan bukti kompetensi yang terdeteksi.</p>
+                        </div>
+                        <div className="rounded-xl border border-border bg-white p-4">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Profil Terdeteksi</p>
+                          <p className="mt-2 text-sm font-bold text-primary">{academicProfile.study_program || userProdi}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {academicProfile.detected_semester ? `Perkiraan semester ${academicProfile.detected_semester}` : "Semester tidak terdeteksi dari dokumen"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {academicProfile.summary && (
+                        <div className="rounded-xl border border-border bg-[#FAF9FB] p-4">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Ringkasan AI</p>
+                          <p className="text-sm leading-relaxed text-primary">{academicProfile.summary}</p>
+                        </div>
+                      )}
+
                       <div className="grid gap-6 md:grid-cols-2">
                         {/* Completed Competencies */}
                         <div className="space-y-3">
@@ -990,18 +1327,26 @@ export default function ExplorePage() {
                         <div className="space-y-3">
                           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                             <AlertCircle className="h-4 w-4 text-primary shrink-0" />
-                            Kesenjangan Kompetensi
+                            Gap Prioritas
                           </h3>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="space-y-2">
                             {academicProfile.competency_gaps && academicProfile.competency_gaps.length > 0 ? (
                               academicProfile.competency_gaps.map((gap, i) => (
-                                <span
+                                <div
                                   key={i}
-                                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-background text-primary border border-border flex items-center gap-1"
+                                  className={`rounded-lg border p-3 text-xs ${getPriorityStyle(getGapPriority(gap))}`}
                                 >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                                  {gap}
-                                </span>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-bold text-primary">{getGapLabel(gap)}</span>
+                                    <span className="uppercase text-[9px] font-black">{getGapPriority(gap)}</span>
+                                  </div>
+                                  {typeof gap !== "string" && (
+                                    <div className="mt-1 space-y-1 text-slate-600">
+                                      <p>{gap.reason}</p>
+                                      {gap.suggested_action && <p className="font-semibold text-primary">{gap.suggested_action}</p>}
+                                    </div>
+                                  )}
+                                </div>
                               ))
                             ) : (
                               <span className="text-xs text-muted-foreground italic">Tidak ada kesenjangan kompetensi terdeteksi.</span>
@@ -1010,15 +1355,94 @@ export default function ExplorePage() {
                         </div>
                       </div>
 
-                      {/* Career Recommendations */}
-                      {academicProfile.career_recommendations && (
-                        <div className="border-t border-border pt-4 space-y-2">
+                      {evidenceItems.length > 0 && (
+                        <div className="border-t border-border pt-4 space-y-3">
                           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                            Prospek &amp; Rekomendasi Jalur Karir
+                            Bukti Analisis AI
                           </h3>
-                          <p className="text-sm text-primary leading-relaxed bg-[#FAF9FB] p-4 rounded-xl border border-border">
-                            {academicProfile.career_recommendations}
-                          </p>
+                          <div className="grid gap-2 md:grid-cols-2">
+                            {evidenceItems.slice(0, 4).map((item, i) => (
+                              <div key={i} className="rounded-lg border border-border bg-white p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs font-bold text-primary">{item.competency}</p>
+                                  <span className="text-[10px] font-bold text-destructive">{clampPercent(item.confidence)}%</span>
+                                </div>
+                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.evidence}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {careerPaths.length > 0 && (
+                        <div className="border-t border-border pt-4 space-y-3">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                              Career Path Lens
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                              {careerPaths.map((career, index) => (
+                                <button
+                                  key={career.title}
+                                  onClick={() => setSelectedCareerIndex(index)}
+                                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+                                    selectedCareerIndex === index
+                                      ? "border-destructive bg-destructive text-white"
+                                      : "border-border bg-white text-primary hover:bg-[#FAF9FB]"
+                                  }`}
+                                >
+                                  {career.title}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {selectedCareer && (
+                            <div className="rounded-xl border border-border bg-[#FAF9FB] p-4">
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <p className="font-heading text-lg font-bold text-primary">{selectedCareer.title}</p>
+                                  <p className="mt-1 text-sm leading-relaxed text-slate-700">{selectedCareer.why}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Fit Score</p>
+                                  <p className="font-heading text-2xl font-bold text-destructive">{clampPercent(selectedCareer.fit_score)}%</p>
+                                </div>
+                              </div>
+                              {selectedCareer.missing_skills.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {selectedCareer.missing_skills.map((skill, i) => (
+                                    <span key={i} className="rounded-md border border-border bg-white px-2 py-1 text-[10px] font-semibold text-primary">
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {semesterPlan.length > 0 && (
+                        <div className="border-t border-border pt-4 space-y-3">
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Semester Planner
+                          </h3>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {semesterPlan.map((plan, index) => (
+                              <div key={index} className="rounded-xl border border-border bg-white p-4">
+                                <p className="text-xs font-black uppercase tracking-wider text-destructive">{plan.term}</p>
+                                <p className="mt-1 font-heading text-base font-bold text-primary">{plan.focus}</p>
+                                <ul className="mt-2 space-y-1">
+                                  {plan.actions.map((action, actionIndex) => (
+                                    <li key={actionIndex} className="flex gap-2 text-xs text-slate-700">
+                                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
+                                      <span>{action}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </Card>

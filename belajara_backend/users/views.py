@@ -128,15 +128,42 @@ class GoogleOAuthView(APIView):
     def post(self, request):
         import random
         from django.contrib.auth import get_user_model
+        from django.conf import settings
         from users.models import Mahasiswa, InstructorProfile
 
         User = get_user_model()
         email = request.data.get('email')
         first_name = request.data.get('first_name', '')
         last_name = request.data.get('last_name', '')
-        # google_id can be mock or real ID
         google_id = request.data.get('google_id', '')
+        credential = request.data.get('credential', '')
         role = request.data.get('role', 'student')
+
+        if credential and google_id != "mock-google-id":
+            try:
+                from google.auth.transport import requests as google_requests
+                from google.oauth2 import id_token
+
+                payload = id_token.verify_oauth2_token(
+                    credential,
+                    google_requests.Request(),
+                    settings.GOOGLE_OAUTH_CLIENT_ID,
+                )
+            except Exception:
+                return Response(
+                    {"detail": "Token Google tidak valid."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            email = payload.get('email')
+            first_name = payload.get('given_name', first_name)
+            last_name = payload.get('family_name', last_name)
+            google_id = payload.get('sub', google_id)
+        elif not settings.DEBUG:
+            return Response(
+                {"detail": "Credential Google wajib dikirim."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if not email:
             return Response({"detail": "Email harus diisi."}, status=status.HTTP_400_BAD_REQUEST)
@@ -248,4 +275,3 @@ class ChangePasswordView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"detail": "Password berhasil diubah."}, status=status.HTTP_200_OK)
-

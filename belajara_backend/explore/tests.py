@@ -67,9 +67,15 @@ def test_llm_service_fallback():
     ]
     # Without environment API key set, it should fallback to mock recommendations
     with patch.dict('os.environ', {'GEMINI_API_KEY': 'your-gemini-api-key'}):
-        recs = analyze_curriculum_text("Rencana belajar pemrograman", available_courses)
+        recs = analyze_curriculum_text("Rencana belajar pemrograman", available_courses, study_program="Farmasi")
         assert "academic_profile" in recs
         assert "course_matches" in recs
+        assert recs["academic_profile"]["study_program"] == "Farmasi"
+        assert "readiness_score" in recs["academic_profile"]
+        assert "competency_scores" in recs["academic_profile"]
+        assert isinstance(recs["academic_profile"]["competency_gaps"][0], dict)
+        assert isinstance(recs["academic_profile"]["career_recommendations"], list)
+        assert "semester_plan" in recs["academic_profile"]
         assert len(recs["course_matches"]) >= 2
         assert recs["course_matches"][0]["code"] == "IF101"
 
@@ -205,7 +211,8 @@ def test_ai_recommendation_status_success():
     response = client.get(url)
     assert response.status_code == status.HTTP_200_OK
     assert response.data["status"] == "success"
-    assert response.data["academic_profile"]["career_recommendations"] == "Software Engineer"
+    assert response.data["academic_profile"]["career_recommendations"][0]["title"] == "Software Engineer"
+    assert "readiness_score" in response.data["academic_profile"]
     assert len(response.data["recommendations"]) == 1
     assert response.data["recommendations"][0]["course"]["code"] == "IF101"
     assert response.data["recommendations"][0]["match_percentage"] == 90
@@ -255,7 +262,8 @@ def test_analyze_curriculum_task(mock_analyze):
         assert recs.exists()
         rec = recs.first()
         assert isinstance(rec.recommendations_data, dict)
-        assert rec.recommendations_data["academic_profile"]["career_recommendations"] == "Data Scientist"
+        assert rec.recommendations_data["academic_profile"]["career_recommendations"][0]["title"] == "Data Scientist"
+        assert "readiness_score" in rec.recommendations_data["academic_profile"]
         assert len(rec.recommendations_data["course_matches"]) == 1
         assert rec.recommendations_data["course_matches"][0]["code"] == "IF101"
 

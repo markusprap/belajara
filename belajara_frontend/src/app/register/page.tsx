@@ -218,7 +218,7 @@ export default function RegisterPage() {
                 const lastName = payload.family_name || "";
                 const googleId = payload.sub || "";
                 
-                const res = await api.auth.googleLogin(email, firstName, lastName, googleId, formData.role);
+                const res = await api.auth.googleLogin(email, firstName, lastName, googleId, formData.role, response.credential);
                 const user = res?.user || api.auth.getUser();
                 
                 if (user && user.is_onboarded === false) {

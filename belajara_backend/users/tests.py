@@ -73,7 +73,8 @@ def test_login_and_me_api():
     assert me_response.data["mahasiswa_profile"]["nim"] == "99998888"
 
 @pytest.mark.django_db
-def test_google_oauth_new_user():
+def test_google_oauth_new_user(settings):
+    settings.DEBUG = True
     client = APIClient()
     url = reverse('auth_google')
     data = {
@@ -91,7 +92,8 @@ def test_google_oauth_new_user():
     assert response.data["user"]["is_onboarded"] is False
 
 @pytest.mark.django_db
-def test_google_oauth_existing_user():
+def test_google_oauth_existing_user(settings):
+    settings.DEBUG = True
     mahasiswa = create_mahasiswa(
         username="existinggoogle",
         password="somepassword",
@@ -171,7 +173,8 @@ def test_register_student_missing_nim():
     assert "nim" in response.data
 
 @pytest.mark.django_db
-def test_google_oauth_new_instructor():
+def test_google_oauth_new_instructor(settings):
+    settings.DEBUG = True
     client = APIClient()
     url = reverse('auth_google')
     data = {
@@ -334,6 +337,5 @@ def test_change_password_api():
     # 5. Verify database user password updated
     mahasiswa.user.refresh_from_db()
     assert mahasiswa.user.check_password("newpassword123") is True
-
 
 

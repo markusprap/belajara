@@ -445,22 +445,6 @@ export default function CourseDetailPage({ params }: PageProps) {
     }
   }, [activeSidebarTab, activeSubItem, fetchForumData])
 
-  // Quiz Countdown Timer
-  React.useEffect(() => {
-    if (!quizTimerActive || quizTimeLeft <= 0) {
-      if (quizTimerActive && quizTimeLeft === 0) {
-        handleQuizSubmit() // Auto-submit on timeout
-      }
-      return
-    }
-
-    const timer = setInterval(() => {
-      setQuizTimeLeft(prev => prev - 1)
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [quizTimeLeft, quizTimerActive])
-
   // Helper formatting for timer
   const formatTime = (seconds: number) => {
     const min = Math.floor(seconds / 60)
@@ -507,7 +491,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     }))
   }
 
-  const handleQuizSubmit = async () => {
+  const handleQuizSubmit = React.useCallback(async () => {
     if (!activeQuiz) return
     setQuizTimerActive(false)
     try {
@@ -522,7 +506,23 @@ export default function CourseDetailPage({ params }: PageProps) {
       alert("Gagal mengirimkan jawaban evaluasi.")
       setQuizTimerActive(true)
     }
-  }
+  }, [activeQuiz, activeSubChapter, markSubChapterAsCompleted, quizAnswers])
+
+  // Quiz Countdown Timer
+  React.useEffect(() => {
+    if (!quizTimerActive || quizTimeLeft <= 0) {
+      if (quizTimerActive && quizTimeLeft === 0) {
+        handleQuizSubmit()
+      }
+      return
+    }
+
+    const timer = setInterval(() => {
+      setQuizTimeLeft(prev => prev - 1)
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [handleQuizSubmit, quizTimeLeft, quizTimerActive])
 
   const handleResetQuiz = () => {
     setActiveQuiz(null)

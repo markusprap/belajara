@@ -413,6 +413,133 @@ export const PROGRAM_STUDI_INDONESIA: string[] = [
 
 // ─── Utility functions ────────────────────────────────────────────────────────
 
+export type ProgramStudiGroupKey =
+  | "computing"
+  | "engineering"
+  | "business"
+  | "socialHumanities"
+  | "education"
+  | "science"
+  | "health"
+  | "agriculture"
+  | "artsCulture"
+  | "tourism"
+  | "general";
+
+export interface ProgramStudiGroup {
+  key: ProgramStudiGroupKey;
+  label: string;
+  keywords: string[];
+}
+
+export const PROGRAM_STUDI_GROUPS: ProgramStudiGroup[] = [
+  {
+    key: "computing",
+    label: "Komputasi & Teknologi Informasi",
+    keywords: [
+      "informatika", "komputer", "informasi", "siber", "kecerdasan buatan",
+      "data science", "ilmu data", "cloud", "jaringan", "multimedia",
+      "animasi", "desain komunikasi visual", "desain grafis", "bisnis digital"
+    ],
+  },
+  {
+    key: "engineering",
+    label: "Teknik & Rekayasa",
+    keywords: [
+      "teknik", "arsitektur", "industri", "sipil", "mesin", "elektro",
+      "kimia", "pertambangan", "perminyakan", "metalurgi", "material",
+      "nuklir", "biomedik", "penerbangan", "perkapalan", "geodesi",
+      "geofisika", "geologi", "fisika", "telekomunikasi", "robotika",
+      "lingkungan", "planologi", "perencanaan wilayah"
+    ],
+  },
+  {
+    key: "business",
+    label: "Ekonomi, Bisnis & Manajemen",
+    keywords: [
+      "manajemen", "akuntansi", "ekonomi", "perbankan", "bisnis",
+      "administrasi bisnis", "perkantoran", "pemasaran", "perpajakan",
+      "logistik", "keuangan", "kewirausahaan", "aset"
+    ],
+  },
+  {
+    key: "socialHumanities",
+    label: "Sosial, Humaniora & Hukum",
+    keywords: [
+      "komunikasi", "hubungan internasional", "politik", "sosiologi",
+      "antropologi", "sejarah", "arkeologi", "filsafat", "psikologi",
+      "geografi", "kriminologi", "kesejahteraan sosial", "administrasi negara",
+      "administrasi publik", "hukum", "kebijakan publik", "jurnalistik",
+      "humas", "penyiaran", "periklanan", "film", "perpustakaan", "kearsipan"
+    ],
+  },
+  {
+    key: "education",
+    label: "Pendidikan & Keguruan",
+    keywords: [
+      "pendidikan", "guru", "pgsd", "paud", "bimbingan dan konseling",
+      "teknologi pendidikan", "luar biasa", "jasmani", "olahraga"
+    ],
+  },
+  {
+    key: "science",
+    label: "Sains & Matematika",
+    keywords: [
+      "matematika", "statistika", "fisika", "kimia", "biologi", "geologi",
+      "geofisika", "meteorologi", "oseanografi", "astronomi", "biokimia",
+      "mikrobiologi", "lingkungan", "kelautan", "aktuaria"
+    ],
+  },
+  {
+    key: "health",
+    label: "Kedokteran & Kesehatan",
+    keywords: [
+      "dokter", "kedokteran", "farmasi", "keperawatan", "kebidanan",
+      "kesehatan", "gizi", "fisioterapi", "radiologi", "rekam medis",
+      "analis kesehatan", "rumah sakit", "biomedik", "hewan", "optometri",
+      "epidemiologi", "bioinformatika"
+    ],
+  },
+  {
+    key: "agriculture",
+    label: "Pertanian, Perikanan & Kehutanan",
+    keywords: [
+      "agroteknologi", "agribisnis", "tanah", "hama", "tanaman",
+      "pertanian", "pangan", "kehutanan", "hutan", "silvikultur",
+      "peternakan", "ternak", "perairan", "perikanan", "kelautan",
+      "penyuluhan"
+    ],
+  },
+  {
+    key: "artsCulture",
+    label: "Seni, Bahasa & Budaya",
+    keywords: [
+      "seni", "tari", "musik", "drama", "teater", "kriya", "karawitan",
+      "etnomusikologi", "bahasa", "sastra", "daerah", "tafsir",
+      "peradaban islam"
+    ],
+  },
+  {
+    key: "tourism",
+    label: "Pariwisata & Perhotelan",
+    keywords: [
+      "pariwisata", "perhotelan", "hotel", "destinasi", "tata boga",
+      "tata rias", "ekowisata"
+    ],
+  },
+];
+
+export function inferProgramStudiGroup(prodi?: string | null): ProgramStudiGroup {
+  const normalized = (prodi || "").toLowerCase().trim();
+  if (!normalized) {
+    return { key: "general", label: "Program Studi Umum", keywords: [] };
+  }
+
+  return PROGRAM_STUDI_GROUPS.find(group =>
+    group.keywords.some(keyword => normalized.includes(keyword))
+  ) || { key: "general", label: "Program Studi Umum", keywords: [] };
+}
+
 /**
  * Search universities by partial match (case-insensitive).
  * Returns max `limit` results.

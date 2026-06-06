@@ -1,5 +1,6 @@
 // Frontend API Client with JWT storage & mock fallbacks
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001/api";
+const ENABLE_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
 
 export function getToken(): string | null {
   if (typeof window !== "undefined") {
@@ -263,8 +264,8 @@ export const api = {
           throw err;
         }
 
-        console.warn("API login failed, using mock auth session:", err);
-        if (username.length >= 3) {
+        if (ENABLE_MOCKS && username.length >= 3) {
+          console.warn("API login failed, using mock auth session:", err);
           const mockUser = {
             id: 1,
             username: username,
@@ -291,11 +292,18 @@ export const api = {
         throw err;
       }
     },
-    googleLogin: async (email: string, firstName: string, lastName: string, googleId: string = "mock-google-id", role?: string) => {
+    googleLogin: async (
+      email: string,
+      firstName: string,
+      lastName: string,
+      googleId: string = "mock-google-id",
+      role?: string,
+      credential?: string
+    ) => {
       try {
         const data = await request("/auth/google/", {
           method: "POST",
-          body: JSON.stringify({ email, first_name: firstName, last_name: lastName, google_id: googleId, role }),
+          body: JSON.stringify({ email, first_name: firstName, last_name: lastName, google_id: googleId, role, credential }),
         });
         setToken(data.tokens?.access || data.token || data.access);
         try {
@@ -307,6 +315,10 @@ export const api = {
         }
         return data;
       } catch (err: any) {
+        if (!ENABLE_MOCKS) {
+          throw err;
+        }
+
         console.warn("API Google login failed, using mock auth session:", err);
         const username = email.split('@')[0];
         const isInstructor = role === "instructor" || email.includes("instructor") || email.includes("dosen") || email === "ahmad@gmail.com";
@@ -844,18 +856,80 @@ function mockGetStatus(curriculumId: number) {
   if (session.attempts >= 3) {
     session.status = "success";
   }
+  const user = getUser();
+  const prodi = user?.mahasiswa_profile?.jurusan || user?.jurusan || "Program Studi Umum";
   return {
     status: session.status,
     academic_profile: session.status === "success" ? {
+      study_program: prodi,
+      detected_semester: user?.mahasiswa_profile?.semester || user?.semester || 3,
+      readiness_score: 74,
+      confidence_score: 82,
+      summary: `Dokumen menunjukkan fondasi ${prodi} sudah terbentuk, dengan beberapa gap prioritas yang perlu ditutup lewat mata kuliah terarah dan proyek kecil.`,
       completed_subjects: [
-        "Pemrograman Dasar (Python)",
-        "Logika & Matematika Dasar"
+        `Pengantar ${prodi}`,
+        `Dasar Keilmuan ${prodi}`,
+        "Metode Penelitian"
+      ],
+      competency_scores: {
+        core_foundation: 76,
+        analysis_research: 68,
+        professional_practice: 58,
+        digital_data: 64,
+        communication_ethics: 80
+      },
+      competency_evidence: [
+        {
+          competency: "Fondasi Keilmuan",
+          evidence: `Dokumen memuat beberapa mata kuliah dasar yang selaras dengan ${prodi}.`,
+          confidence: 84
+        },
+        {
+          competency: "Metodologi & Analisis",
+          evidence: "Ada indikasi mata kuliah metodologi, tetapi latihan analisis lanjutan masih perlu diperkuat.",
+          confidence: 76
+        }
       ],
       competency_gaps: [
-        "Struktur Data Dinamis & Manajemen Memori",
-        "Perancangan Database Relasional (SQL)"
+        {
+          gap: `Pendalaman kompetensi inti ${prodi}`,
+          priority: "high",
+          reason: "Area ini paling langsung memengaruhi kesiapan akademik dan karier.",
+          suggested_action: "Ambil mata kuliah inti lanjutan dan kerjakan studi kasus terapan."
+        },
+        {
+          gap: "Literasi data dan analisis kuantitatif",
+          priority: "medium",
+          reason: "Kemampuan membaca data memperkuat hampir semua rumpun studi.",
+          suggested_action: "Pilih kelas statistik, metode penelitian, atau analisis data dasar."
+        }
       ],
-      career_recommendations: "Software Engineer, Database Administrator, Backend Developer"
+      career_recommendations: [
+        {
+          title: `Profesional ${prodi}`,
+          fit_score: 82,
+          missing_skills: ["Portofolio/studi kasus", "Pendalaman kompetensi inti"],
+          why: `Jalur ini paling dekat dengan mata kuliah yang sudah terdeteksi pada dokumen ${prodi}.`
+        },
+        {
+          title: "Research / Academic Track",
+          fit_score: 73,
+          missing_skills: ["Metode penelitian lanjut", "Penulisan ilmiah"],
+          why: "Dokumen menunjukkan dasar akademik yang bisa diarahkan ke riset atau proyek akhir."
+        }
+      ],
+      semester_plan: [
+        {
+          term: "Semester Berikutnya",
+          focus: "Tutup gap prioritas tertinggi",
+          actions: ["Ambil 2 mata kuliah inti lanjutan", "Buat satu studi kasus dari dokumen yang diunggah"]
+        },
+        {
+          term: "2 Semester Mendatang",
+          focus: "Validasi arah karier",
+          actions: ["Pilih peminatan yang selaras career lens", "Bangun portofolio atau mini research report"]
+        }
+      ]
     } : null,
     recommendations: session.status === "success" ? [
       {

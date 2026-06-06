@@ -92,7 +92,7 @@ export default function LoginPage() {
                 const lastName = payload.family_name || "";
                 const googleId = payload.sub || "";
                 
-                const res = await api.auth.googleLogin(email, firstName, lastName, googleId);
+                const res = await api.auth.googleLogin(email, firstName, lastName, googleId, undefined, response.credential);
                 const user = res?.user || api.auth.getUser();
                 if (user && user.is_onboarded === false) {
                   router.push('/onboarding');

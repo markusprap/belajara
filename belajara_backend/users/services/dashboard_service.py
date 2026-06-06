@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from users.models import Mahasiswa
 from courses.serializers import CourseSerializer
 from explore.models import AIRecommendation
@@ -8,21 +7,12 @@ def get_student_dashboard_data(user) -> dict:
     Fetches real dashboard data for a student user from PostgreSQL.
     Utilizes prefetching to ensure fast query performance.
     """
-    # 1. Resolve student profile (with local fallback for ease of integration)
+    # 1. Resolve student profile
     if not user or not user.is_authenticated:
-        User = get_user_model()
-        user, created = User.objects.get_or_create(
-            username="mahasiswa",
-            defaults={
-                "email": "mahasiswa@belajara.id",
-                "first_name": "Budi",
-                "last_name": "Santoso",
-                "is_mahasiswa": True
-            }
-        )
-        if created:
-            user.set_password("password123")
-            user.save()
+        raise ValueError("Authentication credentials were not provided.")
+
+    if not getattr(user, 'is_mahasiswa', False):
+        raise ValueError("Profil mahasiswa tidak ditemukan.")
 
     mahasiswa, m_created = Mahasiswa.objects.get_or_create(
         user=user,

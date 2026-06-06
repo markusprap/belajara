@@ -7,7 +7,7 @@ from users.models import Mahasiswa
 from .models import Curriculum, AIRecommendation
 from .services.pdf_service import extract_text_from_pdf
 from .services.excel_service import extract_text_from_excel
-from .services.llm_service import analyze_curriculum_text
+from .services.llm_service import analyze_curriculum_text, normalize_recommendations_payload
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,16 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
         ]
 
         # Call LLM matching service
-        recommendations = analyze_curriculum_text(text, available_courses_list, is_premium=mahasiswa.user.is_premium)
+        recommendations = analyze_curriculum_text(
+            text,
+            available_courses_list,
+            is_premium=mahasiswa.user.is_premium,
+            study_program=mahasiswa.jurusan,
+        )
 
         # Handle structured dictionary output format
         if isinstance(recommendations, dict):
+            recommendations = normalize_recommendations_payload(recommendations, mahasiswa.jurusan)
             academic_profile = recommendations.get("academic_profile", {})
             course_matches = recommendations.get("course_matches", [])
         else:
@@ -93,7 +99,7 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id):
                 saved_recommendations_list.append({
                     "code": c.code,
                     "match_percentage": 85,
-                    "reason": "Mata kuliah dasar ini sangat direkomendasikan untuk menunjang pilar keahlian informatika Anda."
+                    "reason": f"Mata kuliah dasar ini direkomendasikan untuk menunjang pilar keahlian {mahasiswa.jurusan} Anda."
                 })
 
         recommendations_payload = {

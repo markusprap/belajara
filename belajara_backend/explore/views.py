@@ -2,18 +2,20 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.contrib.auth import get_user_model
+from rest_framework.permissions import IsAuthenticated
 
 from courses.models import Course
+from courses.permissions import IsInstructor
 from courses.serializers import CourseSerializer
 from users.models import Mahasiswa
 from .models import Curriculum, AIRecommendation
 from .services.curriculum_service import parse_curriculum_and_save
+from .services.llm_service import normalize_recommendations_payload
 from .tasks import analyze_curriculum_task
 
 class PDFAnalyzeView(APIView):
     parser_classes = (MultiPartParser, FormParser)
-    permission_classes = []  # Allow open access for ease of integration
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         uploaded_file = request.FILES.get('file')
@@ -32,29 +34,13 @@ class PDFAnalyzeView(APIView):
             return Response({"detail": "File harus berupa dokumen PDF atau Excel."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # 1. Fallback to default student if not authenticated
+            # 1. Resolve authenticated student
             user = request.user
-            if not user or not user.is_authenticated:
-                from django.conf import settings
-                if not settings.DEBUG:
-                    return Response(
-                        {"detail": "Authentication credentials were not provided."},
-                        status=status.HTTP_401_UNAUTHORIZED
-                    )
-
-                User = get_user_model()
-                user, created = User.objects.get_or_create(
-                    username="mahasiswa",
-                    defaults={
-                        "email": "mahasiswa@belajara.id",
-                        "first_name": "Budi",
-                        "last_name": "Santoso",
-                        "is_mahasiswa": True
-                    }
+            if not getattr(user, 'is_mahasiswa', False):
+                return Response(
+                    {"detail": "Hanya mahasiswa yang dapat meminta rekomendasi AI."},
+                    status=status.HTTP_403_FORBIDDEN
                 )
-                if created:
-                    user.set_password("password123")
-                    user.save()
 
             mahasiswa, m_created = Mahasiswa.objects.get_or_create(
                 user=user,
@@ -104,35 +90,31 @@ class PDFAnalyzeView(APIView):
 
 
 class AIRecommendationStatusView(APIView):
-    permission_classes = []  # Allow open access for ease of integration
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, curriculum_id, *args, **kwargs):
         recommendation = AIRecommendation.objects.select_related('mahasiswa__user').filter(curriculum_id=curriculum_id).first()
         if not recommendation:
             return Response({"status": "processing"}, status=status.HTTP_200_OK)
 
-        # Restrict access to owner in production / authenticated context
+        # Restrict access to owner
         user = request.user
-        if user and user.is_authenticated:
-            if recommendation.mahasiswa.user != user:
-                return Response(
-                    {"detail": "Anda tidak memiliki akses ke rekomendasi ini."},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        else:
-            from django.conf import settings
-            if not settings.DEBUG:
-                return Response(
-                    {"detail": "Authentication credentials were not provided."},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
+        if recommendation.mahasiswa.user != user:
+            return Response(
+                {"detail": "Anda tidak memiliki akses ke rekomendasi ini."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         recommendations_data = recommendation.recommendations_data
         
         # Check if recommendations_data is a dict (new format) or a list (old format)
         if isinstance(recommendations_data, dict):
-            academic_profile = recommendations_data.get("academic_profile", {})
-            course_matches = recommendations_data.get("course_matches", [])
+            normalized_payload = normalize_recommendations_payload(
+                recommendations_data,
+                recommendation.mahasiswa.jurusan,
+            )
+            academic_profile = normalized_payload.get("academic_profile", {})
+            course_matches = normalized_payload.get("course_matches", [])
         else:
             academic_profile = None
             course_matches = recommendations_data if isinstance(recommendations_data, list) else []
@@ -165,7 +147,7 @@ class AIRecommendationStatusView(APIView):
 
 class CurriculumUploadView(APIView):
     parser_classes = (MultiPartParser, FormParser)
-    permission_classes = []  # Allow open access for ease of integration
+    permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, *args, **kwargs):
         uploaded_file = request.FILES.get('file')

@@ -1,16 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db.models import Q
-from django.contrib.auth import get_user_model
 from users.models import Mahasiswa
 from .models import Course, CourseModule
 from .serializers import CourseSerializer, CourseModuleSerializer
 from .permissions import IsInstructor
-
-User = get_user_model()
-
 
 from rest_framework.pagination import PageNumberPagination
 
@@ -20,7 +16,7 @@ class CoursePagination(PageNumberPagination):
     max_page_size = 100
 
 class CourseListView(APIView):
-    permission_classes = []  # Allow open access for ease of local integration
+    permission_classes = [AllowAny]
 
     def get(self, request):
         queryset = Course.objects.all().prefetch_related('modules__subchapters')
@@ -66,7 +62,7 @@ class CourseListView(APIView):
 
 
 class CourseEnrollView(APIView):
-    permission_classes = []  # Allow open access for ease of local integration
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         course_code = request.data.get('course_code')
@@ -74,28 +70,12 @@ class CourseEnrollView(APIView):
         if not course_code:
             return Response({"detail": "Kode mata kuliah (course_code) harus diberikan."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fallback to test user if not authenticated
         user = request.user
-        if not user or not user.is_authenticated:
-            from django.conf import settings
-            if not settings.DEBUG:
-                return Response(
-                    {"detail": "Authentication credentials were not provided."},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-
-            user, created = User.objects.get_or_create(
-                username="mahasiswa",
-                defaults={
-                    "email": "mahasiswa@belajara.id",
-                    "first_name": "Budi",
-                    "last_name": "Santoso",
-                    "is_mahasiswa": True
-                }
+        if not getattr(user, 'is_mahasiswa', False):
+            return Response(
+                {"detail": "Hanya mahasiswa yang dapat mendaftar mata kuliah."},
+                status=status.HTTP_403_FORBIDDEN
             )
-            if created:
-                user.set_password("password123")
-                user.save()
 
         mahasiswa, m_created = Mahasiswa.objects.get_or_create(
             user=user,
@@ -164,7 +144,7 @@ class CourseEnrollView(APIView):
 
 
 class CourseDetailView(APIView):
-    permission_classes = []  # Allow open access
+    permission_classes = [AllowAny]
 
     def get(self, request, code):
         try:
