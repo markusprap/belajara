@@ -191,7 +191,7 @@ export default function ProfilePage() {
         </header>
 
         <div className="flex flex-1 flex-col gap-6 p-6 bg-[#FAF9FB]">
-          <div className="max-w-3xl space-y-6">
+          <div className="max-w-5xl mx-auto w-full space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
               <div>
                 <h1 className="text-3xl font-heading font-bold text-[#060708]">Profil Saya</h1>
@@ -600,47 +600,6 @@ export default function ProfilePage() {
                               <span>Peringkat Mahasiswa</span>
                             </div>
                           </div>
-                        </div>
-
-                        {/* List of active courses */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Mata Kuliah Aktif Anda:</h4>
-                          {!dashData?.active_courses || dashData.active_courses.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic">Anda belum mengikuti mata kuliah apa pun.</p>
-                          ) : (
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {dashData.active_courses.map((course: any) => (
-                                <div 
-                                  key={course.id} 
-                                  className="p-3 border rounded-xl bg-white flex flex-col justify-between hover:border-[#C6B5BF] transition-colors"
-                                >
-                                  <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                      <span className="text-[10px] font-bold text-primary px-1.5 py-0.5 rounded bg-[#FAF9FB] border">
-                                        {course.code}
-                                      </span>
-                                      <span className="text-[10px] text-muted-foreground">
-                                        {course.sks} SKS | Sem {course.semester}
-                                      </span>
-                                    </div>
-                                    <h5 className="text-xs font-bold text-primary truncate">
-                                      {course.title}
-                                    </h5>
-                                    <p className="text-[11px] text-muted-foreground line-clamp-2 mt-1">
-                                      {course.description}
-                                    </p>
-                                  </div>
-                                  <Button
-                                    onClick={() => router.push(`/courses/${course.code}`)}
-                                    size="sm"
-                                    className="bg-[#060708] hover:bg-[#060708]/90 text-white text-[10px] h-7 px-3 rounded-lg cursor-pointer mt-3 w-full self-end"
-                                  >
-                                    Lanjutkan Belajar
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </>
                     )}

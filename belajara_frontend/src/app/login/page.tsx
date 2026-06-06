@@ -20,6 +20,23 @@ const GoogleIcon = () => (
   </svg>
 )
 
+function decodeJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error("Failed to decode JWT:", e);
+    return null;
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [username, setUsername] = React.useState("")
@@ -57,6 +74,65 @@ export default function LoginPage() {
       }
     }
   }, [])
+
+  React.useEffect(() => {
+    const initializeGoogleSignIn = () => {
+      if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
+        const google = (window as any).google;
+        google.accounts.id.initialize({
+          client_id: "1051932175490-ir0vmmo1bb290nk73n5kn6tvcvf29b6i.apps.googleusercontent.com",
+          callback: async (response: any) => {
+            setLoading(true);
+            setError(null);
+            try {
+              const payload = decodeJwt(response.credential);
+              if (payload) {
+                const email = payload.email;
+                const firstName = payload.given_name || "";
+                const lastName = payload.family_name || "";
+                const googleId = payload.sub || "";
+                
+                const res = await api.auth.googleLogin(email, firstName, lastName, googleId);
+                const user = res?.user || api.auth.getUser();
+                if (user && user.is_onboarded === false) {
+                  router.push('/onboarding');
+                } else if (user?.is_instructor) {
+                  router.push('/instructor');
+                } else {
+                  router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard');
+                }
+              }
+            } catch (err: any) {
+              setError(err.message || "Gagal masuk dengan Google.");
+            } finally {
+              setLoading(false);
+            }
+          }
+        });
+
+        google.accounts.id.renderButton(
+          document.getElementById("google-signin-button-target"),
+          { 
+            theme: "outline", 
+            size: "large", 
+            width: "100%", 
+            shape: "pill",
+            text: "signin_with",
+            logo_alignment: "center"
+          }
+        );
+      }
+    };
+
+    const timer = setInterval(() => {
+      if ((window as any).google?.accounts?.id) {
+        initializeGoogleSignIn();
+        clearInterval(timer);
+      }
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [redirectUrl, router]);
 
   const handleGoogleLogin = async (email: string, firstName: string, lastName: string, roleParam?: string) => {
     setLoading(true)
@@ -275,15 +351,16 @@ export default function LoginPage() {
                   <div className="flex-grow border-t border-border"></div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowGoogleModal(true)}
-                  className="w-full bg-white hover:bg-slate-50 border border-border text-[#060708] font-bold text-xs h-9 rounded-lg shadow-2xs cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <GoogleIcon />
-                  Masuk dengan Google
-                </Button>
+                <div className="w-full flex flex-col items-center">
+                  <div id="google-signin-button-target" className="w-full flex justify-center min-h-[40px]" />
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleModal(true)}
+                    className="text-[10px] text-muted-foreground hover:text-primary transition underline font-semibold mt-1 cursor-pointer"
+                  >
+                    Gunakan Simulasi Login (Demo)
+                  </button>
+                </div>
 
                 <div className="text-xs text-center text-muted-foreground mt-2 font-semibold">
                   Belum punya akun?{" "}

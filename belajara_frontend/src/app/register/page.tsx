@@ -9,7 +9,119 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Loader2, CheckCircle, Sparkles, Compass, Clock, MessageSquare, Eye, EyeOff } from "lucide-react"
+import { AlertCircle, Loader2, CheckCircle, Sparkles, Compass, Clock, MessageSquare, Eye, EyeOff, ChevronDown, Search } from "lucide-react"
+import { searchUniversitas, searchProdi } from "@/lib/indonesia-academic-data"
+
+// ─── Autocomplete Input Component ─────────────────────────────────────────
+function AutocompleteInput({
+  id,
+  name,
+  label,
+  placeholder,
+  value,
+  onChange,
+  searchFn,
+  disabled,
+}: {
+  id: string
+  name: string
+  label?: string
+  placeholder: string
+  value: string
+  onChange: (val: string) => void
+  searchFn: (q: string) => string[]
+  disabled?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [suggestions, setSuggestions] = React.useState<string[]>([])
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    onChange(val)
+    const results = searchFn(val)
+    setSuggestions(results)
+    if (results.length > 0) {
+      setOpen(true)
+    } else {
+      setOpen(false)
+    }
+  }
+
+  const handleSelect = (item: string) => {
+    onChange(item)
+    setOpen(false)
+    setSuggestions([])
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") setOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <input
+          id={id}
+          name={name}
+          type="text"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={value}
+          onChange={handleInput}
+          onFocus={() => {
+            const results = searchFn(value)
+            if (results.length > 0) {
+              setSuggestions(results)
+              setOpen(true)
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="w-full bg-white border border-border rounded-lg pl-8 pr-8 py-2 text-sm text-primary placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#060708]/10 focus:border-[#060708]/30 transition disabled:opacity-50"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => { onChange(""); setSuggestions([]); setOpen(false) }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1 py-0.5 font-bold"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <div
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto"
+        >
+          {suggestions.map((item, i) => (
+            <button
+              key={i}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(item) }}
+              className="w-full text-left px-3 py-2 text-xs text-primary hover:bg-slate-50 transition-colors border-b border-border/40 last:border-0 cursor-pointer"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const GoogleIcon = () => (
   <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
@@ -19,6 +131,23 @@ const GoogleIcon = () => (
     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
   </svg>
 )
+
+function decodeJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error("Failed to decode JWT:", e);
+    return null;
+  }
+}
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -30,8 +159,8 @@ export default function RegisterPage() {
     last_name: "",
     role: "student", // "student" | "instructor"
     nim: "",
-    jurusan: "Informatika",
-    universitas: "Universitas Indonesia",
+    jurusan: "",
+    universitas: "",
     semester: "3",
     nidn: "",
     bidang_keahlian: ""
@@ -72,6 +201,66 @@ export default function RegisterPage() {
     }
   }, [])
 
+  React.useEffect(() => {
+    const initializeGoogleSignIn = () => {
+      if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
+        const google = (window as any).google;
+        google.accounts.id.initialize({
+          client_id: "1051932175490-ir0vmmo1bb290nk73n5kn6tvcvf29b6i.apps.googleusercontent.com",
+          callback: async (response: any) => {
+            setLoading(true);
+            setError(null);
+            try {
+              const payload = decodeJwt(response.credential);
+              if (payload) {
+                const email = payload.email;
+                const firstName = payload.given_name || "";
+                const lastName = payload.family_name || "";
+                const googleId = payload.sub || "";
+                
+                const res = await api.auth.googleLogin(email, firstName, lastName, googleId, formData.role);
+                const user = res?.user || api.auth.getUser();
+                
+                if (user && user.is_onboarded === false) {
+                  router.push('/onboarding');
+                } else if (user?.is_instructor) {
+                  router.push('/instructor');
+                } else {
+                  router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard');
+                }
+              }
+            } catch (err: any) {
+              setError(err.message || "Gagal daftar dengan Google.");
+            } finally {
+              setLoading(false);
+            }
+          }
+        });
+
+        google.accounts.id.renderButton(
+          document.getElementById("google-signup-button-target"),
+          { 
+            theme: "outline", 
+            size: "large", 
+            width: "100%", 
+            shape: "pill",
+            text: "signup_with",
+            logo_alignment: "center"
+          }
+        );
+      }
+    };
+
+    const timer = setInterval(() => {
+      if ((window as any).google?.accounts?.id) {
+        initializeGoogleSignIn();
+        clearInterval(timer);
+      }
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [redirectUrl, router, formData.role]);
+
   const handleGoogleLogin = async (email: string, firstName: string, lastName: string, roleParam?: string) => {
     setLoading(true)
     setError(null)
@@ -81,7 +270,9 @@ export default function RegisterPage() {
       const resolvedRole = roleParam || (googleRole === "instruktur" ? "instructor" : "student");
       const res = await api.auth.googleLogin(email, firstName, lastName, "mock-google-id", resolvedRole)
       const user = res?.user || api.auth.getUser()
-      if (user?.is_instructor) {
+      if (user && user.is_onboarded === false) {
+        router.push('/onboarding')
+      } else if (user?.is_instructor) {
         router.push('/instructor')
       } else {
         router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard')
@@ -265,7 +456,7 @@ export default function RegisterPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+              <CardContent className="space-y-4 pr-2 pb-6">
                 {error && (
                   <div className="p-3 bg-destructive/10 text-destructive text-xs rounded-lg flex items-start gap-2 border border-destructive/20">
                     <AlertCircle className="h-4.5 w-4.5 shrink-0 mt-0.5" />
@@ -433,30 +624,26 @@ export default function RegisterPage() {
 
                     <div className="space-y-1.5">
                       <Label htmlFor="jurusan" className="text-xs font-semibold text-primary">Jurusan / Program Studi</Label>
-                      <select
+                      <AutocompleteInput
                         id="jurusan"
                         name="jurusan"
+                        placeholder="cth: Informatika, Manajemen..."
                         value={formData.jurusan}
-                        onChange={handleChange}
-                        className="w-full bg-white border border-border rounded-lg px-3 py-2 text-sm text-primary focus:outline-none cursor-pointer"
+                        onChange={(val) => setFormData(prev => ({ ...prev, jurusan: val }))}
+                        searchFn={searchProdi}
                         disabled={loading}
-                      >
-                        <option value="Informatika">Informatika</option>
-                        <option value="Sistem Informasi">Sistem Informasi</option>
-                        <option value="Teknik Komputer">Teknik Komputer</option>
-                      </select>
+                      />
                     </div>
 
                     <div className="space-y-1.5">
                       <Label htmlFor="universitas" className="text-xs font-semibold text-primary">Universitas / Perguruan Tinggi</Label>
-                      <Input
+                      <AutocompleteInput
                         id="universitas"
                         name="universitas"
-                        type="text"
-                        placeholder="Universitas Indonesia"
+                        placeholder="cth: Universitas Indonesia..."
                         value={formData.universitas}
-                        onChange={handleChange}
-                        className="bg-white border border-border rounded-lg"
+                        onChange={(val) => setFormData(prev => ({ ...prev, universitas: val }))}
+                        searchFn={searchUniversitas}
                         disabled={loading}
                       />
                     </div>
@@ -500,14 +687,13 @@ export default function RegisterPage() {
 
                     <div className="space-y-1.5">
                       <Label htmlFor="universitas" className="text-xs font-semibold text-primary">Universitas / Perguruan Tinggi</Label>
-                      <Input
+                      <AutocompleteInput
                         id="universitas"
                         name="universitas"
-                        type="text"
-                        placeholder="Universitas Indonesia"
+                        placeholder="cth: Institut Teknologi Bandung..."
                         value={formData.universitas}
-                        onChange={handleChange}
-                        className="bg-white border border-border rounded-lg"
+                        onChange={(val) => setFormData(prev => ({ ...prev, universitas: val }))}
+                        searchFn={searchUniversitas}
                         disabled={loading}
                       />
                     </div>
@@ -538,15 +724,16 @@ export default function RegisterPage() {
                   <div className="flex-grow border-t border-border"></div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowGoogleModal(true)}
-                  className="w-full bg-white hover:bg-slate-50 border border-border text-[#060708] font-bold text-xs h-9 rounded-lg shadow-2xs cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <GoogleIcon />
-                  Daftar dengan Google
-                </Button>
+                <div className="w-full flex flex-col items-center">
+                  <div id="google-signup-button-target" className="w-full flex justify-center min-h-[40px]" />
+                  <button
+                    type="button"
+                    onClick={() => setShowGoogleModal(true)}
+                    className="text-[10px] text-muted-foreground hover:text-primary transition underline font-semibold mt-1 cursor-pointer"
+                  >
+                    Gunakan Simulasi Registrasi (Demo)
+                  </button>
+                </div>
 
                 <div className="text-xs text-center text-muted-foreground mt-2 font-semibold">
                   Sudah memiliki akun?{" "}

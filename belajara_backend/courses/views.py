@@ -114,13 +114,23 @@ class CourseEnrollView(APIView):
 
         # Determine enrollment mode
         is_course_free = (course.price <= 0 or not course.is_premium)
-        if is_course_free:
-            mode = 'verified'
-        else:
-            if enrollment_mode in ['audit', 'verified']:
-                mode = enrollment_mode
-            else:
+        is_user_premium = getattr(user, 'is_premium', False)
+        
+        # Check if there is a successful purchase for this specific course
+        from payments.models import Transaction
+        has_purchased = Transaction.objects.filter(
+            mahasiswa=mahasiswa,
+            course=course,
+            status='success'
+        ).exists()
+
+        if is_course_free or is_user_premium or has_purchased:
+            if enrollment_mode == 'audit' and not is_course_free:
                 mode = 'audit'
+            else:
+                mode = 'verified'
+        else:
+            mode = 'audit'
 
         # Check if already enrolled in the ManyToMany relationship
         from .models import Enrollment

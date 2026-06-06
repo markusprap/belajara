@@ -296,7 +296,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
 
   // Derived variables
   const isEnrolled = course ? activeCourseCodes.includes(course.code) : false
-  const isFree = course ? (Number(course.price) <= 0 || !course.is_premium) : true
+  const isFree = course ? (Number(course.price) <= 0 || !course.is_premium || currentUser?.is_premium) : true
   const priceFormatted = course ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(course.price)) : "Gratis"
   const originalPriceFormatted = course ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(course.price) * 2) : "Rp 300.000"
 
@@ -1008,10 +1008,10 @@ export default function CoursePreviewPage({ params }: PageProps) {
                   </ul>
                 </div>
                 <Button
-                  onClick={handleCheckoutTrigger}
+                  onClick={isFree ? () => handleEnroll('verified') : handleCheckoutTrigger}
                   className="w-full bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white font-bold text-[10px] h-8 rounded-lg cursor-pointer flex items-center justify-center gap-1 shadow-sm"
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" /> Beli Kelas Lengkap
+                  <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" /> {isFree ? "Mulai Belajar (Premium)" : "Beli Kelas Lengkap"}
                 </Button>
               </div>
             </div>

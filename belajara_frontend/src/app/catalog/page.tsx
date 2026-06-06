@@ -610,36 +610,43 @@ export default function CatalogPage() {
                 <div className="absolute top-0 right-0 bg-[#CF3A1F] text-white text-[8px] font-bold uppercase px-2 py-0.5 rounded-bl">
                   Direkomendasikan
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-xs font-bold text-[#060708] mb-0.5">Kelas Lengkap (Premium)</h4>
-                    <span className="text-[10px] font-black text-[#CF3A1F]">
-                      {selectedEnrollCourse.is_premium && Number(selectedEnrollCourse.price) > 0 
-                        ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(selectedEnrollCourse.price)) 
-                        : "Gratis"}
-                    </span>
-                  </div>
-                  <ul className="space-y-2 text-[10px] text-slate-700 font-bold">
-                    <li className="flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5 text-[#CF3A1F] shrink-0" />
-                      Semua Akses Pembelajaran
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5 text-[#CF3A1F] shrink-0" />
-                      Evaluasi Kompetensi Mandiri Berbasis AI
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5 text-[#CF3A1F] shrink-0" />
-                      Sertifikat Kelulusan Resmi
-                    </li>
-                  </ul>
-                </div>
-                <Button
-                  onClick={() => handleCheckoutTrigger(selectedEnrollCourse)}
-                  className="w-full bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white font-bold text-[10px] h-8 rounded-lg cursor-pointer flex items-center justify-center gap-1 shadow-sm"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" /> Beli Kelas Lengkap
-                </Button>
+                {(() => {
+                  const isCourseFree = selectedEnrollCourse ? (Number(selectedEnrollCourse.price) <= 0 || !selectedEnrollCourse.is_premium || currentUser?.is_premium) : true
+                  return (
+                    <>
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="text-xs font-bold text-[#060708] mb-0.5">Kelas Lengkap (Premium)</h4>
+                          <span className="text-[10px] font-black text-[#CF3A1F]">
+                            {isCourseFree 
+                              ? "Gratis" 
+                              : new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(selectedEnrollCourse.price))}
+                          </span>
+                        </div>
+                        <ul className="space-y-2 text-[10px] text-slate-700 font-bold">
+                          <li className="flex items-center gap-1.5">
+                            <Check className="h-3.5 w-3.5 text-[#CF3A1F] shrink-0" />
+                            Semua Akses Pembelajaran
+                          </li>
+                          <li className="flex items-center gap-1.5">
+                            <Check className="h-3.5 w-3.5 text-[#CF3A1F] shrink-0" />
+                            Evaluasi Kompetensi Mandiri Berbasis AI
+                          </li>
+                          <li className="flex items-center gap-1.5">
+                            <Check className="h-3.5 w-3.5 text-[#CF3A1F] shrink-0" />
+                            Sertifikat Kelulusan Resmi
+                          </li>
+                        </ul>
+                      </div>
+                      <Button
+                        onClick={isCourseFree ? () => handleEnroll(selectedEnrollCourse.code, 'verified') : () => handleCheckoutTrigger(selectedEnrollCourse)}
+                        className="w-full bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white font-bold text-[10px] h-8 rounded-lg cursor-pointer flex items-center justify-center gap-1 shadow-sm"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" /> {isCourseFree ? "Mulai Belajar (Premium)" : "Beli Kelas Lengkap"}
+                      </Button>
+                    </>
+                  )
+                })()}
               </div>
             </div>
           </div>

@@ -240,7 +240,7 @@ export const api = {
           method: "POST",
           body: JSON.stringify({ username, password }),
         });
-        setToken(data.token || data.access);
+        setToken(data.tokens?.access || data.token || data.access);
         
         // Fetch real user details after successful login
         try {
@@ -297,7 +297,7 @@ export const api = {
           method: "POST",
           body: JSON.stringify({ email, first_name: firstName, last_name: lastName, google_id: googleId, role }),
         });
-        setToken(data.token || data.access);
+        setToken(data.tokens?.access || data.token || data.access);
         try {
           const userProfile = await request("/auth/me/");
           setUser(userProfile);

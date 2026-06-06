@@ -105,6 +105,16 @@ def is_payment_successful(transaction_status: str, fraud_status: Optional[str] =
     return provider.is_success_status(transaction_status, fraud_status)
 
 
+def check_transaction_status(order_id: str) -> dict:
+    """
+    Query provider directly to check the current payment status of an order.
+    """
+    provider = get_payment_provider()
+    if hasattr(provider, "get_transaction_status"):
+        return provider.get_transaction_status(order_id)
+    return {}
+
+
 def generate_order_id(prefix: str = "BLJR") -> str:
     """
     Generate a unique order ID for a transaction.

@@ -8,6 +8,7 @@ from payments.views import (
     SubscribeView,
     UserTransactionsView,
     CancelTransactionView,
+    VerifyTransactionView,
 )
 
 urlpatterns = [
@@ -20,6 +21,7 @@ urlpatterns = [
     path("payments/cancel-subscription/", CancelSubscriptionView.as_view(), name="payment_cancel_subscription"),
     path("payments/cancel-transaction/", CancelTransactionView.as_view(), name="payment_cancel_transaction"),
     path("payments/transactions/", UserTransactionsView.as_view(), name="payment_transactions"),
+    path("payments/verify/", VerifyTransactionView.as_view(), name="payment_verify"),
 
     # Midtrans notification webhook (no auth — Midtrans calls this)
     path("payments/webhook/", MidtransWebhookView.as_view(), name="payment_webhook"),

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Source_Sans_3 } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import Script from "next/script";
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -26,6 +27,7 @@ export default function RootLayout({
       className={`${sourceSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
+        <Script src="https://accounts.google.com/gsi/client" strategy="beforeInteractive" />
         <ThemeProvider defaultTheme="light" storageKey="belajara-ui-theme">
           <TooltipProvider>{children}</TooltipProvider>
         </ThemeProvider>

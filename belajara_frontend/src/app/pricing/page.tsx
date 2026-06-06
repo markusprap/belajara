@@ -341,7 +341,22 @@ export default function PricingPage() {
 
   const openSnap = (token: string, tierId: string, orderId?: string) => {
     (window as any).snap?.pay(token, {
-      onSuccess: () => {
+      onSuccess: async (result?: any) => {
+        const targetOrderId = orderId || result?.order_id;
+        if (targetOrderId) {
+          try {
+            await api.payment.verify(targetOrderId, "success");
+            api.auth.updatePremiumStatus(true);
+          } catch (e) {
+            console.error("Gagal verifikasi pembayaran ke server:", e);
+            // Fallback: update local state if mock is used
+            if (process.env.NEXT_PUBLIC_API_URL === undefined) {
+              api.auth.updatePremiumStatus(true);
+            }
+          }
+        } else {
+          api.auth.updatePremiumStatus(true);
+        }
         setCurrentTier(tierId);
         setIsLoading(null);
         window.location.href = "/dashboard?subscribed=true";

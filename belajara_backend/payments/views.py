@@ -31,6 +31,7 @@ from payments.services import (
     generate_order_id,
     is_payment_successful,
     verify_webhook_signature,
+    check_transaction_status,
 )
 from users.selectors import get_mahasiswa_by_user
 
@@ -330,6 +331,88 @@ class CancelSubscriptionView(APIView):
 
 
 # ---------------------------------------------------------------------------
+# Payment Status Helper
+# ---------------------------------------------------------------------------
+
+def process_payment_status(tx: Transaction, data: dict) -> Transaction:
+    """
+    Updates the transaction state and triggers associated actions (enrollment, subscription activation)
+    based on Midtrans payment status payload.
+    Must be called within database transaction block.
+    """
+    transaction_status = data.get("transaction_status")
+    fraud_status = data.get("fraud_status")
+    saved_token_id = data.get("saved_token_id", "")
+    
+    if is_payment_successful(transaction_status, fraud_status):
+        tx.status = "success"
+        tx.midtrans_payload = data
+
+        mahasiswa = tx.mahasiswa
+
+        if tx.transaction_type == "course_purchase" and tx.course:
+            if not mahasiswa.active_courses.filter(id=tx.course.id).exists():
+                mahasiswa.active_courses.add(tx.course)
+
+            enrollment, created = Enrollment.objects.get_or_create(
+                mahasiswa=mahasiswa,
+                course=tx.course,
+                defaults={"mode": "verified", "status": "active"},
+            )
+            if not created and enrollment.mode != "verified":
+                enrollment.mode = "verified"
+                enrollment.save()
+
+            logger.info(
+                "Payment success process: %s enrolled in %s",
+                mahasiswa.nim, tx.course.code,
+            )
+
+        elif tx.transaction_type in ("subscription_new", "subscription_renewal"):
+            sub = tx.subscription
+            if sub:
+                now = timezone.now()
+                sub.status = "active"
+                sub.current_period_start = now
+                sub.current_period_end = now + timedelta(days=30)
+                if saved_token_id:
+                    sub.saved_token_id = saved_token_id
+                sub.save()
+
+                mahasiswa.user.is_premium = True
+                mahasiswa.user.save(update_fields=["is_premium"])
+
+                logger.info(
+                    "Payment success process: Subscription activated: %s tier=%s until %s",
+                    mahasiswa.nim, sub.tier, sub.current_period_end,
+                )
+
+    elif transaction_status in ("deny", "cancel", "expire", "failure"):
+        tx.status = "failed"
+        tx.midtrans_payload = data
+        
+        if tx.transaction_type in ("subscription_new", "subscription_renewal") and tx.subscription:
+            sub = tx.subscription
+            sub.status = "cancelled"
+            sub.save()
+            
+        logger.info(
+            "Payment failure process: Transaction %s marked failed (status=%s)",
+            tx.order_id, transaction_status,
+        )
+    else:
+        tx.status = transaction_status
+        tx.midtrans_payload = data
+        logger.info(
+            "Payment update process: Transaction %s updated to status=%s",
+            tx.order_id, transaction_status,
+        )
+
+    tx.save()
+    return tx
+
+
+# ---------------------------------------------------------------------------
 # Midtrans Webhook Handler
 # ---------------------------------------------------------------------------
 
@@ -351,7 +434,6 @@ class MidtransWebhookView(APIView):
         signature_key = data.get("signature_key", "")
         status_code = data.get("status_code", "")
         gross_amount = data.get("gross_amount", "")
-        saved_token_id = data.get("saved_token_id", "")
 
         logger.info(
             "Midtrans webhook received: order_id=%s status=%s amount=%s",
@@ -422,69 +504,7 @@ class MidtransWebhookView(APIView):
                     except (ValueError, TypeError):
                         pass
 
-                if is_payment_successful(transaction_status, fraud_status):
-                    tx.status = "success"
-                    tx.midtrans_payload = data
-
-                    mahasiswa = tx.mahasiswa
-
-                    if tx.transaction_type == "course_purchase" and tx.course:
-                        # Enroll student in the purchased course
-                        if not mahasiswa.active_courses.filter(id=tx.course.id).exists():
-                            mahasiswa.active_courses.add(tx.course)
-
-                        enrollment, created = Enrollment.objects.get_or_create(
-                            mahasiswa=mahasiswa,
-                            course=tx.course,
-                            defaults={"mode": "verified", "status": "active"},
-                        )
-                        if not created and enrollment.mode != "verified":
-                            enrollment.mode = "verified"
-                            enrollment.save()
-
-                        logger.info(
-                            "Course purchase success: %s enrolled in %s",
-                            mahasiswa.nim, tx.course.code,
-                        )
-
-                    elif tx.transaction_type in ("subscription_new", "subscription_renewal"):
-                        # Activate subscription
-                        sub = tx.subscription
-                        if sub:
-                            now = timezone.now()
-                            sub.status = "active"
-                            sub.current_period_start = now
-                            sub.current_period_end = now + timedelta(days=30)
-                            # Save the token for future recurring charges
-                            if saved_token_id:
-                                sub.saved_token_id = saved_token_id
-                            sub.save()
-
-                            # Grant is_premium on the user profile
-                            mahasiswa.user.is_premium = True
-                            mahasiswa.user.save(update_fields=["is_premium"])
-
-                            logger.info(
-                                "Subscription activated: %s tier=%s until %s",
-                                mahasiswa.nim, sub.tier, sub.current_period_end,
-                            )
-
-                elif transaction_status in ("deny", "cancel", "expire", "failure"):
-                    tx.status = "failed"
-                    tx.midtrans_payload = data
-                    logger.info(
-                        "Transaction %s marked failed (status=%s)",
-                        order_id, transaction_status,
-                    )
-                else:
-                    tx.status = transaction_status
-                    tx.midtrans_payload = data
-                    logger.info(
-                        "Transaction %s updated to status=%s",
-                        order_id, transaction_status,
-                    )
-
-                tx.save()
+                process_payment_status(tx, data)
 
         except Transaction.DoesNotExist:
             logger.error("Webhook: Transaction not found for order_id=%s", order_id)
@@ -497,6 +517,106 @@ class MidtransWebhookView(APIView):
             {"status": "ok", "transaction_status": tx.status},
             status=status.HTTP_200_OK,
         )
+
+
+# ---------------------------------------------------------------------------
+# Midtrans Payment Verification (Pull Status)
+# ---------------------------------------------------------------------------
+
+class VerifyTransactionView(APIView):
+    """
+    Manually check transaction status with Midtrans API directly.
+    Useful for local development environments where webhook cannot reach localhost.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        order_id = request.data.get("order_id")
+        if not order_id:
+            return Response(
+                {"detail": "Order ID wajib diisi."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            mahasiswa = get_mahasiswa_by_user(user=request.user)
+            tx = Transaction.objects.get(order_id=order_id, mahasiswa=mahasiswa)
+        except (Transaction.DoesNotExist, Exception):
+            return Response(
+                {"detail": "Transaksi tidak ditemukan atau Anda tidak berwenang."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # If already in a terminal state, return immediately
+        if tx.status in ("success", "failed"):
+            return Response(
+                {
+                    "status": tx.status,
+                    "message": f"Transaksi sudah selesai dengan status {tx.status}.",
+                    "transaction": TransactionSerializer(tx).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Poll Midtrans Core Status API
+        status_data = check_transaction_status(order_id)
+        if not status_data:
+            return Response(
+                {"detail": "Gagal menghubungi payment gateway untuk memverifikasi transaksi."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        transaction_status = status_data.get("transaction_status")
+        gross_amount = status_data.get("gross_amount")
+
+        try:
+            with db_transaction.atomic():
+                tx = Transaction.objects.select_for_update().get(pk=tx.pk)
+
+                # Idempotency double check
+                if tx.status in ("success", "failed"):
+                    return Response(
+                        {
+                            "status": tx.status,
+                            "message": f"Transaksi sudah selesai dengan status {tx.status}.",
+                            "transaction": TransactionSerializer(tx).data,
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+                # Amount validation
+                if gross_amount:
+                    try:
+                        if abs(float(gross_amount) - float(tx.amount)) > 1:
+                            logger.error(
+                                "Verify mismatch: DB=%s Midtrans=%s for order %s",
+                                tx.amount, gross_amount, order_id,
+                            )
+                            return Response(
+                                {"detail": "Jumlah pembayaran tidak sesuai."},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+                    except (ValueError, TypeError):
+                        pass
+
+                process_payment_status(tx, status_data)
+
+            return Response(
+                {
+                    "status": tx.status,
+                    "message": f"Status transaksi berhasil diperbarui: {tx.status}.",
+                    "transaction": TransactionSerializer(tx).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            logger.exception("Error verifying transaction %s: %s", order_id, e)
+            return Response(
+                {"detail": "Terjadi kesalahan saat memproses verifikasi transaksi."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class UserTransactionsView(APIView):

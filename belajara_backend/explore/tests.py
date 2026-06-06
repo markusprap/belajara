@@ -400,3 +400,47 @@ def test_ai_recommendation_status_ownership_protection():
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert "tidak memiliki akses" in response.data["detail"]
 
+
+@pytest.mark.django_db
+def test_premium_course_enrollment_gating(settings):
+    settings.DEBUG = True
+    client = APIClient()
+    from django.contrib.auth import get_user_model
+    from users.models import Mahasiswa
+    
+    User = get_user_model()
+    # Create free user
+    free_user = User.objects.create_user(username='free_student', password='testpassword123', is_mahasiswa=True, is_premium=False)
+    # Create premium/subscribed user
+    premium_user = User.objects.create_user(username='premium_student', password='testpassword123', is_mahasiswa=True, is_premium=True)
+    
+    # Ensure they have mahasiswa profiles
+    Mahasiswa.objects.get_or_create(user=free_user, nim='123', jurusan='IF')
+    Mahasiswa.objects.get_or_create(user=premium_user, nim='456', jurusan='IF')
+
+    # Create premium course
+    premium_course = Course.objects.create(
+        code="IF302",
+        title="Pemrograman Web",
+        sks=3,
+        semester=4,
+        department="Informatika",
+        price=150000.00,
+        is_premium=True
+    )
+    
+    url = reverse('course-enroll')
+    
+    # 1. Free user tries to enroll in 'verified' mode -> should get 'audit' mode instead
+    client.force_authenticate(user=free_user)
+    resp1 = client.post(url, {'course_code': 'IF302', 'enrollment_mode': 'verified'}, format='json')
+    assert resp1.status_code == status.HTTP_200_OK
+    assert resp1.data['enrollment_mode'] == 'audit'
+    
+    # 2. Premium user tries to enroll in 'verified' mode -> should get 'verified' mode successfully
+    client.force_authenticate(user=premium_user)
+    resp2 = client.post(url, {'course_code': 'IF302', 'enrollment_mode': 'verified'}, format='json')
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp2.data['enrollment_mode'] == 'verified'
+
+

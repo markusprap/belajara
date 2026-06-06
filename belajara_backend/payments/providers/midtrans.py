@@ -245,3 +245,33 @@ class MidtransProvider(PaymentProvider):
         if transaction_status == "capture" and fraud_status == "accept":
             return True
         return False
+
+    def get_transaction_status(self, order_id: str) -> dict:
+        """
+        Retrieve transaction status directly from Midtrans Core API.
+        """
+        if self._is_mock:
+            # Under mock/simulation mode, we default to mock settlement success
+            return {
+                "transaction_status": "settlement",
+                "fraud_status": "accept",
+                "status_code": "200",
+                "gross_amount": "0"
+            }
+
+        try:
+            response = requests.get(
+                f"{self._core_api_url}/v2/{order_id}/status",
+                headers=self._auth_headers(),
+                timeout=15,
+            )
+            if response.status_code == 200:
+                return response.json()
+            logger.error(
+                "Midtrans status check error %s for order %s: %s",
+                response.status_code, order_id, response.text
+            )
+        except Exception as exc:
+            logger.error("Error connecting to Midtrans status API for order %s: %s", order_id, exc)
+
+        return {}

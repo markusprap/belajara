@@ -608,4 +608,101 @@ def test_cancel_transaction_already_final(auth_client, mahasiswa, course_premium
     assert tx.status == "success"
 
 
+# ─── Verify Transaction Tests ──────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_verify_transaction_missing_order_id(auth_client):
+    """Verifying transaction without order_id should return 400."""
+    url = reverse("payment_verify")
+    response = auth_client.post(url, {}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Order ID" in response.data["detail"]
+
+
+@pytest.mark.django_db
+def test_verify_transaction_not_found(auth_client):
+    """Verifying a non-existent transaction or unauthorized transaction should return 404."""
+    url = reverse("payment_verify")
+    response = auth_client.post(url, {"order_id": "NON-EXISTENT-ORDER-ID"}, format="json")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db
+def test_verify_transaction_already_final(auth_client, mahasiswa, course_premium):
+    """Verifying an already successful transaction should return 200 immediately without querying API."""
+    tx = Transaction.objects.create(
+        order_id="BLJR-TX-VERIFY-FINAL",
+        mahasiswa=mahasiswa,
+        course=course_premium,
+        amount=150000.00,
+        status="success",
+        transaction_type="course_purchase"
+    )
+
+    url = reverse("payment_verify")
+    # Patch check_transaction_status to make sure it is NOT called
+    from unittest.mock import patch
+    with patch("payments.views.check_transaction_status") as mock_check:
+        response = auth_client.post(url, {"order_id": tx.order_id}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "success"
+        mock_check.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_verify_transaction_api_success_subscription(auth_client, mahasiswa):
+    """Verifying a pending subscription transaction which is successful on Midtrans should activate subscription and make user premium."""
+    from datetime import timedelta
+    
+    sub = Subscription.objects.create(
+        mahasiswa=mahasiswa,
+        tier="scholar",
+        status="suspended",
+        current_period_start=timezone.now(),
+        current_period_end=timezone.now() + timedelta(days=30),
+    )
+
+    tx = Transaction.objects.create(
+        order_id="SUB-SCHOLAR-VERIFY-TEST",
+        mahasiswa=mahasiswa,
+        subscription=sub,
+        amount=49000.00,
+        status="pending",
+        transaction_type="subscription_new"
+    )
+
+    url = reverse("payment_verify")
+    
+    from unittest.mock import patch
+    with patch("payments.views.check_transaction_status") as mock_check:
+        mock_check.return_value = {
+            "transaction_status": "settlement",
+            "fraud_status": "accept",
+            "status_code": "200",
+            "gross_amount": "49000.00",
+            "saved_token_id": "mock-token-id-123"
+        }
+        
+        # Verify user is not premium yet
+        assert not mahasiswa.user.is_premium
+        
+        response = auth_client.post(url, {"order_id": tx.order_id}, format="json")
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"] == "success"
+        mock_check.assert_called_once_with(tx.order_id)
+        
+        # Verify DB updates
+        tx.refresh_from_db()
+        assert tx.status == "success"
+        
+        sub.refresh_from_db()
+        assert sub.status == "active"
+        assert sub.saved_token_id == "mock-token-id-123"
+        
+        mahasiswa.user.refresh_from_db()
+        assert mahasiswa.user.is_premium
+
+
+
 
