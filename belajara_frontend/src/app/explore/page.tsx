@@ -60,6 +60,50 @@ interface Benchmark {
   courses: BenchmarkCourse[]
 }
 
+interface SkillCategory {
+  key: string
+  label: string
+  keywords: string[]
+}
+
+const SKILL_CONFIGS: Record<string, SkillCategory[]> = {
+  "Informatika": [
+    { key: "softwareEng", label: "Software Eng.", keywords: ["pemrograman", "rpl", "perangkat lunak", "web", "pbo", "oop", "object", "algoritma", "struktur data", "coding", "programming"] },
+    { key: "dataSci", label: "Data Sci. & AI", keywords: ["data mining", "sains data", "data science", "kecerdasan buatan", "ai", "machine learning", "statistika", "statistik", "data analisis", "analisis data", "visualisasi", "pembelajaran mesin"] },
+    { key: "systemArch", label: "System Arch.", keywords: ["enterprise", "arsitektur", "jaringan", "cloud", "infrastruktur", "sistem enterprise"] },
+    { key: "mathLogic", label: "Math & Logic", keywords: ["matematika", "diskrit", "kalkulus", "aljabar", "logika", "teori", "komputasi"] },
+    { key: "businessIntel", label: "Business Intel.", keywords: ["sistem pendukung keputusan", "decision support", "spk", "manajemen", "bisnis", "proyek", "analitik", "informasi"] }
+  ],
+  "Sistem Informasi": [
+    { key: "softwareEng", label: "Software Eng.", keywords: ["pemrograman", "rpl", "perangkat lunak", "web", "pbo", "oop", "object", "algoritma", "struktur data", "coding", "programming"] },
+    { key: "dataSci", label: "Data Sci. & AI", keywords: ["data mining", "sains data", "data science", "kecerdasan buatan", "ai", "machine learning", "statistika", "statistik", "data analisis", "analisis data", "visualisasi", "pembelajaran mesin"] },
+    { key: "systemArch", label: "Enterprise Arch.", keywords: ["enterprise", "arsitektur", "jaringan", "cloud", "infrastruktur", "sistem enterprise", "tata kelola"] },
+    { key: "mathLogic", label: "Quantitative", keywords: ["matematika", "diskrit", "kalkulus", "aljabar", "logika", "statistik", "analisis kuantitatif"] },
+    { key: "businessIntel", label: "Business System", keywords: ["sistem informasi manajemen", "sim", "sistem pendukung keputusan", "spk", "manajemen", "bisnis", "analisis bisnis", "proyek"] }
+  ],
+  "Akuntansi": [
+    { key: "financialAcct", label: "Financial Acct.", keywords: ["akuntansi keuangan", "keuangan", "pelaporan keuangan", "akuntansi pengantar", "standar akuntansi", "debet", "kredit", "jurnal"] },
+    { key: "managerialAcct", label: "Managerial Acct.", keywords: ["akuntansi manajemen", "akuntansi biaya", "biaya", "anggaran", "pengendalian manajemen"] },
+    { key: "auditing", label: "Auditing", keywords: ["audit", "pengauditan", "internal audit", "pemeriksaan akuntansi", "opini audit"] },
+    { key: "taxation", label: "Taxation", keywords: ["pajak", "perpajakan", "pajak penghasilan", "pph", "ppn", "brevet"] },
+    { key: "acctSystems", label: "Accounting Info Sys.", keywords: ["sistem informasi akuntansi", "sia", "sia sistem", "teknologi akuntansi", "sap", "audit sistem informasi"] }
+  ],
+  "Manajemen": [
+    { key: "strategicMgmt", label: "Strategic Mgmt.", keywords: ["manajemen strategis", "strategi", "kebijakan bisnis", "pengambilan keputusan"] },
+    { key: "financeAcct", label: "Finance & Acct.", keywords: ["keuangan", "akuntansi", "manajemen keuangan", "investasi", "pasar modal", "portofolio"] },
+    { key: "marketing", label: "Marketing", keywords: ["pemasaran", "marketing", "promosi", "perilaku konsumen", "riset pemasaran", "brand"] },
+    { key: "opsLogistics", label: "Ops & Logistics", keywords: ["operasional", "logistik", "rantai pasok", "supply chain", "manajemen operasi", "produksi"] },
+    { key: "hrOrg", label: "HR & Org.", keywords: ["sdm", "sumber daya manusia", "organisasi", "perilaku organisasi", "kepemimpinan", "leadership"] }
+  ],
+  "Umum": [
+    { key: "coreSubjects", label: "Core Subjects", keywords: ["utama", "pengantar", "dasar", "pokok", "keahlian"] },
+    { key: "methodology", label: "Methodology", keywords: ["metode penelitian", "metodologi", "riset", "skripsi", "penulisan ilmiah"] },
+    { key: "quantAnalysis", label: "Quant Analysis", keywords: ["kuantitatif", "matematika", "statistika", "statistik", "analisis data"] },
+    { key: "softSkills", label: "Soft Skills & Ethics", keywords: ["etika", "komunikasi", "kepemimpinan", "karakter", "pancasila", "kewarganegaraan", "agama"] },
+    { key: "electives", label: "Elective Specialist", keywords: ["pilihan", "elektif", "peminatan", "spesifik", "lanjutan"] }
+  ]
+}
+
 const BENCHMARKS: Record<string, Benchmark[]> = {
   "Informatika": [
     {
@@ -202,6 +246,29 @@ export default function ExplorePage() {
     setCurrentUser(getUser())
   }, [])
 
+  const userProdi = currentUser?.mahasiswa_profile?.jurusan || currentUser?.jurusan || "Informatika"
+  const skillProdiKey = Object.keys(SKILL_CONFIGS).find(
+    key => userProdi.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(userProdi.toLowerCase())
+  ) || "Umum"
+  const skillCategories = SKILL_CONFIGS[skillProdiKey] || SKILL_CONFIGS["Umum"]
+
+  const prodiKey = Object.keys(BENCHMARKS).find(
+    key => userProdi.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(userProdi.toLowerCase())
+  ) || "Umum"
+  const matchedBenchmarks = BENCHMARKS[prodiKey] || BENCHMARKS["Umum"]
+
+  const allBenchmarks = React.useMemo(() => {
+    return Object.entries(BENCHMARKS).flatMap(([category, list]) =>
+      list.map(b => ({ ...b, category }))
+    )
+  }, [])
+
+  React.useEffect(() => {
+    if (matchedBenchmarks && matchedBenchmarks.length > 0) {
+      setSelectedBenchmarkId(matchedBenchmarks[0].id)
+    }
+  }, [currentUser, prodiKey])
+
   const toggleRecExpand = (courseCode: string) => {
     setExpandedRecs(prev => ({
       ...prev,
@@ -210,13 +277,10 @@ export default function ExplorePage() {
   }
 
   const getSkillData = (additionalSubject?: string) => {
-    const skills = {
-      softwareEng: 20,
-      dataSci: 20,
-      systemArch: 20,
-      mathLogic: 20,
-      businessIntel: 20
-    }
+    const skills: Record<string, number> = {}
+    skillCategories.forEach(cat => {
+      skills[cat.key] = 20
+    })
 
     const completed = academicProfile?.completed_subjects || []
     const subjects = additionalSubject ? [...completed, additionalSubject] : completed
@@ -227,93 +291,29 @@ export default function ExplorePage() {
 
     subjects.forEach((subject: string) => {
       const normalized = subject.toLowerCase()
-      if (
-        normalized.includes("pemrograman") || 
-        normalized.includes("rpl") || 
-        normalized.includes("perangkat lunak") || 
-        normalized.includes("web") || 
-        normalized.includes("pbo") || 
-        normalized.includes("oop") || 
-        normalized.includes("object") || 
-        normalized.includes("algoritma") || 
-        normalized.includes("struktur data") || 
-        normalized.includes("coding") || 
-        normalized.includes("programming")
-      ) {
-        skills.softwareEng = Math.min(100, skills.softwareEng + 20)
-      }
-      if (
-        normalized.includes("data mining") || 
-        normalized.includes("sains data") || 
-        normalized.includes("data science") || 
-        normalized.includes("kecerdasan buatan") || 
-        normalized.includes("ai") || 
-        normalized.includes("machine learning") || 
-        normalized.includes("statistika") || 
-        normalized.includes("statistik") || 
-        normalized.includes("data analisis") || 
-        normalized.includes("analisis data") || 
-        normalized.includes("visualisasi") || 
-        normalized.includes("pembelajaran mesin")
-      ) {
-        skills.dataSci = Math.min(100, skills.dataSci + 20)
-      }
-      if (
-        normalized.includes("enterprise") || 
-        normalized.includes("arsitektur") || 
-        normalized.includes("jaringan") || 
-        normalized.includes("cloud") || 
-        normalized.includes("infrastruktur") || 
-        normalized.includes("sistem enterprise")
-      ) {
-        skills.systemArch = Math.min(100, skills.systemArch + 20)
-      }
-      if (
-        normalized.includes("matematika") || 
-        normalized.includes("diskrit") || 
-        normalized.includes("kalkulus") || 
-        normalized.includes("aljabar") || 
-        normalized.includes("logika") || 
-        normalized.includes("teori") || 
-        normalized.includes("komputasi")
-      ) {
-        skills.mathLogic = Math.min(100, skills.mathLogic + 20)
-      }
-      if (
-        normalized.includes("sistem pendukung keputusan") || 
-        normalized.includes("decision support") || 
-        normalized.includes("spk") || 
-        normalized.includes("manajemen") || 
-        normalized.includes("bisnis") || 
-        normalized.includes("proyek") || 
-        normalized.includes("analitik") || 
-        normalized.includes("informasi")
-      ) {
-        skills.businessIntel = Math.min(100, skills.businessIntel + 20)
-      }
+      skillCategories.forEach(cat => {
+        const matches = cat.keywords.some(kw => normalized.includes(kw))
+        if (matches) {
+          skills[cat.key] = Math.min(100, skills[cat.key] + 20)
+        }
+      })
     })
 
     return skills
   }
 
   const skillValues = getSkillData()
-  const skillList = [
-    { label: "Software Eng.", value: skillValues.softwareEng },
-    { label: "Data Sci. & AI", value: skillValues.dataSci },
-    { label: "System Arch.", value: skillValues.systemArch },
-    { label: "Math & Logic", value: skillValues.mathLogic },
-    { label: "Business Intel.", value: skillValues.businessIntel }
-  ]
+  const skillList = skillCategories.map(cat => ({
+    label: cat.label,
+    value: skillValues[cat.key]
+  }))
 
   const projectedValues = hoveredCourse ? getSkillData(hoveredCourse.title) : null
   const projectedList = projectedValues
-    ? [
-        { label: "Software Eng.", value: projectedValues.softwareEng },
-        { label: "Data Sci. & AI", value: projectedValues.dataSci },
-        { label: "System Arch.", value: projectedValues.systemArch },
-        { label: "Math & Logic", value: projectedValues.mathLogic },
-        { label: "Business Intel.", value: projectedValues.businessIntel }
-      ]
+    ? skillCategories.map(cat => ({
+        label: cat.label,
+        value: projectedValues[cat.key]
+      }))
     : []
 
   const cx = 125
@@ -361,19 +361,7 @@ export default function ExplorePage() {
     return { x, y }
   }
 
-  const userProdi = currentUser?.mahasiswa_profile?.jurusan || currentUser?.jurusan || "Informatika"
-  const prodiKey = Object.keys(BENCHMARKS).find(
-    key => userProdi.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(userProdi.toLowerCase())
-  ) || "Umum"
-  const availableBenchmarks = BENCHMARKS[prodiKey] || BENCHMARKS["Umum"]
-
-  React.useEffect(() => {
-    if (availableBenchmarks && availableBenchmarks.length > 0) {
-      setSelectedBenchmarkId(availableBenchmarks[0].id)
-    }
-  }, [currentUser, prodiKey])
-
-  const activeBenchmark = availableBenchmarks.find(b => b.id === selectedBenchmarkId) || availableBenchmarks[0]
+  const activeBenchmark = allBenchmarks.find(b => b.id === selectedBenchmarkId) || matchedBenchmarks[0]
 
   const benchmarkStats = React.useMemo(() => {
     if (!activeBenchmark) return null
@@ -854,8 +842,12 @@ export default function ExplorePage() {
                       onChange={(e) => setSelectedBenchmarkId(e.target.value)}
                       className="w-full px-3 py-2 bg-[#FAF9FB] border border-border rounded-lg text-xs font-medium focus:outline-none focus:border-[#C6B5BF] cursor-pointer"
                     >
-                      {availableBenchmarks.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
+                      {Object.entries(BENCHMARKS).map(([category, list]) => (
+                        <optgroup key={category} label={category}>
+                          {list.map(b => (
+                            <option key={b.id} value={b.id}>{b.name}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   </div>
