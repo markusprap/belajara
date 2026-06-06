@@ -48,6 +48,136 @@ interface StudentDashboardData {
   active_courses: Course[]
 }
 
+interface BenchmarkCourse {
+  name: string
+  category: string
+}
+
+interface Benchmark {
+  id: string
+  name: string
+  description: string
+  courses: BenchmarkCourse[]
+}
+
+const BENCHMARKS: Record<string, Benchmark[]> = {
+  "Informatika": [
+    {
+      id: "aptikom-if",
+      name: "Standar APTIKOM (Informatika)",
+      description: "Kurikulum Inti Informatika Asosiasi Pendidikan Tinggi Informatika dan Komputer Indonesia.",
+      courses: [
+        { name: "Algoritma & Struktur Data", category: "softwareEng" },
+        { name: "Basis Data", category: "softwareEng" },
+        { name: "Pemrograman Web", category: "softwareEng" },
+        { name: "Rekayasa Perangkat Lunak", category: "softwareEng" },
+        { name: "Matematika Diskrit", category: "mathLogic" },
+        { name: "Kecerdasan Buatan", category: "dataSci" },
+        { name: "Sistem Jaringan / Operasi", category: "systemArch" }
+      ]
+    },
+    {
+      id: "acm-cs",
+      name: "ACM/IEEE Computer Science 2023",
+      description: "International standard computing curriculum guidelines by ACM and IEEE-CS.",
+      courses: [
+        { name: "Software Development Fundamentals", category: "softwareEng" },
+        { name: "Algorithms and Complexity", category: "softwareEng" },
+        { name: "Systems Fundamentals", category: "systemArch" },
+        { name: "Discrete Structures", category: "mathLogic" },
+        { name: "Data Management & Analytics", category: "dataSci" },
+        { name: "Artificial Intelligence", category: "dataSci" }
+      ]
+    }
+  ],
+  "Sistem Informasi": [
+    {
+      id: "aptikom-si",
+      name: "Standar APTIKOM (Sistem Informasi)",
+      description: "Kurikulum Nasional Rumpun Sistem Informasi.",
+      courses: [
+        { name: "Sistem Informasi Manajemen", category: "businessIntel" },
+        { name: "Analisis & Perancangan Sistem", category: "softwareEng" },
+        { name: "Manajemen Proyek TI", category: "businessIntel" },
+        { name: "Basis Data", category: "softwareEng" },
+        { name: "Sistem Pendukung Keputusan", category: "businessIntel" },
+        { name: "Tata Kelola TI", category: "businessIntel" }
+      ]
+    },
+    {
+      id: "acm-msis",
+      name: "ACM/AIS MSIS Core Curriculum",
+      description: "International curriculum guidelines for MS in Information Systems.",
+      courses: [
+        { name: "Enterprise Architecture", category: "systemArch" },
+        { name: "IS Strategy and Governance", category: "businessIntel" },
+        { name: "Data Management & Analytics", category: "dataSci" },
+        { name: "Systems Analysis and Design", category: "softwareEng" },
+        { name: "Project Management", category: "businessIntel" }
+      ]
+    }
+  ],
+  "Manajemen": [
+    {
+      id: "aacsb-manajemen",
+      name: "Standar Global AACSB (Manajemen)",
+      description: "Kurikulum standar internasional sekolah bisnis dari AACSB.",
+      courses: [
+        { name: "Manajemen Strategis", category: "businessIntel" },
+        { name: "Perilaku Organisasi", category: "businessIntel" },
+        { name: "Manajemen Pemasaran", category: "businessIntel" },
+        { name: "Pengantar Bisnis", category: "businessIntel" },
+        { name: "Statistika Bisnis", category: "mathLogic" },
+        { name: "Manajemen Operasional", category: "businessIntel" }
+      ]
+    },
+    {
+      id: "kkni-manajemen",
+      name: "KKNI Level 6 (Manajemen Indonesia)",
+      description: "Kerangka Kualifikasi Nasional Indonesia rumpun Manajemen.",
+      courses: [
+        { name: "Manajemen Keuangan", category: "businessIntel" },
+        { name: "Manajemen Sumber Daya Manusia", category: "businessIntel" },
+        { name: "Kewirausahaan", category: "businessIntel" },
+        { name: "Sistem Informasi Manajemen", category: "businessIntel" },
+        { name: "Metode Penelitian", category: "mathLogic" }
+      ]
+    }
+  ],
+  "Umum": [
+    {
+      id: "sndikti-umum",
+      name: "SN-Dikti (Standar Nasional Indonesia)",
+      description: "Standar Nasional Pendidikan Tinggi Indonesia untuk seluruh Program Studi.",
+      courses: [
+        { name: "Pendidikan Pancasila & Kewarganegaraan", category: "mathLogic" },
+        { name: "Pendidikan Agama", category: "mathLogic" },
+        { name: "Bahasa Indonesia", category: "mathLogic" },
+        { name: "Bahasa Inggris Akademik", category: "mathLogic" },
+        { name: "Metodologi Penelitian", category: "mathLogic" }
+      ]
+    }
+  ]
+}
+
+const isSubjectCompleted = (benchmarkName: string, completedList: string[]) => {
+  const cleanBenchmark = benchmarkName.toLowerCase()
+  return completedList.some(comp => {
+    const cleanComp = comp.toLowerCase()
+    if (cleanComp.includes(cleanBenchmark) || cleanBenchmark.includes(cleanComp)) {
+      return true
+    }
+    if (cleanBenchmark.includes("algoritma") && cleanComp.includes("algoritma")) return true
+    if (cleanBenchmark.includes("basis data") && cleanComp.includes("basis data")) return true
+    if (cleanBenchmark.includes("pemrograman") && cleanComp.includes("pemrograman")) return true
+    if (cleanBenchmark.includes("rekayasa perangkat lunak") && (cleanComp.includes("rpl") || cleanComp.includes("perangkat lunak"))) return true
+    if (cleanBenchmark.includes("statistika") && cleanComp.includes("statistik")) return true
+    if (cleanBenchmark.includes("sistem pendukung keputusan") && (cleanComp.includes("spk") || cleanComp.includes("decision support"))) return true
+    if (cleanBenchmark.includes("sistem informasi manajemen") && cleanComp.includes("sim")) return true
+    return false
+  })
+}
+
 export default function ExplorePage() {
   const router = useRouter()
   const [file, setFile] = React.useState<File | null>(null)
@@ -62,6 +192,15 @@ export default function ExplorePage() {
   const pollingIntervalRef = React.useRef<any>(null)
 
   const [expandedRecs, setExpandedRecs] = React.useState<Record<string, boolean>>({})
+  const [hoveredCourse, setHoveredCourse] = React.useState<Course | null>(null)
+  const [viewMode, setViewMode] = React.useState<"cards" | "timeline">("cards")
+
+  const [currentUser, setCurrentUser] = React.useState<any>(null)
+  const [selectedBenchmarkId, setSelectedBenchmarkId] = React.useState<string>("")
+
+  React.useEffect(() => {
+    setCurrentUser(getUser())
+  }, [])
 
   const toggleRecExpand = (courseCode: string) => {
     setExpandedRecs(prev => ({
@@ -70,7 +209,7 @@ export default function ExplorePage() {
     }))
   }
 
-  const getSkillData = () => {
+  const getSkillData = (additionalSubject?: string) => {
     const skills = {
       softwareEng: 20,
       dataSci: 20,
@@ -79,11 +218,14 @@ export default function ExplorePage() {
       businessIntel: 20
     }
 
-    if (!academicProfile || !academicProfile.completed_subjects) {
+    const completed = academicProfile?.completed_subjects || []
+    const subjects = additionalSubject ? [...completed, additionalSubject] : completed
+
+    if (subjects.length === 0) {
       return skills
     }
 
-    academicProfile.completed_subjects.forEach((subject: string) => {
+    subjects.forEach((subject: string) => {
       const normalized = subject.toLowerCase()
       if (
         normalized.includes("pemrograman") || 
@@ -163,6 +305,17 @@ export default function ExplorePage() {
     { label: "Business Intel.", value: skillValues.businessIntel }
   ]
 
+  const projectedValues = hoveredCourse ? getSkillData(hoveredCourse.title) : null
+  const projectedList = projectedValues
+    ? [
+        { label: "Software Eng.", value: projectedValues.softwareEng },
+        { label: "Data Sci. & AI", value: projectedValues.dataSci },
+        { label: "System Arch.", value: projectedValues.systemArch },
+        { label: "Math & Logic", value: projectedValues.mathLogic },
+        { label: "Business Intel.", value: projectedValues.businessIntel }
+      ]
+    : []
+
   const cx = 125
   const cy = 115
   const r = 65
@@ -175,6 +328,13 @@ export default function ExplorePage() {
   }
 
   const pointsStr = skillList
+    .map((s, idx) => {
+      const coords = getCoordinates(idx, s.value)
+      return `${coords.x},${coords.y}`
+    })
+    .join(" ")
+
+  const projectedPointsStr = projectedList
     .map((s, idx) => {
       const coords = getCoordinates(idx, s.value)
       return `${coords.x},${coords.y}`
@@ -200,6 +360,46 @@ export default function ExplorePage() {
     const y = cy + (r + 12) * Math.sin(angle)
     return { x, y }
   }
+
+  const userProdi = currentUser?.mahasiswa_profile?.jurusan || currentUser?.jurusan || "Informatika"
+  const prodiKey = Object.keys(BENCHMARKS).find(
+    key => userProdi.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(userProdi.toLowerCase())
+  ) || "Umum"
+  const availableBenchmarks = BENCHMARKS[prodiKey] || BENCHMARKS["Umum"]
+
+  React.useEffect(() => {
+    if (availableBenchmarks && availableBenchmarks.length > 0) {
+      setSelectedBenchmarkId(availableBenchmarks[0].id)
+    }
+  }, [currentUser, prodiKey])
+
+  const activeBenchmark = availableBenchmarks.find(b => b.id === selectedBenchmarkId) || availableBenchmarks[0]
+
+  const benchmarkStats = React.useMemo(() => {
+    if (!activeBenchmark) return null
+    const completedSubjects = academicProfile?.completed_subjects || []
+    
+    let matchedCount = 0
+    const details = activeBenchmark.courses.map(course => {
+      const completed = isSubjectCompleted(course.name, completedSubjects)
+      if (completed) matchedCount++
+      return {
+        name: course.name,
+        completed
+      }
+    })
+    
+    const percentage = activeBenchmark.courses.length > 0 
+      ? Math.round((matchedCount / activeBenchmark.courses.length) * 100)
+      : 0
+      
+    return {
+      percentage,
+      matchedCount,
+      totalCount: activeBenchmark.courses.length,
+      details
+    }
+  }, [activeBenchmark, academicProfile])
 
   // Cycle loading messages for a premium dynamic UX
   React.useEffect(() => {
@@ -568,6 +768,18 @@ export default function ExplorePage() {
                       className="transition-all duration-500 ease-in-out"
                     />
                     
+                    {/* Projected Data Polygon (What-If Hover) */}
+                    {projectedValues && (
+                      <polygon
+                        points={projectedPointsStr}
+                        fill="rgba(198, 181, 191, 0.15)"
+                        stroke="#C6B5BF"
+                        strokeWidth="1.5"
+                        strokeDasharray="3,3"
+                        className="transition-all duration-300 ease-in-out"
+                      />
+                    )}
+                    
                     {/* User Data Vertices Dots */}
                     {skillList.map((s, idx) => {
                       const coords = getCoordinates(idx, s.value)
@@ -619,6 +831,87 @@ export default function ExplorePage() {
                   </svg>
                 </div>
               </Card>
+
+              {/* Benchmarking Kurikulum Card */}
+              <Card className="border border-border shadow-sm bg-white p-6 rounded-xl flex flex-col select-none">
+                <div className="w-full border-b border-border pb-3 mb-4 text-left">
+                  <h3 className="font-heading text-base font-bold text-primary">
+                    Benchmarking Kurikulum
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Perbandingan keselarasan studi Anda dengan kurikulum standar program studi <strong>{userProdi}</strong>.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Select Benchmark */}
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Pilih Standar Benchmark
+                    </label>
+                    <select
+                      value={selectedBenchmarkId}
+                      onChange={(e) => setSelectedBenchmarkId(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#FAF9FB] border border-border rounded-lg text-xs font-medium focus:outline-none focus:border-[#C6B5BF] cursor-pointer"
+                    >
+                      {availableBenchmarks.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {activeBenchmark && (
+                    <p className="text-[11px] text-muted-foreground italic leading-relaxed">
+                      {activeBenchmark.description}
+                    </p>
+                  )}
+
+                  {!academicProfile ? (
+                    <div className="p-4 border border-dashed rounded-lg bg-background text-center">
+                      <p className="text-xs text-muted-foreground">
+                        Unggah transkrip/dokumen kurikulum Anda untuk melihat tingkat keselarasan kurikulum.
+                      </p>
+                    </div>
+                  ) : (
+                    benchmarkStats && (
+                      <div className="space-y-4 pt-2">
+                        {/* Match Indicator */}
+                        <div className="p-4 bg-[#FAF9FB] rounded-xl border border-border flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Keselarasan Kurikulum</p>
+                            <p className="text-2xl font-bold font-heading text-primary mt-0.5">{benchmarkStats.percentage}%</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Mata Kuliah Terpenuhi</p>
+                            <p className="text-xs font-bold text-[#CF3A1F] mt-1">{benchmarkStats.matchedCount} / {benchmarkStats.totalCount}</p>
+                          </div>
+                        </div>
+
+                        {/* Benchmark Subjects list */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Daftar Modul / Mata Kuliah Standar</p>
+                          <div className="max-h-[220px] overflow-y-auto pr-1 space-y-1.5 scrollbar-thin">
+                            {benchmarkStats.details.map((item, i) => (
+                              <div key={i} className="flex items-center justify-between p-2 rounded-lg border border-border text-xs bg-white">
+                                <span className="font-medium text-slate-700">{item.name}</span>
+                                {item.completed ? (
+                                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 flex items-center gap-0.5 shrink-0">
+                                    <Check className="h-2.5 w-2.5" /> Terpenuhi
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 flex items-center gap-0.5 shrink-0">
+                                    Belum
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </Card>
             </div>
 
             {/* Analysis Results */}
@@ -653,18 +946,28 @@ export default function ExplorePage() {
                   {/* Academic Profile Analysis Block */}
                   {academicProfile && (
                     <Card className="border border-border shadow-sm bg-white p-6 rounded-xl space-y-6">
-                      <div className="flex items-center gap-3 border-b border-border pb-4">
-                        <div className="p-2 rounded-lg bg-secondary text-primary">
-                          <BookOpen className="h-6 w-6 text-primary" />
+                      <div className="flex items-center justify-between border-b border-border pb-4 flex-wrap gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-secondary text-primary">
+                            <BookOpen className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <h2 className="font-heading text-xl font-bold text-primary">
+                              Analisis Profil &amp; Kinerja Akademik
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                              Hasil pemetaan transkrip/dokumen akademik yang diunggah secara mandiri
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h2 className="font-heading text-xl font-bold text-primary">
-                            Analisis Profil &amp; Kinerja Akademik
-                          </h2>
-                          <p className="text-xs text-muted-foreground">
-                            Hasil pemetaan transkrip/dokumen akademik yang diunggah secara mandiri
-                          </p>
-                        </div>
+                        <Button
+                          onClick={() => window.print()}
+                          variant="outline"
+                          className="text-xs font-semibold px-4 py-2 border border-border hover:bg-[#FAF9FB] cursor-pointer print:hidden flex items-center gap-1.5"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          Cetak Laporan (PDF)
+                        </Button>
                       </div>
 
                       <div className="grid gap-6 md:grid-cols-2">
@@ -732,18 +1035,107 @@ export default function ExplorePage() {
                   {/* Belajara Catalogue Recommendations Block */}
                   {recommendations.length > 0 && (
                     <div className="space-y-6 pt-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between border-b border-border pb-3 flex-wrap gap-2">
                         <h2 className="font-heading text-xl font-bold text-primary flex items-center gap-2">
                           <Sparkles className="h-5 w-5 text-destructive" />
                           Rekomendasi Kelas Belajara Terkait
                         </h2>
-                        <span className="text-xs text-muted-foreground">
-                          Mencocokkan {recommendations.length} kelas untuk menutup gap kompetensi Anda
-                        </span>
+                        <div className="flex bg-[#FAF9FB] border border-border p-1 rounded-lg text-xs font-semibold select-none">
+                          <button
+                            onClick={() => setViewMode("cards")}
+                            className={`px-3 py-1.5 rounded-md cursor-pointer transition-all ${
+                              viewMode === "cards" ? "bg-white text-primary shadow-xs" : "text-muted-foreground hover:text-primary"
+                            }`}
+                          >
+                            Daftar Kartu
+                          </button>
+                          <button
+                            onClick={() => setViewMode("timeline")}
+                            className={`px-3 py-1.5 rounded-md cursor-pointer transition-all ${
+                              viewMode === "timeline" ? "bg-white text-primary shadow-xs" : "text-muted-foreground hover:text-primary"
+                            }`}
+                          >
+                            Jalur Belajar
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="space-y-4">
-                        {recommendations.map((rec, idx) => {
+                      {viewMode === "timeline" ? (
+                        <div className="relative pl-6 border-l border-border ml-3 py-2 space-y-8 animate-in fade-in duration-300">
+                          {[...recommendations].sort((a, b) => {
+                            if (a.course.semester !== b.course.semester) {
+                              return a.course.semester - b.course.semester
+                            }
+                            return a.course.code.localeCompare(b.course.code)
+                          }).map((rec, idx) => {
+                            const course = rec.course
+                            const isEnrolled = activeCourseCodes.includes(course.code)
+                            const isHovered = hoveredCourse?.code === course.code
+
+                            return (
+                              <div
+                                key={idx}
+                                className="relative space-y-3"
+                                onMouseEnter={() => setHoveredCourse(course)}
+                                onMouseLeave={() => setHoveredCourse(null)}
+                              >
+                                {/* Timeline dot */}
+                                <div className={`absolute -left-[30px] top-1.5 w-3.5 h-3.5 rounded-full border-2 bg-white flex items-center justify-center transition-all duration-300 ${
+                                  isEnrolled 
+                                    ? "border-emerald-500 bg-emerald-50 text-emerald-500" 
+                                    : isHovered
+                                      ? "border-[#CF3A1F] scale-110"
+                                      : "border-slate-300"
+                                }`}>
+                                  {isEnrolled && <Check className="h-1.5 w-1.5 stroke-[4]" />}
+                                </div>
+
+                                <div className="flex items-start justify-between gap-4 flex-wrap">
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-accent/20 text-primary border border-accent/30 font-sans">
+                                        {course.code}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground font-semibold">Semester {course.semester}</span>
+                                      <span className="text-xs text-slate-300">|</span>
+                                      <span className="text-xs text-muted-foreground">{course.department}</span>
+                                    </div>
+                                    <h3 className="font-heading text-base font-bold text-primary mt-1">
+                                      {course.title}
+                                    </h3>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-2.5 py-1 rounded-full border border-destructive/20 flex items-center gap-1">
+                                      <Sparkles className="h-2.5 w-2.5" />
+                                      {rec.match_percentage}% Relevan
+                                    </span>
+                                    {isEnrolled ? (
+                                      <span className="text-[10px] font-bold text-primary bg-accent/20 px-3 py-1.5 rounded-lg border border-accent/30 flex items-center gap-0.5 shrink-0">
+                                        <Check className="h-3.5 w-3.5" /> Terdaftar
+                                      </span>
+                                    ) : (
+                                      <Button
+                                        onClick={() => handleEnroll(course.code)}
+                                        className="bg-destructive hover:bg-destructive/95 text-white text-[10px] h-8 cursor-pointer px-3 rounded-lg font-medium shadow-xs shrink-0"
+                                      >
+                                        Ambil Kelas
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="p-4 bg-secondary/40 rounded-xl border border-border/50 text-xs text-primary max-w-3xl leading-relaxed">
+                                  <p className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Analisis Kecocokan AI</p>
+                                  <p className="italic">"{rec.reason}"</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {recommendations.map((rec, idx) => {
                           const course = rec.course
                           const isEnrolled = activeCourseCodes.includes(course.code)
                           const isExpanded = !!expandedRecs[course.code]
@@ -755,6 +1147,8 @@ export default function ExplorePage() {
                                 isExpanded ? "p-6 gap-4" : "p-4 hover:border-[#C6B5BF]/40 cursor-pointer"
                               }`}
                               onClick={!isExpanded ? () => toggleRecExpand(course.code) : undefined}
+                              onMouseEnter={() => setHoveredCourse(course)}
+                              onMouseLeave={() => setHoveredCourse(null)}
                             >
                               <div
                                 className={`flex items-start justify-between gap-4 flex-wrap select-none ${isExpanded ? "cursor-pointer" : ""}`}
@@ -833,7 +1227,8 @@ export default function ExplorePage() {
                             </div>
                           )
                         })}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
