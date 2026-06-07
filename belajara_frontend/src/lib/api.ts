@@ -171,6 +171,11 @@ export const api = {
       return await request(`/courses/${code}/`);
     },
 
+    list: async (params?: URLSearchParams) => {
+      const url = params ? `/courses/?${params.toString()}` : "/courses/";
+      return await request(url);
+    },
+
     getCertificate: async (code: string) => {
       return await request(`/courses/${code}/certificate/`);
     },
@@ -322,6 +327,12 @@ export const api = {
     },
   },
 
+  dashboard: {
+    get: async () => {
+      return await request("/dashboard/");
+    },
+  },
+
   explore: {
     analyze: async (file: File, targetProdi?: string) => {
       const formData = new FormData();
@@ -330,9 +341,17 @@ export const api = {
         formData.append("target_prodi", targetProdi);
         formData.append("department", targetProdi);
       }
+      
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${BASE_URL}/explore/analyze/`, {
         method: "POST",
         body: formData,
+        headers,
         credentials: "include",
       });
       if (!response.ok) {

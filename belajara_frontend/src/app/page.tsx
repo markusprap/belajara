@@ -75,14 +75,7 @@ export default function LandingPage() {
   // Fetch student active courses to check enrollment status
   const fetchActiveCourses = React.useCallback(() => {
     if (!isLoggedIn) return
-    fetch(`${BASE_URL}/dashboard/`, { 
-      headers: { "Content-Type": "application/json" },
-      credentials: "include"
-    })
-      .then((res) => {
-        if (res.ok) return res.json()
-        throw new Error()
-      })
+    api.dashboard.get()
       .then((data: any) => {
         if (data && data.active_courses) {
           setActiveCourseCodes(data.active_courses.map((c: any) => c.code))
@@ -95,11 +88,7 @@ export default function LandingPage() {
     setCatalogLoading(true)
     setCatalogError(null)
     
-    fetch(`${BASE_URL}/courses/`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Gagal mengambil daftar mata kuliah")
-        return res.json()
-      })
+    api.courses.list()
       .then((data: any) => {
         const list = Array.isArray(data) ? data : (data.results || [])
         setAllCourses(list)
