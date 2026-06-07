@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
+import { ModalProvider } from "@/context/ModalContext";
 import Script from "next/script";
 import "./globals.css";
 
@@ -24,7 +25,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         <Script src="https://accounts.google.com/gsi/client" strategy="beforeInteractive" />
         <AuthProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <ModalProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </ModalProvider>
         </AuthProvider>
       </body>
     </html>

@@ -16,11 +16,13 @@ import { Badge } from "@/components/ui/badge"
 import { Globe, Bell, Info, ShieldAlert, KeyRound, CreditCard, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
+import { useModal } from "@/context/ModalContext"
 import { useRouter } from "next/navigation"
 
 export default function SettingsPage() {
   const router = useRouter()
   const { user, refreshUser, loading: authLoading } = useAuth()
+  const { showAlert, showConfirm } = useModal()
   
   // Password form states
   const [oldPassword, setOldPassword] = React.useState("")
@@ -101,29 +103,33 @@ export default function SettingsPage() {
     }
   }
 
-  const handleCancelSubscription = async () => {
-    if (!window.confirm("Apakah Anda yakin ingin membatalkan perpanjangan otomatis langganan premium Anda?")) {
-      return
-    }
-
-    try {
-      setCancelLoading(true)
-      setBillingError(null)
-      const res = await api.payment.cancelSubscription()
-      
-      // Refresh sub status
-      const updatedSub = await api.payment.mySubscription()
-      setSubData(updatedSub)
-      
-      // Refresh user details reactively
-      await refreshUser()
-      
-      alert(res.detail || "Langganan berhasil dibatalkan. Akses tetap aktif hingga akhir periode.")
-    } catch (err: any) {
-      setBillingError(err.message || "Gagal memproses pembatalan.")
-    } finally {
-      setCancelLoading(false)
-    }
+  const handleCancelSubscription = () => {
+    showConfirm(
+      "Batalkan Perpanjangan Otomatis",
+      "Apakah Anda yakin ingin membatalkan perpanjangan otomatis langganan premium Anda? Akses tetap aktif hingga akhir periode.",
+      async () => {
+        try {
+          setCancelLoading(true)
+          setBillingError(null)
+          const res = await api.payment.cancelSubscription()
+          
+          // Refresh sub status
+          const updatedSub = await api.payment.mySubscription()
+          setSubData(updatedSub)
+          
+          // Refresh user details reactively
+          await refreshUser()
+          
+          showAlert("Langganan Dibatalkan", res.detail || "Langganan berhasil dibatalkan. Akses tetap aktif hingga akhir periode.")
+        } catch (err: any) {
+          setBillingError(err.message || "Gagal memproses pembatalan.")
+        } finally {
+          setCancelLoading(false)
+        }
+      },
+      undefined,
+      true
+    )
   }
 
   const formatIDR = (num: number) => {

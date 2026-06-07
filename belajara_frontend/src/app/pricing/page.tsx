@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Check, Zap, BookOpen, GraduationCap, Sparkles, ArrowRight, Star, Lock, CreditCard, RefreshCw, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useModal } from "@/context/ModalContext";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -269,6 +270,7 @@ const FAQS = [
 
 export default function PricingPage() {
   const { user, refreshUser } = useAuth();
+  const { showConfirm } = useModal();
   const [currentTier, setCurrentTier] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -319,33 +321,36 @@ export default function PricingPage() {
 
       if (data.snap_token && typeof window !== "undefined") {
         if (data.snap_token.startsWith("mock-")) {
-          // If mock token, show a simulation prompt to the user
+          // If mock token, show a custom simulation confirm dialog
           const price = tierId === "pro" ? "Rp99.000" : "Rp49.000";
-          const confirmPayment = window.confirm(
-            `[Simulasi Midtrans Sandbox]\n\nAnda sedang melakukan simulasi langganan paket ${tierId.toUpperCase()} seharga ${price}.\n\nKlik OK untuk menyimulasikan pembayaran berhasil.`
-          );
-          
-          if (confirmPayment) {
-            setTimeout(async () => {
-              try {
-                await api.payment.verify(data.order_id, "success");
-                await refreshUser();
-                setCurrentTier(tierId);
-                setIsLoading(null);
-                window.location.href = "/dashboard?subscribed=true";
-              } catch (err: any) {
-                setError("Gagal memproses simulasi langganan.");
-                setIsLoading(null);
+          setIsLoading(null);
+          showConfirm(
+            `[Simulasi Midtrans Sandbox] Konfirmasi Pembayaran`,
+            `Anda sedang melakukan simulasi langganan paket ${tierId.toUpperCase()} seharga ${price}. Klik Konfirmasi untuk menyimulasikan pembayaran berhasil.`,
+            async () => {
+              setIsLoading(tierId);
+              setTimeout(async () => {
+                try {
+                  await api.payment.verify(data.order_id, "success");
+                  await refreshUser();
+                  setCurrentTier(tierId);
+                  setIsLoading(null);
+                  window.location.href = "/dashboard?subscribed=true";
+                } catch (err: any) {
+                  setError("Gagal memproses simulasi langganan.");
+                  setIsLoading(null);
+                }
+              }, 1000);
+            },
+            async () => {
+              setIsLoading(null);
+              if (data.order_id) {
+                try {
+                  await api.payment.cancelTransaction(data.order_id);
+                } catch (e) {}
               }
-            }, 1000);
-          } else {
-            setIsLoading(null);
-            if (data.order_id) {
-              try {
-                await api.payment.cancelTransaction(data.order_id);
-              } catch (e) {}
             }
-          }
+          );
           return;
         }
 

@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { api, BASE_URL } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
+import { useModal } from "@/context/ModalContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -44,6 +45,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
 
   // User auth state
   const { user: currentUser, loading: authLoading } = useAuth()
+  const { showAlert, showToast } = useModal()
   const isLoggedIn = !!currentUser
   const [activeCourseCodes, setActiveCourseCodes] = React.useState<string[]>([])
 
@@ -175,7 +177,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
         router.push(`/courses/${courseCode}`)
       })
       .catch((err) => {
-        alert(err.message)
+        showAlert("Gagal Mendaftar", err.message || "Terjadi kesalahan saat mendaftar kelas.")
       })
   }
 
@@ -217,7 +219,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
                 setPaymentStatus("success")
                 await api.payment.verify(response.order_id, "success")
                 fetchSessionData()
-                alert(`Pendaftaran ${course.title} Kelas Lengkap Berhasil! Selamat belajar.`)
+                showToast(`Pendaftaran ${course.title} Kelas Lengkap Berhasil! Selamat belajar.`, "success")
                 setCheckoutOpen(false)
                 router.push(`/courses/${course.code}`)
               },
@@ -266,7 +268,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
       }
     } catch (err: any) {
       console.error(err)
-      alert(err.message || "Gagal melakukan checkout. Pastikan Anda masuk sebagai mahasiswa.")
+      showAlert("Checkout Gagal", err.message || "Gagal melakukan checkout. Pastikan Anda masuk sebagai mahasiswa.")
       setCheckoutOpen(false)
     } finally {
       setCheckoutLoading(false)

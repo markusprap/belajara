@@ -46,6 +46,7 @@ import {
 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
+import { useModal } from "@/context/ModalContext"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 
 interface PageProps {
@@ -371,6 +372,7 @@ export default function CourseDetailPage({ params }: PageProps) {
   const courseCode = resolvedParams.code
 
   const { user, refreshUser, loading: authLoading } = useAuth()
+  const { showToast, showAlert, showConfirm } = useModal()
   const [course, setCourse] = React.useState<Course | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -522,7 +524,7 @@ export default function CourseDetailPage({ params }: PageProps) {
   const handleClaimCertificate = async () => {
     if (!courseCode) return
     if (progressPercent < 100) {
-      alert("Harap selesaikan seluruh materi kuliah 100% terlebih dahulu sebelum mengklaim sertifikat.")
+      showAlert("Kemajuan Belajar Belum Selesai", "Harap selesaikan seluruh materi kuliah 100% terlebih dahulu sebelum mengklaim sertifikat.")
       return
     }
     setCertificateLoading(true)
@@ -530,8 +532,9 @@ export default function CourseDetailPage({ params }: PageProps) {
       const res = await api.courses.claimCertificate(courseCode, completedSubChapters)
       setCertificateStatus(res.status)
       setCertificateData(res)
+      showToast("Sertifikat berhasil diklaim!", "success")
     } catch (err: any) {
-      alert(err.message || "Gagal mengklaim sertifikat.")
+      showAlert("Gagal Klaim Sertifikat", err.message || "Gagal mengklaim sertifikat.")
     } finally {
       setCertificateLoading(false)
     }
@@ -569,10 +572,10 @@ export default function CourseDetailPage({ params }: PageProps) {
         setQuizTimeLeft(quiz.time_limit)
         setQuizTimerActive(true)
       } else {
-        alert("Belum ada evaluasi untuk modul ini.")
+        showToast("Belum ada evaluasi untuk modul ini.", "info")
       }
     } catch (err) {
-      alert("Gagal memuat evaluasi.")
+      showToast("Gagal memuat evaluasi.", "error")
     }
   }
 
@@ -590,12 +593,17 @@ export default function CourseDetailPage({ params }: PageProps) {
       const result = await api.quizzes.submit(activeQuiz.id, quizAnswers)
       setQuizResult(result)
       setQuizTaking(false)
-
+      
       if (result.passed && activeSubChapter) {
         markSubChapterAsCompleted(activeSubChapter.id)
       }
+      if (result.passed) {
+        showToast("Selamat! Anda lulus kuis evaluasi.", "success")
+      } else {
+        showToast("Anda belum mencapai batas kelulusan kuis evaluasi.", "error")
+      }
     } catch (err) {
-      alert("Gagal mengirimkan jawaban evaluasi.")
+      showToast("Gagal mengirimkan jawaban evaluasi.", "error")
       setQuizTimerActive(true)
     }
   }, [activeQuiz, activeSubChapter, markSubChapterAsCompleted, quizAnswers])
@@ -633,8 +641,9 @@ export default function CourseDetailPage({ params }: PageProps) {
       setNewPostContent("")
       setIsCreatingPost(false)
       fetchForumData() // Refresh list
+      showToast("Pertanyaan Anda berhasil diterbitkan.", "success")
     } catch (err) {
-      alert("Gagal mengirimkan pertanyaan.")
+      showToast("Gagal mengirimkan pertanyaan.", "error")
     }
   }
 
@@ -648,6 +657,7 @@ export default function CourseDetailPage({ params }: PageProps) {
       setReplyContents(prev => ({ ...prev, [replyKey]: "" }))
       setActiveReplyToId(null)
       fetchForumData() // Refresh list
+      showToast("Balasan Anda berhasil dikirim.", "success")
       
       // Update expanded active post view if open
       if (activePost && activePost.id === postId) {
@@ -657,7 +667,7 @@ export default function CourseDetailPage({ params }: PageProps) {
         }, 100)
       }
     } catch (err) {
-      alert("Gagal mengirimkan balasan.")
+      showToast("Gagal mengirimkan balasan.", "error")
     }
   }
 
@@ -693,7 +703,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                 await api.payment.verify(response.order_id, "success")
                 await refreshUser()
                 await fetchCourseData() // Re-fetch course metadata to update enrollmentMode to 'verified'
-                alert("Upgrade premium berhasil! Selamat belajar.")
+                showToast("Upgrade premium berhasil! Selamat belajar.", "success")
                 setCheckoutOpen(false)
               },
               onPending: () => {
@@ -2036,16 +2046,22 @@ export default function CourseDetailPage({ params }: PageProps) {
                                       if (isLocked) {
                                         // Let click proceed to locked info layout
                                       }
-                                      if (quizTaking) {
-                                        if (!confirm("Evaluasi sedang berjalan. Beralih halaman akan membatalkan evaluasi ini. Lanjutkan?")) {
-                                          return
-                                        }
+                                      const selectSub = () => {
+                                        setActiveSubChapter(sub)
+                                        setActiveQuiz(null)
+                                        setQuizResult(null)
+                                        setQuizTaking(false)
+                                        setQuizTimerActive(false)
                                       }
-                                      setActiveSubChapter(sub)
-                                      setActiveQuiz(null)
-                                      setQuizResult(null)
-                                      setQuizTaking(false)
-                                      setQuizTimerActive(false)
+                                      if (quizTaking) {
+                                        showConfirm(
+                                          "Batalkan Evaluasi?",
+                                          "Evaluasi sedang berjalan. Beralih halaman akan membatalkan evaluasi ini. Lanjutkan?",
+                                          selectSub
+                                        )
+                                        return
+                                      }
+                                      selectSub()
                                     }}
                                     className={`w-full p-2.5 rounded-[12px] flex items-start gap-3 transition-all text-left cursor-pointer relative border border-solid ${
                                       isSubActive
@@ -2283,7 +2299,10 @@ export default function CourseDetailPage({ params }: PageProps) {
                             size="sm"
                             onClick={() => {
                               markSubChapterAsCompleted(activeSubChapter.id)
-                              alert("Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran pada mata kuliah ini. Semoga sukses dalam ujian akhir!")
+                              showAlert(
+                                "Mata Kuliah Selesai!",
+                                "Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran pada mata kuliah ini. Semoga sukses dalam ujian akhir!"
+                              )
                             }}
                             className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm border-none"
                           >

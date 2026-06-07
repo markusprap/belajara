@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { api, BASE_URL } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
+import { useModal } from "@/context/ModalContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -146,6 +147,7 @@ function AutocompleteInput({
 export default function CatalogPage() {
   const router = useRouter()
   const { user: currentUser, logout } = useAuth()
+  const { showToast, showAlert, showConfirm } = useModal()
   const isLoggedIn = !!currentUser
 
   // Catalog and Enrollment states
@@ -273,7 +275,7 @@ export default function CatalogPage() {
         router.push(`/courses/${courseCode}`)
       })
       .catch((err: any) => {
-        alert(err.message)
+        showAlert("Gagal Mendaftar", err.message || "Terjadi kesalahan saat mendaftar kelas.")
       })
   }
 
@@ -313,7 +315,7 @@ export default function CatalogPage() {
                 setPaymentStatus("success")
                 await api.payment.verify(response.order_id, "success")
                 fetchActiveCourses()
-                alert(`Pendaftaran ${course.title} Kelas Lengkap Berhasil! Selamat belajar.`)
+                showToast(`Pendaftaran ${course.title} Kelas Lengkap Berhasil! Selamat belajar.`, "success")
                 setCheckoutOpen(false)
                 router.push(`/courses/${course.code}`)
               },
@@ -362,7 +364,7 @@ export default function CatalogPage() {
       }
     } catch (err: any) {
       console.error(err)
-      alert(err.message || "Gagal melakukan checkout. Silakan login sebagai mahasiswa.")
+      showAlert("Checkout Gagal", err.message || "Gagal melakukan checkout. Silakan login sebagai mahasiswa.")
       setCheckoutOpen(false)
     } finally {
       setCheckoutLoading(false)

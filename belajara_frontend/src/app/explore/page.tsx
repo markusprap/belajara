@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { api, BASE_URL } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
+import { useModal } from "@/context/ModalContext"
 import { inferProgramStudiGroup, type ProgramStudiGroupKey, PROGRAM_STUDI_INDONESIA, searchProdi } from "@/lib/indonesia-academic-data"
 
 // ─────────────────────────────────────────────────────────────
@@ -558,6 +559,7 @@ export default function ExplorePage() {
   const [activeGapTab, setActiveGapTab] = React.useState<"mandatory" | "elective" | "career">("mandatory")
 
   const { user: currentUser } = useAuth()
+  const { showAlert } = useModal()
   const [selectedBenchmarkId, setSelectedBenchmarkId] = React.useState("")
 
   const isPremium = (currentUser as { is_premium?: boolean } | null)?.is_premium === true
@@ -822,7 +824,7 @@ export default function ExplorePage() {
     if (!currentUser) { router.push(`/login?redirect=explore`); return }
     api.courses.enroll(courseCode)
       .then(() => { fetchActiveCourses(); router.push(`/courses/${courseCode}`) })
-      .catch((err: any) => { alert(err.message) })
+      .catch((err: any) => { showAlert("Gagal Mendaftar", err.message || "Terjadi kesalahan saat mendaftar kelas.") })
   }
 
   const triggerFileInput = () => fileInputRef.current?.click()

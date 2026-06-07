@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/dialog"
 import { api, BASE_URL } from "@/lib/api"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
+import { useModal } from "@/context/ModalContext"
 
 interface SubChapter {
   id: number | string
@@ -198,6 +199,7 @@ export default function CourseManagePage() {
   const params = useParams<{ code: string }>()
   const code = params?.code as string
   const router = useRouter()
+  const { showConfirm } = useModal()
 
   const [course, setCourse] = React.useState<Course | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -775,14 +777,21 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
   }
 
   const handleDeleteModule = async (moduleId: number) => {
-    if (!confirm("Hapus modul ini beserta sub-bab di dalamnya?")) return
-    try {
-      await api.instructor.deleteModule(moduleId)
-      showToast("success", "Modul berhasil dihapus.")
-      fetchCourse()
-    } catch (err: any) {
-      showToast("error", err.message || "Gagal menghapus modul.")
-    }
+    showConfirm(
+      "Hapus Modul",
+      "Hapus modul ini beserta sub-bab di dalamnya? Tindakan ini tidak dapat diurungkan.",
+      async () => {
+        try {
+          await api.instructor.deleteModule(moduleId)
+          showToast("success", "Modul berhasil dihapus.")
+          fetchCourse()
+        } catch (err: any) {
+          showToast("error", err.message || "Gagal menghapus modul.")
+        }
+      },
+      undefined,
+      true
+    )
   }
 
   // ─── SubChapter Operations ───────────────────────────────────────────────
@@ -850,15 +859,24 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
       showToast("error", "Sub-bab bawaan tidak dapat dihapus. Anda harus menyimpannya terlebih dahulu di database.")
       return
     }
-    if (!confirm("Hapus sub-bab ini secara permanen?")) return
-    try {
-      await api.instructor.deleteSubChapter(sub.id)
-      showToast("success", "Sub-bab berhasil dihapus.")
-      fetchCourse()
-    } catch (err: any) {
-      showToast("error", err.message || "Gagal menghapus sub-bab.")
-    }
+    const subId = sub.id as number
+    showConfirm(
+      "Hapus Sub-Bab",
+      "Hapus sub-bab ini secara permanen? Tindakan ini tidak dapat diurungkan.",
+      async () => {
+        try {
+          await api.instructor.deleteSubChapter(subId)
+          showToast("success", "Sub-bab berhasil dihapus.")
+          fetchCourse()
+        } catch (err: any) {
+          showToast("error", err.message || "Gagal menghapus sub-bab.")
+        }
+      },
+      undefined,
+      true
+    )
   }
+
 
   // ─── Quiz Operations ─────────────────────────────────────────────────────
   const handleOpenQuizEditor = async (moduleId: number) => {
