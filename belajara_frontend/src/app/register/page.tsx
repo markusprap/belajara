@@ -171,13 +171,7 @@ export default function RegisterPage() {
   const [success, setSuccess] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
 
-  // Google OAuth Simulation states
-  const [showGoogleModal, setShowGoogleModal] = React.useState(false)
-  const [googleEmail, setGoogleEmail] = React.useState("")
-  const [googleFirstName, setGoogleFirstName] = React.useState("")
-  const [googleLastName, setGoogleLastName] = React.useState("")
-  const [googleRole, setGoogleRole] = React.useState("mahasiswa")
-  const [useCustomGoogle, setUseCustomGoogle] = React.useState(false)
+
 
   const [redirectUrl, setRedirectUrl] = React.useState<string | null>(null)
 
@@ -261,28 +255,7 @@ export default function RegisterPage() {
     return () => clearInterval(timer);
   }, [redirectUrl, router, formData.role]);
 
-  const handleGoogleLogin = async (email: string, firstName: string, lastName: string, roleParam?: string) => {
-    setLoading(true)
-    setError(null)
-    setShowGoogleModal(false)
-    setUseCustomGoogle(false)
-    try {
-      const resolvedRole = roleParam || (googleRole === "instruktur" ? "instructor" : "student");
-      const res = await api.auth.googleLogin(email, firstName, lastName, "mock-google-id", resolvedRole)
-      const user = res?.user || api.auth.getUser()
-      if (user && user.is_onboarded === false) {
-        router.push('/onboarding')
-      } else if (user?.is_instructor) {
-        router.push('/instructor')
-      } else {
-        router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard')
-      }
-    } catch (err: any) {
-      setError(err.message || "Gagal masuk dengan Google.")
-    } finally {
-      setLoading(false)
-    }
-  }
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -726,13 +699,7 @@ export default function RegisterPage() {
 
                 <div className="w-full flex flex-col items-center">
                   <div id="google-signup-button-target" className="w-full flex justify-center min-h-[40px]" />
-                  <button
-                    type="button"
-                    onClick={() => setShowGoogleModal(true)}
-                    className="text-[10px] text-muted-foreground hover:text-primary transition underline font-semibold mt-1 cursor-pointer"
-                  >
-                    Gunakan Simulasi Registrasi (Demo)
-                  </button>
+
                 </div>
 
                 <div className="text-xs text-center text-muted-foreground mt-2 font-semibold">
@@ -751,152 +718,7 @@ export default function RegisterPage() {
       </div>
       </div>
 
-      {/* Google Login/Register Dialog */}
-      {showGoogleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-sm border border-border bg-white shadow-2xl rounded-2xl overflow-hidden p-5 space-y-4">
-            <div className="flex flex-col items-center text-center space-y-2 border-b pb-3">
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                <GoogleIcon />
-              </div>
-              <h3 className="font-heading text-lg font-bold text-primary">Daftar dengan Google</h3>
-              <p className="text-[11px] text-muted-foreground">
-                Pilih akun Google untuk melanjutkan pendaftaran ke Belajara.
-              </p>
-            </div>
 
-            {!useCustomGoogle ? (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => handleGoogleLogin("budi@gmail.com", "Budi", "Santoso", "student")}
-                  className="w-full p-2.5 rounded-xl border border-border hover:bg-slate-50 flex items-center gap-3 transition-colors cursor-pointer text-left"
-                >
-                  <div className="w-8 h-8 rounded-full bg-[#060708] text-white flex items-center justify-center font-bold text-xs select-none shrink-0">
-                    BS
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-primary truncate">Budi Santoso</p>
-                    <p className="text-[10px] text-muted-foreground truncate">budi@gmail.com (Mahasiswa)</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleGoogleLogin("ahmad@gmail.com", "Ahmad", "Yani", "instructor")}
-                  className="w-full p-2.5 rounded-xl border border-border hover:bg-slate-50 flex items-center gap-3 transition-colors cursor-pointer text-left"
-                >
-                  <div className="w-8 h-8 rounded-full bg-[#C6B5BF] text-white flex items-center justify-center font-bold text-xs select-none shrink-0">
-                    AY
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-primary truncate">Dr. Ir. Ahmad Yani</p>
-                    <p className="text-[10px] text-muted-foreground truncate">ahmad@gmail.com (Dosen / Pengajar)</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setUseCustomGoogle(true)}
-                  className="w-full p-2.5 rounded-xl border border-dashed border-border hover:bg-slate-50 flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs font-semibold text-accent"
-                >
-                  Gunakan akun lain...
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="googleEmail" className="text-[10px] font-bold text-primary">Email Google</Label>
-                  <Input
-                    id="googleEmail"
-                    type="email"
-                    placeholder="nama@gmail.com"
-                    value={googleEmail}
-                    onChange={(e) => setGoogleEmail(e.target.value)}
-                    className="h-8 text-xs rounded-lg bg-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="googleFirstName" className="text-[10px] font-bold text-primary">Nama Depan</Label>
-                    <Input
-                      id="googleFirstName"
-                      type="text"
-                      placeholder="Joko"
-                      value={googleFirstName}
-                      onChange={(e) => setGoogleFirstName(e.target.value)}
-                      className="h-8 text-xs rounded-lg bg-white"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="googleLastName" className="text-[10px] font-bold text-primary">Nama Belakang</Label>
-                    <Input
-                      id="googleLastName"
-                      type="text"
-                      placeholder="Susilo"
-                      value={googleLastName}
-                      onChange={(e) => setGoogleLastName(e.target.value)}
-                      className="h-8 text-xs rounded-lg bg-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="googleRole" className="text-[10px] font-bold text-primary">Daftar Sebagai (Role)</Label>
-                  <select
-                    id="googleRole"
-                    value={googleRole}
-                    onChange={(e) => setGoogleRole(e.target.value)}
-                    className="w-full bg-white border border-border rounded-lg px-2 py-1 text-xs text-primary focus:outline-none cursor-pointer"
-                  >
-                    <option value="mahasiswa">Mahasiswa</option>
-                    <option value="instruktur">Dosen / Pengajar</option>
-                  </select>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setUseCustomGoogle(false)}
-                    className="flex-1 h-8 text-xs rounded-lg cursor-pointer"
-                  >
-                    Kembali
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (!googleEmail.trim()) return;
-                      const emailSuffix = googleRole === "instruktur" ? "+instructor" : "";
-                      const emailParts = googleEmail.split("@");
-                      const customEmail = `${emailParts[0]}${emailSuffix}@${emailParts[1] || "gmail.com"}`;
-                      handleGoogleLogin(customEmail, googleFirstName, googleLastName);
-                    }}
-                    className="flex-1 h-8 text-xs bg-primary text-white hover:bg-primary/95 rounded-lg cursor-pointer"
-                  >
-                    Lanjutkan
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end border-t pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  setShowGoogleModal(false);
-                  setUseCustomGoogle(false);
-                }}
-                className="text-xs h-7 text-muted-foreground hover:text-primary cursor-pointer"
-              >
-                Batal
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   )
 }
