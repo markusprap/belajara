@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, Trophy, Sparkles, AlertCircle } from "lucide-react"
 
 import { useRouter } from "next/navigation"
-import { getToken, clearToken, getUser } from "@/lib/api"
+import { getToken, clearToken, getUser, BASE_URL } from "@/lib/api"
 
 interface Student {
   name: string
@@ -84,7 +84,7 @@ export default function Page() {
       headers["Authorization"] = `Bearer ${token}`
     }
 
-    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
+    fetch(`${BASE_URL}/dashboard/`, { headers })
       .then((res) => {
         if (res.status === 401) {
           clearToken()

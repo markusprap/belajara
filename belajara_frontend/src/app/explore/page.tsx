@@ -16,7 +16,7 @@ import {
   Check, BookOpen, ChevronDown, ChevronUp, Lock, Lightbulb,
   TrendingUp, Map, Eye, EyeOff, Search,
 } from "lucide-react"
-import { api, getUser, getToken } from "@/lib/api"
+import { api, getUser, getToken, BASE_URL } from "@/lib/api"
 import { inferProgramStudiGroup, type ProgramStudiGroupKey, PROGRAM_STUDI_INDONESIA, searchProdi } from "@/lib/indonesia-academic-data"
 
 // ─────────────────────────────────────────────────────────────
@@ -742,7 +742,7 @@ export default function ExplorePage() {
     if (!token) return
     const u = getUser() as { is_instructor?: boolean } | null
     if (u?.is_instructor) return
-    fetch("http://127.0.0.1:8001/api/dashboard/", {
+    fetch(`${BASE_URL}/dashboard/`, {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
     })
       .then(res => { if (res.ok) return res.json(); throw new Error() })
@@ -826,7 +826,7 @@ export default function ExplorePage() {
   const handleEnroll = (courseCode: string) => {
     const token = getToken()
     if (!token) { router.push(`/login?redirect=explore`); return }
-    fetch("http://127.0.0.1:8001/api/courses/enroll/", {
+    fetch(`${BASE_URL}/courses/enroll/`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ course_code: courseCode }),

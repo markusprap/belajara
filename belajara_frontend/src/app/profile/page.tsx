@@ -10,7 +10,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { User, GraduationCap, AlertCircle, Loader2, ShieldCheck, Trophy, Sparkles, BookOpen, Crown } from "lucide-react"
-import { getUser, getToken, api } from "@/lib/api"
+import { getUser, getToken, api, BASE_URL } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,9 +55,9 @@ export default function ProfilePage() {
         "Content-Type": "application/json"
       }
       if (token) {
-        headers["Authorization"] = `Bearer {token}`
+        headers["Authorization"] = `Bearer ${token}`
       }
-      const res = await fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
+      const res = await fetch(`${BASE_URL}/dashboard/`, { headers })
       if (res.ok) {
         const d = await res.json()
         setDashData(d)

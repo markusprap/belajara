@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { api, getToken, clearToken, getUser } from "@/lib/api"
+import { api, getToken, clearToken, getUser, BASE_URL } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -93,7 +93,7 @@ export default function LandingPage() {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
     }
-    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
+    fetch(`${BASE_URL}/dashboard/`, { headers })
       .then((res) => {
         if (res.ok) return res.json()
         throw new Error()
@@ -110,7 +110,7 @@ export default function LandingPage() {
     setCatalogLoading(true)
     setCatalogError(null)
     
-    fetch(`http://127.0.0.1:8001/api/courses/`)
+    fetch(`${BASE_URL}/courses/`)
       .then((res) => {
         if (!res.ok) throw new Error("Gagal mengambil daftar mata kuliah")
         return res.json()

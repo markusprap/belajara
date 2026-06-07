@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { GraduationCap, Plus, BookOpen, ChevronRight, Loader2, AlertCircle, Users } from "lucide-react"
-import { api, getToken } from "@/lib/api"
+import { api, getToken, BASE_URL } from "@/lib/api"
 
 // ── Cover gradient helper ──────────────────────────────────────────────────
 const COVER_PALETTES = [
@@ -83,7 +83,7 @@ export default function InstructorPage() {
     setError(null)
     try {
       const token = getToken()
-      const res = await fetch("http://127.0.0.1:8001/api/courses/", {
+      const res = await fetch(`${BASE_URL}/courses/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {

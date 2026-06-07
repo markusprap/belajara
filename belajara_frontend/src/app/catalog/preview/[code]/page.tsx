@@ -25,7 +25,7 @@ import {
   ExternalLink,
   Laptop
 } from "lucide-react"
-import { api, getToken, getUser, setUser } from "@/lib/api"
+import { api, getToken, getUser, setUser, BASE_URL } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -94,7 +94,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
       }
 
       // Fetch fresh profile data to keep premium status in sync
-      fetch("http://127.0.0.1:8001/api/auth/me/", { headers })
+      fetch(`${BASE_URL}/auth/me/`, { headers })
         .then((res) => {
           if (res.ok) return res.json()
           throw new Error()
@@ -113,7 +113,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
       if (u?.is_instructor) return // Instructors do not have enrollments
       
       // Fetch enrolled courses to check enrollment status
-      fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
+      fetch(`${BASE_URL}/dashboard/`, { headers })
         .then((res) => {
           if (res.ok) return res.json()
           throw new Error()
@@ -184,7 +184,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
       "Authorization": `Bearer ${token}`
     }
 
-    fetch("http://127.0.0.1:8001/api/courses/enroll/", {
+    fetch(`${BASE_URL}/courses/enroll/`, {
       method: "POST",
       headers,
       body: JSON.stringify({ course_code: courseCode, enrollment_mode: mode })

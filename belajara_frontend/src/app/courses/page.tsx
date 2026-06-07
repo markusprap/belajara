@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
-import { getToken, getUser } from "@/lib/api"
+import { getToken, getUser, BASE_URL } from "@/lib/api"
 import {
   SidebarInset,
   SidebarProvider,
@@ -86,7 +86,7 @@ export default function CoursesPage() {
       "Authorization": `Bearer ${token}`,
     }
 
-    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
+    fetch(`${BASE_URL}/dashboard/`, { headers })
       .then((res) => {
         if (!res.ok) {
           throw new Error("Gagal mengambil data kelas terdaftar.")

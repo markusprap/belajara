@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { api, getToken, clearToken, getUser } from "@/lib/api"
+import { api, getToken, clearToken, getUser, BASE_URL } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -202,7 +202,7 @@ export default function CatalogPage() {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
     }
-    fetch("http://127.0.0.1:8001/api/dashboard/", { headers })
+    fetch(`${BASE_URL}/dashboard/`, { headers })
       .then((res) => {
         if (res.ok) return res.json()
         throw new Error()
@@ -229,7 +229,7 @@ export default function CatalogPage() {
     if (department) params.append("department", department)
     params.append("page", currentPage.toString())
     
-    fetch(`http://127.0.0.1:8001/api/courses/?${params.toString()}`)
+    fetch(`${BASE_URL}/courses/?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error("Gagal mengambil daftar mata kuliah")
         return res.json()
@@ -298,7 +298,7 @@ export default function CatalogPage() {
       "Authorization": `Bearer ${token}`
     }
 
-    fetch("http://127.0.0.1:8001/api/courses/enroll/", {
+    fetch(`${BASE_URL}/courses/enroll/`, {
       method: "POST",
       headers,
       body: JSON.stringify({ course_code: courseCode, enrollment_mode: mode })

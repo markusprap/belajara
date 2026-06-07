@@ -41,3 +41,5 @@ curricula/
 belajara_backend/logs/
 belajara_backend/celerybeat-schedule
 belajara_backend/celery_beat.log
+.vercel
+.env*.local

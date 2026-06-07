@@ -44,7 +44,7 @@ import {
   ArrowLeft, MoreVertical, Settings, Lock, DollarSign, Activity, PieChart, Users, Award, FileSpreadsheet,
   Info, Check, Sliders
 } from "lucide-react"
-import { api, getToken } from "@/lib/api"
+import { api, getToken, BASE_URL } from "@/lib/api"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 
 interface SubChapter {
@@ -665,7 +665,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
     setLoading(true)
     try {
       const token = getToken()
-      const res = await fetch(`http://127.0.0.1:8001/api/courses/`, {
+      const res = await fetch(`${BASE_URL}/courses/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {

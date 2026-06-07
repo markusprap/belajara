@@ -1,6 +1,6 @@
 // Frontend API Client with JWT storage & mock fallbacks
 import { inferProgramStudiGroup } from "./indonesia-academic-data";
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001/api";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001/api";
 const ENABLE_MOCKS = process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true";
 
 export function getToken(): string | null {
