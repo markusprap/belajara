@@ -3,6 +3,7 @@ from django.urls import path
 from payments.views import (
     CancelSubscriptionView,
     CheckoutView,
+    CheckoutCreditsView,
     MidtransWebhookView,
     MySubscriptionView,
     SubscribeView,
@@ -14,6 +15,7 @@ from payments.views import (
 urlpatterns = [
     # Per-course purchase
     path("payments/checkout/", CheckoutView.as_view(), name="payment_checkout"),
+    path("payments/checkout-credits/", CheckoutCreditsView.as_view(), name="payment_checkout_credits"),
 
     # Subscription management
     path("payments/subscribe/", SubscribeView.as_view(), name="payment_subscribe"),

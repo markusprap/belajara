@@ -71,13 +71,14 @@ class Subscription(models.Model):
 
 class Transaction(models.Model):
     """
-    Records every payment transaction — either a per-course purchase
-    or a subscription initiation/renewal.
+    Records every payment transaction — either a per-course purchase,
+    a subscription initiation/renewal, or an instructor credit purchase.
     """
     TRANSACTION_TYPE_CHOICES = [
         ('course_purchase', 'Pembelian Kursus'),
         ('subscription_new', 'Langganan Baru'),
         ('subscription_renewal', 'Perpanjangan Langganan'),
+        ('credit_purchase', 'Pembelian Kredit AI'),
     ]
     STATUS_CHOICES = [
         ('pending', 'Menunggu'),
@@ -90,7 +91,13 @@ class Transaction(models.Model):
     order_id = models.CharField(max_length=100, unique=True)
     mahasiswa = models.ForeignKey(
         Mahasiswa, on_delete=models.CASCADE,
-        related_name='transactions'
+        related_name='transactions',
+        null=True, blank=True
+    )
+    instructor = models.ForeignKey(
+        'users.InstructorProfile', on_delete=models.CASCADE,
+        related_name='transactions',
+        null=True, blank=True
     )
     # course is nullable — subscription transactions don't tie to a single course
     course = models.ForeignKey(

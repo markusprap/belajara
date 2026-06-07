@@ -111,6 +111,97 @@ class Command(BaseCommand):
                     {"title": "Support Vector Machines & KNN", "description": "Algoritma klasifikasi berbasis margin dan kedekatan tetangga.", "order": 4},
                     {"title": "Clustering (K-Means)", "description": "Algoritma pembelajaran tanpa pengawasan untuk segmentasi data.", "order": 5}
                 ]
+            },
+            {
+                "code": "SI101",
+                "title": "Pengantar Sistem Informasi",
+                "description": "Mempelajari konsep dasar sistem informasi, peran TI dalam bisnis, dan e-commerce.",
+                "sks": 3,
+                "semester": 1,
+                "department": "Sistem Informasi",
+                "modules": [
+                    {"title": "Konsep Dasar Sistem Informasi", "description": "Pengenalan hardware, software, database, dan telekomunikasi.", "order": 1},
+                    {"title": "Sistem Informasi dalam Organisasi", "description": "Bagaimana TI mendukung proses bisnis dan strategi bersaing.", "order": 2},
+                    {"title": "E-Commerce & Digital Market", "description": "Model bisnis digital dan teknologi e-commerce.", "order": 3}
+                ]
+            },
+            {
+                "code": "SI201",
+                "title": "Analisis & Perancangan Sistem Informasi",
+                "description": "Metodologi analisis kebutuhan sistem, pemodelan UML, rancangan database, dan user interface.",
+                "sks": 3,
+                "semester": 3,
+                "department": "Sistem Informasi",
+                "modules": [
+                    {"title": "Analisis Kebutuhan Sistem", "description": "Identifikasi problem, requirement gathering, dan feasibility study.", "order": 1},
+                    {"title": "Pemodelan UML & Use Case", "description": "Merancang diagram kelas, use case, dan activity diagram.", "order": 2},
+                    {"title": "Desain UI/UX & Database", "description": "Prinsip perancangan antarmuka pengguna dan skema data.", "order": 3}
+                ]
+            },
+            {
+                "code": "SI301",
+                "title": "Arsitektur Enterprise",
+                "description": "Perancangan arsitektur enterprise menggunakan framework TOGAF untuk menyelaraskan bisnis dengan strategi TI.",
+                "sks": 3,
+                "semester": 5,
+                "department": "Sistem Informasi",
+                "modules": [
+                    {"title": "Pengenalan Arsitektur Enterprise", "description": "Konsep dasar, manfaat, dan arsitektur bisnis vs teknologi.", "order": 1},
+                    {"title": "TOGAF ADM Framework", "description": "Tahapan siklus pengembangan arsitektur TOGAF.", "order": 2},
+                    {"title": "Tata Kelola & Implementasi TI", "description": "Strategi migrasi dan tata kelola arsitektur IT.", "order": 3}
+                ]
+            },
+            {
+                "code": "AKT101",
+                "title": "Pengantar Akuntansi",
+                "description": "Dasar-dasar akuntansi keuangan, siklus akuntansi untuk perusahaan jasa dan dagang, serta pembuatan laporan keuangan dasar.",
+                "sks": 3,
+                "semester": 1,
+                "department": "Akuntansi",
+                "modules": [
+                    {"title": "Persamaan Dasar Akuntansi & Jurnal", "description": "Pencatatan transaksi keuangan menggunakan prinsip debit-kredit.", "order": 1},
+                    {"title": "Siklus Akuntansi & Buku Besar", "description": "Posting ke buku besar dan penyusunan neraca saldo.", "order": 2},
+                    {"title": "Jurnal Penyesuaian & Laporan Keuangan", "description": "Penyusunan laporan laba rugi, perubahan modal, dan neraca.", "order": 3}
+                ]
+            },
+            {
+                "code": "AKT201",
+                "title": "Akuntansi Keuangan Menengah",
+                "description": "Membahas perlakuan akuntansi untuk aset lancar, aset tetap, kewajiban jangka pendek, dan pengakuan pendapatan sesuai SAK.",
+                "sks": 4,
+                "semester": 3,
+                "department": "Akuntansi",
+                "modules": [
+                    {"title": "Kas, Piutang & Persediaan", "description": "Penilaian dan pelaporan instrumen keuangan lancar.", "order": 1},
+                    {"title": "Aset Tetap & Depresiasi", "description": "Perolehan aset tetap, penyusutan, dan pelepasan aset.", "order": 2},
+                    {"title": "Kewajiban Jangka Pendek & Provisi", "description": "Pencatatan liabilitas lancar dan kontinjensi.", "order": 3}
+                ]
+            },
+            {
+                "code": "AKT301",
+                "title": "Perpajakan",
+                "description": "Ketentuan umum perpajakan di Indonesia, perhitungan PPh Pasal 21, 22, 23, 24, dan PPN.",
+                "sks": 3,
+                "semester": 4,
+                "department": "Akuntansi",
+                "modules": [
+                    {"title": "Ketentuan Umum & Tata Cara Perpajakan", "description": "Hak dan kewajiban wajib pajak, NPWP, dan SPT.", "order": 1},
+                    {"title": "Pajak Penghasilan (PPh) Orang Pribadi & Badan", "description": "Perhitungan PPh Pasal 21 untuk karyawan dan PPh Badan.", "order": 2},
+                    {"title": "Pajak Pertambahan Nilai (PPN)", "description": "Konsep faktur pajak, pajak masukan, dan pajak keluaran.", "order": 3}
+                ]
+            },
+            {
+                "code": "AKT302",
+                "title": "Auditing & Assurance",
+                "description": "Prinsip pengauditan laporan keuangan, standar audit SPAP, penentuan risiko audit, bukti audit, dan laporan opini auditor.",
+                "sks": 3,
+                "semester": 5,
+                "department": "Akuntansi",
+                "modules": [
+                    {"title": "Profesi Akuntan Publik & Standar Audit", "description": "Etika profesi auditor dan standar asurans.", "order": 1},
+                    {"title": "Risiko Audit & Bukti Audit", "description": "Materialitas, sampling audit, dan prosedur substantif.", "order": 2},
+                    {"title": "Laporan Auditor & Opini", "description": "Pemberian opini wajar tanpa pengecualian hingga opini tidak menyatakan pendapat.", "order": 3}
+                ]
             }
         ]
 
@@ -189,5 +280,42 @@ class Command(BaseCommand):
         active_courses = Course.objects.filter(code__in=active_codes)
         mahasiswa.active_courses.set(active_courses)
         self.stdout.write(f"Enrolled {mahasiswa.nim} in courses: {[c.title for c in active_courses]}")
+
+        # Seed quizzes for all modules
+        from quizzes.models import Quiz
+        self.stdout.write("Seeding quizzes for all modules...")
+        for course in Course.objects.all():
+            for module in course.modules.all():
+                if not Quiz.objects.filter(module=module).exists():
+                    questions = [
+                        {
+                            "question": f"Apa konsep utama yang dibahas pada {module.title}?",
+                            "options": {
+                                "A": "Konsep dasar dan implementasi praktis terkait topik.",
+                                "B": "Struktur data acak tanpa kegunaan khusus.",
+                                "C": "Penggunaan basis data relasional untuk semua kasus.",
+                                "D": "Tidak ada jawaban yang benar."
+                            },
+                            "correct_answer": "A",
+                            "explanation": "Pilihan A adalah jawaban paling tepat yang mendefinisikan fokus utama dari modul ini."
+                        },
+                        {
+                            "question": f"Mengapa pemahaman tentang {module.title} penting?",
+                            "options": {
+                                "A": "Karena tidak berguna untuk pemrograman modern.",
+                                "B": "Untuk mengoptimalkan efisiensi, performa, dan skalabilitas sistem.",
+                                "C": "Hanya sebagai pelengkap akademis formal.",
+                                "D": "Semua jawaban salah."
+                            },
+                            "correct_answer": "B",
+                            "explanation": "Materi modul ini bertujuan untuk membekali mahasiswa dengan kemampuan optimasi sistem, efisiensi waktu (Big O), dan manajemen resource."
+                        }
+                    ]
+                    Quiz.objects.create(
+                        module=module,
+                        questions_json=questions,
+                        generated_by_ai=False
+                    )
+                    self.stdout.write(f"  - Created Quiz for Module: {module.title}")
 
         self.stdout.write(self.style.SUCCESS("Database seeding completed!"))

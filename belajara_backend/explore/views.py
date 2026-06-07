@@ -108,6 +108,12 @@ class AIRecommendationStatusView(APIView):
 
         recommendations_data = recommendation.recommendations_data
         
+        if isinstance(recommendations_data, dict) and recommendations_data.get("status") == "error":
+            return Response(
+                {"status": "error", "detail": recommendations_data.get("error_message", "Unknown error")},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Check if recommendations_data is a dict (new format) or a list (old format)
         if isinstance(recommendations_data, dict):
             normalized_payload = normalize_recommendations_payload(
@@ -151,6 +157,20 @@ class CurriculumUploadView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
     def post(self, request, *args, **kwargs):
+        from users.models import InstructorProfile, AICreditTransaction
+        from django.db import transaction
+
+        instructor, created = InstructorProfile.objects.get_or_create(
+            user=request.user,
+            defaults={"nidn": f"MOCK-{request.user.id}", "bidang_keahlian": "Umum", "universitas": "Universitas Indonesia"}
+        )
+
+        if instructor.ai_credits < 1:
+            return Response(
+                {"detail": "Kredit AI habis. Silakan lakukan top up."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         uploaded_file = request.FILES.get('file')
         department = request.data.get('department', 'Informatika')
 
@@ -166,6 +186,22 @@ class CurriculumUploadView(APIView):
 
         try:
             saved_courses = parse_curriculum_and_save(uploaded_file, uploaded_file.name, department)
+
+            with transaction.atomic():
+                instructor = InstructorProfile.objects.select_for_update().get(pk=instructor.pk)
+                if instructor.ai_credits < 1:
+                    return Response(
+                        {"detail": "Kredit AI habis. Silakan lakukan top up."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                instructor.ai_credits -= 1
+                instructor.save()
+                AICreditTransaction.objects.create(
+                    instructor=instructor,
+                    amount=-1,
+                    description=f"Parse kurikulum AI: {uploaded_file.name}"
+                )
+
             serializer = CourseSerializer(saved_courses, many=True)
             return Response({
                 "message": f"Berhasil memuat {len(saved_courses)} mata kuliah dari kurikulum.",

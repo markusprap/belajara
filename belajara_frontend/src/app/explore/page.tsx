@@ -14,9 +14,10 @@ import { Card } from "@/components/ui/card"
 import {
   Upload, FileText, X, Sparkles, Loader2, CheckCircle2, AlertCircle,
   Check, BookOpen, ChevronDown, ChevronUp, Lock, Lightbulb,
-  TrendingUp, Map, Eye, EyeOff, Search,
+  TrendingUp, Map, Eye, EyeOff, Search, GraduationCap,
 } from "lucide-react"
-import { api, getUser, getToken, BASE_URL } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { inferProgramStudiGroup, type ProgramStudiGroupKey, PROGRAM_STUDI_INDONESIA, searchProdi } from "@/lib/indonesia-academic-data"
 
 // ─────────────────────────────────────────────────────────────
@@ -556,12 +557,8 @@ export default function ExplorePage() {
   const [showEvidenceDrawer, setShowEvidenceDrawer] = React.useState(false)
   const [activeGapTab, setActiveGapTab] = React.useState<"mandatory" | "elective" | "career">("mandatory")
 
-  const [currentUser, setCurrentUser] = React.useState<Record<string, unknown> | null>(null)
+  const { user: currentUser } = useAuth()
   const [selectedBenchmarkId, setSelectedBenchmarkId] = React.useState("")
-
-  React.useEffect(() => {
-    setCurrentUser(getUser() as Record<string, unknown> | null)
-  }, [])
 
   const isPremium = (currentUser as { is_premium?: boolean } | null)?.is_premium === true
 
@@ -736,14 +733,12 @@ export default function ExplorePage() {
     return () => clearInterval(interval)
   }, [loading])
 
-  // ── API Calls ──
   const fetchActiveCourses = () => {
-    const token = getToken()
-    if (!token) return
-    const u = getUser() as { is_instructor?: boolean } | null
-    if (u?.is_instructor) return
+    if (!currentUser) return
+    if ((currentUser as { is_instructor?: boolean } | null)?.is_instructor) return
     fetch(`${BASE_URL}/dashboard/`, {
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
     })
       .then(res => { if (res.ok) return res.json(); throw new Error() })
       .then((data: StudentDashboardData) => {
@@ -755,7 +750,7 @@ export default function ExplorePage() {
   React.useEffect(() => {
     fetchActiveCourses()
     return () => { if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current) }
-  }, [])
+  }, [currentUser])
 
   const checkFileSupport = (file: File) => {
     const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase()
@@ -824,16 +819,10 @@ export default function ExplorePage() {
   }
 
   const handleEnroll = (courseCode: string) => {
-    const token = getToken()
-    if (!token) { router.push(`/login?redirect=explore`); return }
-    fetch(`${BASE_URL}/courses/enroll/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-      body: JSON.stringify({ course_code: courseCode }),
-    })
-      .then(res => { if (!res.ok) return res.json().then(d => { throw new Error(d.detail || "Gagal mendaftar kelas.") }); return res.json() })
+    if (!currentUser) { router.push(`/login?redirect=explore`); return }
+    api.courses.enroll(courseCode)
       .then(() => { fetchActiveCourses(); router.push(`/courses/${courseCode}`) })
-      .catch(err => { alert(err.message) })
+      .catch((err: any) => { alert(err.message) })
   }
 
   const triggerFileInput = () => fileInputRef.current?.click()
@@ -854,9 +843,9 @@ export default function ExplorePage() {
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col gap-6 p-6 bg-background">
+        <div className="flex flex-1 flex-col gap-6 p-6 bg-background print:hidden">
           {/* Header */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 explore-page-header">
             <h1 className="text-3xl font-heading font-bold text-primary">
               Rekomendasi Rencana Studi Berbasis AI
             </h1>
@@ -1567,6 +1556,402 @@ export default function ExplorePage() {
             </div>
           </div>
         </div>
+
+        {/* Print-Only Layout */}
+        {academicProfile && (
+          <div className="hidden print:block w-full max-w-4xl mx-auto bg-white text-[#060708] p-8 space-y-8">
+            
+            {/* ── PAGE 1: COVER HEADER & PRIMARY COMPETENCY PROFILE ── */}
+            <div className="space-y-6 min-h-[920px] flex flex-col justify-between">
+              <div>
+                {/* Branding Top Band */}
+                <div className="flex justify-between items-center border-b-4 border-[#CF3A1F] pb-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-[#060708] text-white">
+                      <GraduationCap className="h-6 w-6 stroke-[1.5]" />
+                    </div>
+                    <div>
+                      <h1 className="text-2xl font-heading font-black tracking-tight text-[#060708] flex items-baseline">
+                        Belajara<span className="text-[#CF3A1F] font-bold">.</span>
+                      </h1>
+                      <p className="text-[9px] font-heading font-bold tracking-widest text-[#7E7C82] uppercase mt-0.5">
+                        AI Academic Advisor Report
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block text-[10px] font-bold text-[#CF3A1F] bg-[#CF3A1F]/10 border border-[#CF3A1F]/20 rounded-full px-3 py-1 uppercase tracking-wider">
+                      Analisis Premium
+                    </span>
+                    <p className="text-[10px] text-muted-foreground mt-1.5 font-mono">
+                      Laporan ID: AI-EXP-{currentUser?.username || "0001"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div className="text-center py-4 space-y-1.5">
+                  <h2 className="font-heading text-2xl font-black uppercase tracking-tight text-[#060708]">
+                    Laporan Hasil Analisis Akademik &amp; Rekomendasi Karir AI
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Tanggal Pembuatan: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+
+                {/* Student Info Table Grid */}
+                <div className="grid grid-cols-2 gap-6 p-4 border border-[#E8E5E9] rounded-xl bg-[#FAF9FB] mb-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Profil Mahasiswa</p>
+                    <table className="w-full text-xs text-left">
+                      <tbody>
+                        <tr>
+                          <th className="py-1 pr-3 font-bold text-slate-600 w-28">Nama:</th>
+                          <td className="py-1 text-slate-900 font-semibold">{currentUser?.name || currentUser?.username || "Mahasiswa Belajara"}</td>
+                        </tr>
+                        <tr>
+                          <th className="py-1 pr-3 font-bold text-slate-600">Email:</th>
+                          <td className="py-1 text-slate-900">{currentUser?.email || "-"}</td>
+                        </tr>
+                        <tr>
+                          <th className="py-1 pr-3 font-bold text-slate-600">Target Prodi:</th>
+                          <td className="py-1 text-[#CF3A1F] font-bold">{academicProfile.study_program || userProdi}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Status Analisis</p>
+                    <table className="w-full text-xs text-left">
+                      <tbody>
+                        <tr>
+                          <th className="py-1 pr-3 font-bold text-slate-600 w-36">Kesiapan Akademik:</th>
+                          <td className="py-1 font-bold text-slate-900">{readinessScore} / 100</td>
+                        </tr>
+                        <tr>
+                          <th className="py-1 pr-3 font-bold text-slate-600">AI Confidence Score:</th>
+                          <td className="py-1 font-bold text-slate-900">{confidenceScore}%</td>
+                        </tr>
+                        <tr>
+                          <th className="py-1 pr-3 font-bold text-slate-600">Semester Terdeteksi:</th>
+                          <td className="py-1 text-slate-900">Semester {academicProfile.detected_semester || "Tidak terdeteksi"}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* AI Summary Card */}
+                {academicProfile.summary && (
+                  <div className="space-y-2 mb-6">
+                    <h3 className="font-heading text-sm font-bold text-[#060708] border-l-4 border-[#CF3A1F] pl-3">
+                      Ringkasan Evaluasi AI
+                    </h3>
+                    <p className="text-xs text-slate-700 leading-relaxed bg-[#FAF9FB] p-4 rounded-xl border border-[#E8E5E9]">
+                      {academicProfile.summary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Competency Visualization */}
+                <div className="grid grid-cols-2 gap-6 items-center">
+                  <div className="flex flex-col items-center justify-center p-4 border border-[#E8E5E9] rounded-xl bg-white h-[260px]">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Radar Chart Kompetensi</p>
+                    <svg width="220" height="200" className="overflow-visible">
+                      {gridLevels.map(lvl => (
+                        <path key={lvl} d={getGridPath(lvl)} fill="none" stroke="#FAF9FB" strokeWidth="1.5" className="stroke-slate-100" />
+                      ))}
+                      <path d={getGridPath(100)} fill="none" stroke="#E8E5E9" strokeWidth="1" />
+                      {Array.from({ length: 5 }).map((_, idx) => {
+                        const outer = getCoordinates(idx, 100)
+                        return <line key={idx} x1={cx} y1={cy} x2={outer.x} y2={outer.y} stroke="#E8E5E9" strokeWidth="1" strokeDasharray="2" />
+                      })}
+                      <polygon points={pointsStr} fill="rgba(207, 58, 31, 0.15)" stroke="#CF3A1F" strokeWidth="2" />
+                      {skillList.map((s, idx) => {
+                        const coords = getCoordinates(idx, s.value)
+                        return <circle key={idx} cx={coords.x} cy={coords.y} r="3.5" fill="#CF3A1F" stroke="#ffffff" strokeWidth="1" />
+                      })}
+                      {skillList.map((s, idx) => {
+                        const coords = getLabelCoordinates(idx)
+                        const anchors: ("middle" | "start" | "end")[] = ["middle", "start", "start", "end", "end"]
+                        const textAnchor = anchors[idx] || "middle"
+                        return (
+                          <g key={idx}>
+                            <text x={coords.x} y={coords.y} textAnchor={textAnchor} className="text-[9px] font-black fill-slate-700 uppercase tracking-wider">{s.label}</text>
+                            <text x={coords.x} y={coords.y + 9} textAnchor={textAnchor} className="text-[9px] font-mono font-bold fill-[#CF3A1F]">{s.value}%</text>
+                          </g>
+                        )
+                      })}
+                    </svg>
+                  </div>
+
+                  <div className="space-y-3 p-4 border border-[#E8E5E9] rounded-xl bg-white h-[260px] flex flex-col justify-center">
+                    <h4 className="font-heading text-xs font-bold text-[#060708] mb-1">Detail Skor Kompetensi</h4>
+                    <div className="space-y-2">
+                      {skillList.map(s => (
+                        <div key={s.label} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className="text-slate-600">{s.label}</span>
+                            <span className="text-[#CF3A1F]">{s.value}%</span>
+                          </div>
+                          <div className="h-2 bg-slate-100 rounded-full border border-[#E8E5E9] overflow-hidden">
+                            <div className="h-full bg-slate-800 rounded-full" style={{ width: `${s.value}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Cover Page Footer */}
+              <div className="text-center text-[9px] text-muted-foreground border-t border-[#E8E5E9] pt-3">
+                Platform Pembelajaran Belajara • Hak Cipta Terlindungi
+              </div>
+            </div>
+
+            {/* ── PAGE 2: CURRICULUM GAP MAP & CAREER PATH LENS ── */}
+            <div className="page-break pt-6 space-y-6 min-h-[920px] flex flex-col justify-between">
+              <div>
+                {/* Mini Header */}
+                <div className="flex justify-between items-center border-b border-[#E8E5E9] pb-3 mb-6">
+                  <span className="text-[10px] font-heading font-black text-[#060708] tracking-wider uppercase">Belajara. AI Advisor Report</span>
+                  <span className="text-[9px] text-muted-foreground font-mono">Halaman 2 dari 4</span>
+                </div>
+
+                {/* Gap Map */}
+                <div className="space-y-4">
+                  <h3 className="font-heading text-sm font-bold text-[#060708] border-l-4 border-[#CF3A1F] pl-3">
+                    Curriculum Gap Map (Analisis Kesenjangan Kurikulum)
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Mandatory Gaps */}
+                    <div className="space-y-3 border border-[#E8E5E9] p-4 rounded-xl bg-white">
+                      <h4 className="text-[10px] font-bold text-[#7E7C82] uppercase tracking-wider border-b border-[#E8E5E9] pb-2 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#CF3A1F]" />
+                        Gap Wajib (Mandatory Gaps)
+                      </h4>
+                      <div className="space-y-2 max-h-[200px] overflow-hidden">
+                        {gapMap.mandatory.length > 0 ? gapMap.mandatory.slice(0, 3).map((gap, i) => (
+                          <div key={i} className="p-2.5 border border-[#E8E5E9] rounded-lg text-xs bg-[#FAF9FB] space-y-1">
+                            <div className="flex items-center justify-between font-bold">
+                              <span className="text-slate-900 truncate max-w-[130px]">{gap.gap}</span>
+                              <span className="text-[#CF3A1F] bg-[#CF3A1F]/10 border border-[#CF3A1F]/20 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider">{gap.priority}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 leading-normal line-clamp-2">{gap.reason}</p>
+                          </div>
+                        )) : <p className="text-xs text-slate-400 italic">Tidak ada gap wajib terdeteksi.</p>}
+                      </div>
+                    </div>
+
+                    {/* Elective Gaps */}
+                    <div className="space-y-3 border border-[#E8E5E9] p-4 rounded-xl bg-white">
+                      <h4 className="text-[10px] font-bold text-[#7E7C82] uppercase tracking-wider border-b border-[#E8E5E9] pb-2 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        Gap Pilihan (Elective Gaps)
+                      </h4>
+                      <div className="space-y-2 max-h-[200px] overflow-hidden">
+                        {gapMap.elective.length > 0 ? gapMap.elective.slice(0, 3).map((gap, i) => (
+                          <div key={i} className="p-2.5 border border-[#E8E5E9] rounded-lg text-xs bg-[#FAF9FB] space-y-1">
+                            <div className="flex items-center justify-between font-bold">
+                              <span className="text-slate-900 truncate max-w-[130px]">{gap.gap}</span>
+                              <span className="text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider">{gap.priority}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 leading-normal line-clamp-2">{gap.reason}</p>
+                          </div>
+                        )) : <p className="text-xs text-slate-400 italic">Tidak ada gap pilihan terdeteksi.</p>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Career Gaps */}
+                  {gapMap.career.length > 0 && (
+                    <div className="border border-[#E8E5E9] p-4 rounded-xl bg-[#FAF9FB]">
+                      <h4 className="text-[10px] font-bold text-[#7E7C82] uppercase tracking-wider border-b border-[#E8E5E9] pb-2 mb-3">
+                        Gap Karir (Career Gaps)
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {gapMap.career.slice(0, 4).map((gap, i) => (
+                          <div key={i} className="p-2.5 border border-blue-100 rounded-lg text-xs bg-white space-y-1">
+                            <div className="flex items-center justify-between font-bold">
+                              <span className="text-slate-900 truncate max-w-[130px]">{gap.gap}</span>
+                              {gap.target_career && <span className="text-[8px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded border border-blue-200">{gap.target_career}</span>}
+                            </div>
+                            <p className="text-[11px] text-slate-500 leading-normal line-clamp-2">{gap.reason}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Career Path Lens */}
+                {careerPaths.length > 0 && (
+                  <div className="space-y-3 pt-4">
+                    <h3 className="font-heading text-sm font-bold text-[#060708] border-l-4 border-[#CF3A1F] pl-3">
+                      Rekomendasi Jalur Karir (Career Path Lens)
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {careerPaths.slice(0, 2).map((career, idx) => (
+                        <div key={idx} className="p-4 border border-[#E8E5E9] rounded-xl bg-white space-y-2">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-heading font-bold text-slate-900">{career.title}</p>
+                              <p className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">Kesesuaian Kompetensi</p>
+                            </div>
+                            <p className="text-lg font-heading font-bold text-[#CF3A1F]">{clampPercent(career.fit_score)}%</p>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-3">{career.why}</p>
+                          {career.missing_skills.length > 0 && (
+                            <div className="pt-1">
+                              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1">Keterampilan Tambahan:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {career.missing_skills.slice(0, 4).map((skill, si) => (
+                                  <span key={si} className="rounded border border-[#E8E5E9] bg-[#FAF9FB] px-1.5 py-0.5 text-[8px] font-semibold text-slate-700">{skill}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Page Footer */}
+              <div className="text-center text-[9px] text-muted-foreground border-t border-[#E8E5E9] pt-3">
+                Laporan Rencana Studi AI Belajara v2.0 • Hak Cipta Terlindungi
+              </div>
+            </div>
+
+            {/* ── PAGE 3: SEMESTER ACTION PLANNER & AI EVIDENCE ── */}
+            <div className="page-break pt-6 space-y-6 min-h-[920px] flex flex-col justify-between">
+              <div>
+                {/* Mini Header */}
+                <div className="flex justify-between items-center border-b border-[#E8E5E9] pb-3 mb-6">
+                  <span className="text-[10px] font-heading font-black text-[#060708] tracking-wider uppercase">Belajara. AI Advisor Report</span>
+                  <span className="text-[9px] text-muted-foreground font-mono">Halaman 3 dari 4</span>
+                </div>
+
+                {/* Semester Planner */}
+                {semesterPlan.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-heading text-sm font-bold text-[#060708] border-l-4 border-[#CF3A1F] pl-3">
+                      Rencana Pembelajaran Semester (Semester Planner)
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      {semesterPlan.slice(0, 4).map((plan, index) => (
+                        <div key={index} className="rounded-xl border border-[#E8E5E9] bg-white p-4 space-y-2">
+                          <p className="text-[9px] font-black uppercase tracking-wider text-[#CF3A1F]">{plan.term}</p>
+                          <p className="font-heading text-sm font-bold text-slate-900">{plan.focus}</p>
+                          <ul className="space-y-1.5 mt-1">
+                            {plan.actions.slice(0, 3).map((action, ai) => (
+                              <li key={ai} className="flex gap-1.5 text-[11px] text-slate-600 leading-normal">
+                                <span className="text-slate-900 font-bold shrink-0">•</span>
+                                <span className="line-clamp-2">{action}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Evidence Logs */}
+                {evidenceItems.length > 0 && (
+                  <div className="space-y-3 pt-6">
+                    <h3 className="font-heading text-sm font-bold text-[#060708] border-l-4 border-[#CF3A1F] pl-3">
+                      Bukti Analisis Dokumen (AI Evidence Logs)
+                    </h3>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      {evidenceItems.slice(0, 2).map((item, i) => (
+                        <div key={i} className="p-4 border border-[#E8E5E9] rounded-xl bg-[#FAF9FB] space-y-2">
+                          <div className="flex items-start justify-between gap-3 text-xs">
+                            <div>
+                              <p className="font-bold text-slate-900">{item.competency}</p>
+                              {item.course_name && <p className="text-[9px] text-slate-400 mt-0.5">Mata Kuliah: <span className="font-semibold text-slate-700">{item.course_name}</span></p>}
+                            </div>
+                            <span className="text-[8px] font-bold text-[#CF3A1F] bg-[#CF3A1F]/5 px-2 py-0.5 rounded-full border border-[#CF3A1F]/10 shrink-0 font-mono">
+                              Conf: {clampPercent(item.confidence)}%
+                            </span>
+                          </div>
+                          {item.text_excerpt && (
+                            <blockquote className="border-l-2 border-[#C6B5BF] pl-2 text-[10px] text-slate-500 italic leading-relaxed line-clamp-3">
+                              "{item.text_excerpt}"
+                            </blockquote>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Page Footer */}
+              <div className="text-center text-[9px] text-muted-foreground border-t border-[#E8E5E9] pt-3">
+                Laporan Rencana Studi AI Belajara v2.0 • Hak Cipta Terlindungi
+              </div>
+            </div>
+
+            {/* ── PAGE 4: DETAILED COURSE RECOMMENDATIONS & INSTITUTIONAL FOOTER ── */}
+            <div className="page-break pt-6 space-y-6 min-h-[920px] flex flex-col justify-between">
+              <div>
+                {/* Mini Header */}
+                <div className="flex justify-between items-center border-b border-[#E8E5E9] pb-3 mb-6">
+                  <span className="text-[10px] font-heading font-black text-[#060708] tracking-wider uppercase">Belajara. AI Advisor Report</span>
+                  <span className="text-[9px] text-muted-foreground font-mono">Halaman 4 dari 4</span>
+                </div>
+
+                {/* Recommendations */}
+                {recommendations.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="font-heading text-sm font-bold text-[#060708] border-l-4 border-[#CF3A1F] pl-3">
+                      Rekomendasi Kelas Belajara (Roadmap Kurikulum)
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      {recommendations.slice(0, 4).map((item, i) => (
+                        <div key={i} className="p-4 border border-[#E8E5E9] rounded-xl bg-white space-y-1.5">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className="text-slate-900 text-sm font-heading">{item.course?.title} ({item.course?.code})</span>
+                            <span className="text-[10px] font-bold text-[#CF3A1F] bg-[#CF3A1F]/10 px-2 py-0.5 rounded border border-[#CF3A1F]/20 font-mono">{item.match_percentage}% Relevan</span>
+                          </div>
+                          <p className="text-[10px] text-[#7E7C82]">{item.course?.department} • {item.course?.sks} SKS • Semester {item.course?.semester}</p>
+                          <p className="text-[11px] text-slate-600 leading-relaxed mt-1"><strong>Rasionalisasi AI:</strong> "{item.reason}"</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Page Footer (Institutional Disclaimer) */}
+              <div className="space-y-6">
+                <div className="border-t border-[#E8E5E9] pt-6 grid grid-cols-2 gap-8 text-left max-w-3xl mx-auto text-[11px]">
+                  <div className="space-y-1.5 text-slate-500">
+                    <p className="font-bold text-slate-700">Verifikasi Dokumen Akademik</p>
+                    <p className="leading-relaxed">Laporan ini dibuat otomatis berbasis data transkrip akademik yang diunggah. Keaslian transkrip dan data historis di dalamnya merupakan tanggung jawab penuh mahasiswa.</p>
+                  </div>
+                  <div className="space-y-1.5 text-slate-500">
+                    <p className="font-bold text-slate-700">Sertifikasi & Disclaimer</p>
+                    <p className="leading-relaxed">Sistem Rekomendasi AI Belajara menggunakan model bahasa besar untuk melakukan pemetaan kompetensi. Hasil analisa ini ditujukan sebagai referensi belajar tambahan, bukan keputusan kelulusan formal.</p>
+                  </div>
+                </div>
+                
+                <div className="text-center text-[9px] text-muted-foreground border-t border-[#E8E5E9] pt-4">
+                  Laporan Hasil Rekomendasi AI Belajara • Dilindungi Hak Cipta © {new Date().getFullYear()} Belajara Indonesia.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
       </SidebarInset>
     </SidebarProvider>
   )

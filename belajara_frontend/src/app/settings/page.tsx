@@ -14,12 +14,13 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Globe, Bell, Info, ShieldAlert, KeyRound, CreditCard, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
-import { getToken, api, getUser } from "@/lib/api"
+import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { useRouter } from "next/navigation"
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [user, setUser] = React.useState<any>(null)
+  const { user, refreshUser, loading: authLoading } = useAuth()
   
   // Password form states
   const [oldPassword, setOldPassword] = React.useState("")
@@ -37,14 +38,11 @@ export default function SettingsPage() {
   const [transactions, setTransactions] = React.useState<any[]>([])
 
   React.useEffect(() => {
-    const token = getToken()
-    if (!token) {
+    if (authLoading) return
+    if (!user) {
       router.push("/login")
       return
     }
-    
-    const u = getUser()
-    setUser(u)
 
     // Load billing status & transactions
     const fetchBillingData = async () => {
@@ -62,8 +60,12 @@ export default function SettingsPage() {
       }
     }
 
-    fetchBillingData()
-  }, [router])
+    if (!user.is_instructor) {
+      fetchBillingData()
+    } else {
+      setSubLoading(false)
+    }
+  }, [user, authLoading, router])
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -113,13 +115,8 @@ export default function SettingsPage() {
       const updatedSub = await api.payment.mySubscription()
       setSubData(updatedSub)
       
-      // Update local storage premium metadata (access remains active but renewal cancels)
-      const u = getUser()
-      if (u && updatedSub.subscription) {
-        u.is_premium = updatedSub.subscription.is_active
-        localStorage.setItem("user", JSON.stringify(u))
-        setUser(u)
-      }
+      // Refresh user details reactively
+      await refreshUser()
       
       alert(res.detail || "Langganan berhasil dibatalkan. Akses tetap aktif hingga akhir periode.")
     } catch (err: any) {
@@ -146,7 +143,7 @@ export default function SettingsPage() {
     })
   }
 
-  if (!user) return null
+  if (authLoading || !user) return null
 
   return (
     <SidebarProvider>

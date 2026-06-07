@@ -134,6 +134,83 @@ class CheckoutView(APIView):
 
 
 # ---------------------------------------------------------------------------
+# Instructor Credit Top-Up Checkout
+# ---------------------------------------------------------------------------
+
+class CheckoutCreditsView(APIView):
+    """Initiate a credit package purchase for instructors via Midtrans Snap."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not getattr(request.user, 'is_instructor', False):
+            return Response(
+                {"detail": "Hanya instruktur yang dapat membeli kredit AI."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from users.models import InstructorProfile
+        instructor, created = InstructorProfile.objects.get_or_create(
+            user=request.user,
+            defaults={"nidn": f"MOCK-{request.user.id}", "bidang_keahlian": "Umum", "universitas": "Universitas Indonesia"}
+        )
+
+        package = request.data.get("package")
+        package_info = {
+            "package_10": {"tokens": 10, "price": 50000, "name": "10 Kredit AI"},
+            "package_50": {"tokens": 50, "price": 200000, "name": "50 Kredit AI"},
+            "package_100": {"tokens": 100, "price": 350000, "name": "100 Kredit AI"},
+        }
+
+        if package not in package_info:
+            return Response(
+                {"detail": "Paket kredit tidak valid. Pilih package_10, package_50, atau package_100."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        info = package_info[package]
+        price = info["price"]
+        tokens = info["tokens"]
+        name = info["name"]
+
+        order_id = generate_order_id(f"CRED-{package.upper()}")
+
+        customer_details = {
+            "first_name": request.user.first_name or request.user.username,
+            "email": request.user.email,
+        }
+        item_details = [
+            {
+                "id": package,
+                "price": int(price),
+                "quantity": 1,
+                "name": name,
+                "category": "Tokens",
+            }
+        ]
+
+        # Use create_snap_transaction which calls Midtrans API
+        snap_token, snap_url = create_snap_transaction(
+            order_id=order_id,
+            gross_amount=int(price),
+            customer_details=customer_details,
+            item_details=item_details,
+        )
+
+        tx = Transaction.objects.create(
+            order_id=order_id,
+            instructor=instructor,
+            amount=price,
+            snap_token=snap_token,
+            snap_url=snap_url,
+            status="pending",
+            transaction_type="credit_purchase",
+        )
+
+        return Response(TransactionSerializer(tx).data, status=status.HTTP_201_CREATED)
+
+
+# ---------------------------------------------------------------------------
 # Subscription Management
 # ---------------------------------------------------------------------------
 
@@ -382,9 +459,54 @@ def process_payment_status(tx: Transaction, data: dict) -> Transaction:
                 mahasiswa.user.is_premium = True
                 mahasiswa.user.save(update_fields=["is_premium"])
 
+                # ── Upgrade all existing audit enrollments on premium courses ──
+                # When a user subscribes, any course they previously enrolled in
+                # audit mode should automatically become verified (full access).
+                upgraded = Enrollment.objects.filter(
+                    mahasiswa=mahasiswa,
+                    mode="audit",
+                    course__is_premium=True,
+                ).update(mode="verified")
+
                 logger.info(
-                    "Payment success process: Subscription activated: %s tier=%s until %s",
-                    mahasiswa.nim, sub.tier, sub.current_period_end,
+                    "Payment success process: Subscription activated: %s tier=%s until %s | "
+                    "Upgraded %d audit enrollment(s) to verified.",
+                    mahasiswa.nim, sub.tier, sub.current_period_end, upgraded,
+                )
+
+        elif tx.transaction_type == "credit_purchase" and tx.instructor:
+            instructor = tx.instructor
+            amount_val = int(tx.amount)
+            tokens = 0
+            if amount_val == 50000:
+                tokens = 10
+            elif amount_val == 200000:
+                tokens = 50
+            elif amount_val == 350000:
+                tokens = 100
+            else:
+                order_id_lower = tx.order_id.lower()
+                if "package_100" in order_id_lower:
+                    tokens = 100
+                elif "package_50" in order_id_lower:
+                    tokens = 50
+                elif "package_10" in order_id_lower:
+                    tokens = 10
+
+            if tokens > 0:
+                instructor.ai_credits += tokens
+                instructor.save()
+                
+                from users.models import AICreditTransaction
+                AICreditTransaction.objects.create(
+                    instructor=instructor,
+                    amount=tokens,
+                    description=f"Top-up Kredit AI ({tokens} Token)",
+                    reference_id=tx.order_id
+                )
+                logger.info(
+                    "Payment success process: AI credits top-up successful: %s tokens=%d amount=%s",
+                    instructor.user.username, tokens, tx.amount
                 )
 
     elif transaction_status in ("deny", "cancel", "expire", "failure"):
@@ -540,8 +662,12 @@ class VerifyTransactionView(APIView):
             )
 
         try:
-            mahasiswa = get_mahasiswa_by_user(user=request.user)
-            tx = Transaction.objects.get(order_id=order_id, mahasiswa=mahasiswa)
+            if getattr(request.user, "is_instructor", False):
+                instructor = request.user.instructor_profile
+                tx = Transaction.objects.get(order_id=order_id, instructor=instructor)
+            else:
+                mahasiswa = get_mahasiswa_by_user(user=request.user)
+                tx = Transaction.objects.get(order_id=order_id, mahasiswa=mahasiswa)
         except (Transaction.DoesNotExist, Exception):
             return Response(
                 {"detail": "Transaksi tidak ditemukan atau Anda tidak berwenang."},

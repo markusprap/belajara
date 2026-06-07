@@ -21,15 +21,12 @@ def parse_curriculum_and_save(file_obj, filename: str, department: str = "Inform
     if not text.strip():
         raise ValueError("Teks dokumen kosong atau tidak terbaca.")
 
-    # 2. Get API Key and decide whether to call Gemini or use Mock Fallback
+    # 2. Get API Key and call Gemini
     api_key = os.environ.get("GEMINI_API_KEY", "")
-    use_mock = not api_key or api_key == "your-gemini-api-key" or api_key.strip() == ""
+    if not api_key or api_key == "your-gemini-api-key" or api_key.strip() == "":
+        raise ValueError("Kunci API Gemini tidak dikonfigurasi. Silakan atur GEMINI_API_KEY di lingkungan sistem.")
 
-    courses_list = []
-    if use_mock:
-        courses_list = get_mock_extracted_courses(filename, department)
-    else:
-        courses_list = call_gemini_to_extract_courses(text, department)
+    courses_list = call_gemini_to_extract_courses(text, department)
 
     # 3. Save extracted courses and modules to PostgreSQL
     saved_courses = []
@@ -116,73 +113,5 @@ Format output HARUS berupa valid JSON array of objects dengan struktur persis se
             
         return json.loads(response_text)
     except Exception as e:
-        # Fallback to local mock extraction if Gemini API fails
         print(f"Error calling Gemini in curriculum service: {str(e)}")
-        return get_mock_extracted_courses("fallback_curriculum.pdf", default_department)
-
-def get_mock_extracted_courses(filename: str, department: str) -> list:
-    """
-    Returns mock courses data to simulate successful Gemini extraction when API key is unavailable.
-    """
-    name_lower = filename.lower()
-    if "sistem" in name_lower or "informasi" in name_lower or "si" in name_lower:
-        return [
-            {
-                "code": "SI102",
-                "title": "Pengantar Sistem Informasi",
-                "description": "Mata kuliah dasar yang memperkenalkan konsep dasar sistem informasi, arsitektur teknologi informasi, dan peran strategis SI dalam organisasi.",
-                "sks": 3,
-                "semester": 1,
-                "department": "Sistem Informasi",
-                "modules": [
-                    {"title": "Konsep Dasar & Komponen SI", "description": "Mempelajari pengertian data, informasi, sistem, serta komponen perangkat lunak/keras pendukung.", "order": 1},
-                    {"title": "Proses Bisnis & Integrasi Sistem", "description": "Memahami alur proses bisnis organisasi dan integrasi teknologi penunjang bisnis.", "order": 2},
-                    {"title": "Etika & Keamanan SI", "description": "Aspek hukum, privasi, keamanan siber, dan etika pemanfaatan SI.", "order": 3}
-                ]
-            },
-            {
-                "code": "SI203",
-                "title": "Analisis dan Perancangan Sistem",
-                "description": "Membekali mahasiswa dengan kemampuan menganalisis kebutuhan sistem bisnis serta merancangnya menggunakan visualisasi UML diagram.",
-                "sks": 4,
-                "semester": 3,
-                "department": "Sistem Informasi",
-                "modules": [
-                    {"title": "System Development Life Cycle (SDLC)", "description": "Membandingkan metode Waterfall, Agile, dan prototyping dalam pengembangan perangkat lunak.", "order": 1},
-                    {"title": "Analisis Kebutuhan Pengguna", "description": "Teknik elicitation wawancara, survei, dan perumusan kebutuhan fungsional.", "order": 2},
-                    {"title": "UML Use Case & Activity Diagram", "description": "Pembuatan use case diagram dan activity diagram untuk mendefinisikan interaksi sistem.", "order": 3},
-                    {"title": "Desain Interface & Database Schema", "description": "Prinsip UX/UI desain visual serta pemetaan rancangan database.", "order": 4}
-                ]
-            }
-        ]
-    else:
-        # Default Informatika mock extraction
-        return [
-            {
-                "code": "IF102",
-                "title": "Dasar Pemrograman",
-                "description": "Mata kuliah dasar untuk mengasah logika pemikiran algoritma dengan bahasa pemrograman Python, mencakup variabel, kondisi, perulangan, dan fungsi.",
-                "sks": 3,
-                "semester": 1,
-                "department": department,
-                "modules": [
-                    {"title": "Variabel & Tipe Data Dasar", "description": "Pengenalan variabel, integer, float, string, boolean, serta operasi aritmatika.", "order": 1},
-                    {"title": "Struktur Kontrol Kondisional", "description": "Logika percabangan menggunakan if, elif, dan else.", "order": 2},
-                    {"title": "Perulangan (Looping)", "description": "Implementasi for-loop dan while-loop untuk pemrosesan iteratif.", "order": 3},
-                    {"title": "Fungsi & Modularisasi", "description": "Cara membuat function, parameter, return value, dan local/global scopes.", "order": 4}
-                ]
-            },
-            {
-                "code": "IF303",
-                "title": "Jaringan Komputer",
-                "description": "Konsep dasar transmisi data elektronik, model referensi OSI, TCP/IP, IP addressing, routing, dan keamanan jaringan nirkabel.",
-                "sks": 3,
-                "semester": 4,
-                "department": department,
-                "modules": [
-                    {"title": "Model Referensi OSI & TCP/IP", "description": "Penjelasan fungsi dari ke-7 layer OSI dan perbedaannya dengan stack protokol TCP/IP.", "order": 1},
-                    {"title": "IP Address & Subnetting", "description": "Perhitungan subnetting IPv4, CIDR, dan alokasi alamat jaringan lokal.", "order": 2},
-                    {"title": "Algoritma Routing & Protokol", "description": "Konsep routing statis dan dinamis dengan protokol RIP, OSPF, dan BGP.", "order": 3}
-                ]
-            }
-        ]
+        raise e

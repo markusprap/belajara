@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { Check, Zap, BookOpen, GraduationCap, Sparkles, ArrowRight, Star, Lock, CreditCard, RefreshCw, AlertCircle } from "lucide-react";
-import { getUser, api } from "@/lib/api";
+import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -267,34 +268,34 @@ const FAQS = [
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PricingPage() {
-  const [user, setUser] = useState<any>(null);
+  const { user, refreshUser } = useAuth();
   const [currentTier, setCurrentTier] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
-    const u = getUser();
-    if (u) {
-      setUser(u);
-      if (u.is_premium) {
+    if (user) {
+      if (user.is_premium) {
         // Fetch subscription tier from API
         api.payment.mySubscription?.()
           .then((data: any) => {
             if (data?.subscription?.is_active && data?.subscription?.tier) {
               setCurrentTier(data.subscription.tier);
-            } else if (u.is_premium) {
+            } else if (user.is_premium) {
               setCurrentTier("scholar"); // fallback
             }
           })
           .catch(() => {
-            if (u.is_premium) setCurrentTier("scholar");
+            if (user.is_premium) setCurrentTier("scholar");
           });
       } else {
         setCurrentTier("free");
       }
+    } else {
+      setCurrentTier("free");
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -328,7 +329,7 @@ export default function PricingPage() {
             setTimeout(async () => {
               try {
                 await api.payment.verify(data.order_id, "success");
-                api.auth.updatePremiumStatus(true);
+                await refreshUser();
                 setCurrentTier(tierId);
                 setIsLoading(null);
                 window.location.href = "/dashboard?subscribed=true";
@@ -377,16 +378,12 @@ export default function PricingPage() {
         if (targetOrderId) {
           try {
             await api.payment.verify(targetOrderId, "success");
-            api.auth.updatePremiumStatus(true);
+            await refreshUser();
           } catch (e) {
             console.error("Gagal verifikasi pembayaran ke server:", e);
-            // Fallback: update local state if mock is used
-            if (process.env.NEXT_PUBLIC_API_URL === undefined) {
-              api.auth.updatePremiumStatus(true);
-            }
           }
         } else {
-          api.auth.updatePremiumStatus(true);
+          await refreshUser();
         }
         setCurrentTier(tierId);
         setIsLoading(null);

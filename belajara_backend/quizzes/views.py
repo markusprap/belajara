@@ -12,8 +12,21 @@ from users.selectors import get_mahasiswa_by_user
 class QuizGenerateView(APIView):
     permission_classes = [IsAuthenticated, IsInstructor]
 
-
     def post(self, request, module_id):
+        from users.models import InstructorProfile, AICreditTransaction
+        from django.db import transaction
+
+        instructor, created = InstructorProfile.objects.get_or_create(
+            user=request.user,
+            defaults={"nidn": f"MOCK-{request.user.id}", "bidang_keahlian": "Umum", "universitas": "Universitas Indonesia"}
+        )
+
+        if instructor.ai_credits < 1:
+            return Response(
+                {"detail": "Kredit AI habis. Silakan lakukan top up."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         try:
             from courses.models import CourseModule
             module = CourseModule.objects.select_related('course').get(pk=module_id)
@@ -24,6 +37,22 @@ class QuizGenerateView(APIView):
 
         try:
             quiz = generate_quiz_for_module(module_id)
+
+            with transaction.atomic():
+                instructor = InstructorProfile.objects.select_for_update().get(pk=instructor.pk)
+                if instructor.ai_credits < 1:
+                    return Response(
+                        {"detail": "Kredit AI habis. Silakan lakukan top up."},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                instructor.ai_credits -= 1
+                instructor.save()
+                AICreditTransaction.objects.create(
+                    instructor=instructor,
+                    amount=-1,
+                    description=f"Pembuatan kuis AI untuk modul: {module.title}"
+                )
+
             serializer = QuizSerializer(quiz, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValueError as ve:
@@ -88,10 +117,10 @@ class QuizSubmitView(APIView):
                 correct_count += 1
             
             details.append({
-                "question_index": idx,
+                "question_id": str(idx),
                 "question": q.get('question'),
-                "chosen_answer": student_ans,
-                "correct_answer": correct_ans,
+                "submitted": student_ans,
+                "correct": correct_ans,
                 "is_correct": is_correct,
                 "explanation": q.get('explanation')
             })
@@ -173,6 +202,13 @@ class ModuleQuizListView(APIView):
             return Response({"detail": "Evaluasi modul premium ini hanya dapat diakses oleh pengguna premium."}, status=status.HTTP_403_FORBIDDEN)
 
         quizzes = Quiz.objects.filter(module=module)
-        serializer = QuizSerializer(quizzes, many=True, context={'request': request})
+        
+        # Determine serializer based on role
+        is_instructor = not getattr(request.user, 'is_mahasiswa', False)
+        if is_instructor:
+            serializer = QuizSerializer(quizzes, many=True, context={'request': request})
+        else:
+            serializer = QuizStudentSerializer(quizzes, many=True, context={'request': request})
+            
         return Response(serializer.data, status=status.HTTP_200_OK)
 

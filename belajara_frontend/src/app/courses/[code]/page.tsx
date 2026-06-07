@@ -13,6 +13,7 @@ import {
   BookOpen, 
   MessageSquare, 
   Lock, 
+  Unlock,
   Sparkles, 
   PlayCircle, 
   Timer, 
@@ -43,7 +44,8 @@ import {
   Video,
   Award
 } from "lucide-react"
-import { api, getUser } from "@/lib/api"
+import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 
 interface PageProps {
@@ -306,13 +308,69 @@ class InvoiceGenerator {
   }
 }
 
+// Function to generate dynamic transcripts based on active subchapter and course
+const getVideoTranscript = (subTitle: string, courseTitle: string) => {
+  const cleanSub = subTitle.replace(/^(video|sub-bab|materi|pengantar|video pengantar|topik|sub-bab\s*\d+:?\s*video pembelajaran\s*-\s*)\s*:\s*/i, "").trim()
+  return [
+    {
+      time: "00:00",
+      timeLabel: "00:00",
+      text: `Selamat datang di kelas ${courseTitle || "kuliah"}. Pada sesi video pengantar kali ini, kita akan membahas mengenai topik "${cleanSub}" secara mendalam.`
+    },
+    {
+      time: "01:30",
+      timeLabel: "01:30",
+      text: `Mengapa sub-bab "${cleanSub}" ini sangat penting? Karena konsep ini menjadi landasan utama yang memengaruhi bagaimana kita merancang, mengimplementasikan, dan mengoptimalkan sistem secara keseluruhan.`
+    },
+    {
+      time: "05:00",
+      timeLabel: "05:00",
+      text: `Di akhir sesi video pembelajaran ini, Anda diharapkan mampu memahami karakteristik utama dari "${cleanSub}", menyelesaikan studi kasus dasarnya, dan siap untuk melanjutkan ke materi latihan dan kuis berikutnya.`
+    }
+  ]
+}
+
+// Function to generate dynamic notes based on active subchapter and course
+const getVideoNotes = (subTitle: string, courseTitle: string) => {
+  const cleanSub = subTitle.replace(/^(video|sub-bab|materi|pengantar|video pengantar|topik|sub-bab\s*\d+:?\s*video pembelajaran\s*-\s*)\s*:\s*/i, "").trim()
+  return {
+    summary: `Kuliah pengantar ini berfokus pada pembahasan komprehensif mengenai "${cleanSub}" dalam konteks mata kuliah ${courseTitle || "ini"}. Kami menganalisis prinsip kerja utama, studi kasus implementasi, serta best practices yang dapat diterapkan.`,
+    actionPoints: [
+      `Pelajari kembali konsep dasar dan definisi dari "${cleanSub}"`,
+      `Tinjau slide materi pendukung dan visualisasi grafik yang diberikan`,
+      `Selesaikan tugas latihan implementasi kode di folder resources jika ada`,
+      `Ikuti diskusi interaktif mengenai topik ini pada tab Diskusi kelas`
+    ]
+  }
+}
+
+// Function to generate dynamic resources based on active subchapter
+const getVideoResources = (subTitle: string) => {
+  const cleanSub = subTitle.replace(/^(video|sub-bab|materi|pengantar|video pengantar|topik|sub-bab\s*\d+:?\s*video pembelajaran\s*-\s*)\s*:\s*/i, "").trim()
+  const filePrefix = cleanSub.toLowerCase().replace(/[^a-z0-9]+/g, "_")
+  return [
+    {
+      name: `Slide Kuliah - ${cleanSub}`,
+      fileName: `${filePrefix}_slides.pdf`,
+      size: "1.2 MB",
+      type: "PDF"
+    },
+    {
+      name: `Latihan Studi Kasus - ${cleanSub}`,
+      fileName: `${filePrefix}_latihan.zip`,
+      size: "450 KB",
+      type: "ZIP"
+    }
+  ]
+}
+
 
 export default function CourseDetailPage({ params }: PageProps) {
   const router = useRouter()
   const resolvedParams = React.use(params)
   const courseCode = resolvedParams.code
 
-  const [user, setUser] = React.useState<any>(null)
+  const { user, refreshUser, loading: authLoading } = useAuth()
   const [course, setCourse] = React.useState<Course | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -367,31 +425,6 @@ export default function CourseDetailPage({ params }: PageProps) {
   const [orderId, setOrderId] = React.useState<string | null>(null)
   const [paymentStatus, setPaymentStatus] = React.useState<"idle" | "pending" | "success" | "failed">("idle")
 
-  // Authentication check
-  React.useEffect(() => {
-    const loggedInUser = getUser()
-    if (!loggedInUser) {
-      router.push("/login")
-      return
-    }
-    setUser(loggedInUser)
-  }, [router])
-
-  // Load progress completed subchapters from localStorage
-  React.useEffect(() => {
-    if (user && courseCode) {
-      const key = `belajara_completed_subchapters_${user.username}_${courseCode}`
-      const saved = localStorage.getItem(key)
-      if (saved) {
-        try {
-          setCompletedSubChapters(JSON.parse(saved))
-        } catch (e) {
-          console.error("Failed loading completed sub-chapters", e)
-        }
-      }
-    }
-  }, [user, courseCode])
-
   // Fetch course details
   const fetchCourseData = React.useCallback(async () => {
     setLoading(true)
@@ -422,9 +455,34 @@ export default function CourseDetailPage({ params }: PageProps) {
     }
   }, [courseCode])
 
+  // Authentication check
   React.useEffect(() => {
-    fetchCourseData()
-  }, [fetchCourseData])
+    if (!authLoading && !user) {
+      router.push("/login")
+    }
+  }, [user, authLoading, router])
+
+  // Sync with course data when user changes
+  React.useEffect(() => {
+    if (user && courseCode) {
+      fetchCourseData()
+    }
+  }, [user, courseCode, fetchCourseData])
+
+  // Load progress completed subchapters from localStorage
+  React.useEffect(() => {
+    if (user && courseCode) {
+      const key = `belajara_completed_subchapters_${user.username}_${courseCode}`
+      const saved = localStorage.getItem(key)
+      if (saved) {
+        try {
+          setCompletedSubChapters(JSON.parse(saved))
+        } catch (e) {
+          console.error("Failed loading completed sub-chapters", e)
+        }
+      }
+    }
+  }, [user, courseCode])
 
   // Fetch forum posts
   const fetchForumData = React.useCallback(async () => {
@@ -463,6 +521,10 @@ export default function CourseDetailPage({ params }: PageProps) {
 
   const handleClaimCertificate = async () => {
     if (!courseCode) return
+    if (progressPercent < 100) {
+      alert("Harap selesaikan seluruh materi kuliah 100% terlebih dahulu sebelum mengklaim sertifikat.")
+      return
+    }
     setCertificateLoading(true)
     try {
       const res = await api.courses.claimCertificate(courseCode)
@@ -618,8 +680,7 @@ export default function CourseDetailPage({ params }: PageProps) {
           onSuccess: async (result: any) => {
             setPaymentStatus("success")
             await api.payment.verify(response.order_id, "success")
-            api.auth.updatePremiumStatus(true)
-            setUser(getUser()) // Reload status
+            await refreshUser()
             await fetchCourseData() // Re-fetch course metadata to update enrollmentMode to 'verified'
             alert("Upgrade premium berhasil! Selamat belajar.")
             setCheckoutOpen(false)
@@ -754,8 +815,16 @@ export default function CourseDetailPage({ params }: PageProps) {
 
   // Pre-calculate workspace dimensions/proportions (4 sub-chapters per module since Forum is a sidebar tab)
   const totalSubChapters = (course?.modules?.length || 0) * 4
-  const completedCount = completedSubChapters.filter(id => !id.endsWith("_sub5")).length
+  const completedCount = completedSubChapters.filter(id => !String(id).endsWith("_sub5")).length
   const progressPercent = totalSubChapters > 0 ? Math.min(100, Math.round((completedCount / totalSubChapters) * 100)) : 0
+
+  const activeCertificateStatus = React.useMemo(() => {
+    let status = (enrollmentMode === "audit" && !user?.is_premium) ? "locked" : certificateStatus
+    if (status !== "locked" && status !== "claimed" && progressPercent < 100) {
+      return "not_eligible"
+    }
+    return status
+  }, [enrollmentMode, user?.is_premium, certificateStatus, progressPercent])
 
   // Flattened sequential sub-chapters list for sequential bottom navigation
   const flatSubChapters = React.useMemo(() => {
@@ -772,7 +841,7 @@ export default function CourseDetailPage({ params }: PageProps) {
   const activeIndex = flatSubChapters.findIndex(item => item.id === activeSubChapter?.id)
 
   const renderCertificateWorkspace = () => {
-    const activeStatus = enrollmentMode === "audit" ? "locked" : certificateStatus
+    const activeStatus = activeCertificateStatus
 
     if (certificateLoading) {
       return (
@@ -835,6 +904,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     if (activeStatus === "not_eligible") {
       const progress = certificateData?.progress || { passed_modules_count: 0, total_modules_count: 0, details: [] }
       const remainingCount = progress.total_modules_count - progress.passed_modules_count
+      const isProgressIncomplete = progressPercent < 100
 
       return (
         <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
@@ -845,20 +915,27 @@ export default function CourseDetailPage({ params }: PageProps) {
               <div className="space-y-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#CF3A1F] flex items-center gap-1.5">
                   <AlertTriangle className="h-3 w-3" />
-                  Belum Memenuhi Syarat Kelulusan
+                  {isProgressIncomplete ? "Belum Menyelesaikan Kelas" : "Belum Memenuhi Syarat Kelulusan"}
                 </span>
-                <h3 className="font-heading text-2xl font-black text-[#060708] tracking-tight">Lengkapi Evaluasi Pembelajaran</h3>
+                <h3 className="font-heading text-2xl font-black text-[#060708] tracking-tight">
+                  {isProgressIncomplete ? "Lengkapi Kemajuan Belajar" : "Lengkapi Evaluasi Pembelajaran"}
+                </h3>
                 <p className="text-xs text-muted-foreground font-sans leading-relaxed max-w-lg">
-                  Anda perlu menyelesaikan seluruh kuis evaluasi di setiap modul dengan nilai minimal <strong>60%</strong> untuk dapat mengklaim sertifikat kelulusan.
+                  {isProgressIncomplete 
+                    ? `Anda baru menyelesaikan ${completedCount} dari ${totalSubChapters} sub-bab (${progressPercent}%). Harap tonton semua video dan baca seluruh materi kuliah hingga kemajuan belajar mencapai 100% untuk membuka sertifikat.`
+                    : "Anda perlu menyelesaikan seluruh kuis evaluasi di setiap modul dengan nilai minimal 60% untuk dapat mengklaim sertifikat kelulusan."
+                  }
                 </p>
               </div>
               <div className="bg-[#FAF9FB] border border-slate-100 p-4 rounded-2xl flex flex-col items-center justify-center shrink-0 min-w-[140px] font-sans">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#C6B5BF]">Kuis Selesai</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#C6B5BF]">
+                  {isProgressIncomplete ? "Kemajuan" : "Kuis Selesai"}
+                </span>
                 <span className="text-3xl font-black text-[#060708] mt-1">
-                  {progress.passed_modules_count}/{progress.total_modules_count}
+                  {isProgressIncomplete ? `${progressPercent}%` : `${progress.passed_modules_count}/${progress.total_modules_count}`}
                 </span>
                 <span className="text-[9px] text-muted-foreground font-semibold mt-1">
-                  Sisa {remainingCount} kuis lagi
+                  {isProgressIncomplete ? `${completedCount}/${totalSubChapters} Sub-bab` : `Sisa ${remainingCount} kuis lagi`}
                 </span>
               </div>
             </div>
@@ -867,7 +944,7 @@ export default function CourseDetailPage({ params }: PageProps) {
             <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-6">
               <div 
                 className="bg-[#060708] h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progress.total_modules_count > 0 ? (progress.passed_modules_count / progress.total_modules_count) * 100 : 0}%` }}
+                style={{ width: `${isProgressIncomplete ? progressPercent : (progress.total_modules_count > 0 ? (progress.passed_modules_count / progress.total_modules_count) * 100 : 0)}%` }}
               />
             </div>
           </Card>
@@ -943,55 +1020,75 @@ export default function CourseDetailPage({ params }: PageProps) {
       
       const shareText = `Saya baru saja menyelesaikan kelas "${cert.course_title || course?.title}" di Belajara dan memperoleh Sertifikat Kompetensi Kelulusan Akademik! ID: ${cert.certificate_id}`
       const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent("https://belajara.id/verify/" + cert.certificate_id)}&summary=${encodeURIComponent(shareText)}`
-
+      
       return (
         <div className="max-w-4xl mx-auto py-6 px-4 space-y-8 print:p-0 print:my-0">
           {/* Print styles */}
           <style>{`
             @media print {
-              body {
-                background: white !important;
-                color: black !important;
+              @page {
+                size: A4 landscape;
+                margin: 0;
               }
-              header, aside, footer, nav, button, .print\\:hidden {
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                background: #FAF9F6 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                width: 100vw !important;
+                height: 100vh !important;
+              }
+              header, footer, nav, button, aside, .print\\:hidden, .print-hidden {
                 display: none !important;
               }
               main {
                 padding: 0 !important;
                 margin: 0 !important;
                 overflow: visible !important;
+                background: none !important;
               }
               .print-section {
-                border: 2px solid #C6B5BF !important;
+                border: 12px double #C6B5BF !important;
+                border-radius: 0 !important;
                 box-shadow: none !important;
-                position: absolute !important;
-                left: 50% !important;
-                top: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                width: 90% !important;
-                max-width: 800px !important;
-                height: auto !important;
-                aspect-ratio: 1.414/1 !important;
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 4rem !important;
+                box-sizing: border-box !important;
                 visibility: visible !important;
                 display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                background-color: #FAF9F6 !important;
               }
             }
           `}</style>
 
           {/* Certificate display wrapper */}
-          <div className="print-section bg-white border border-[#C6B5BF]/40 rounded-2xl shadow-xl p-8 md:p-14 text-center relative overflow-hidden max-w-3xl mx-auto aspect-[1.414/1] flex flex-col justify-between select-none print:shadow-none print:border-none print:rounded-none print:p-8 print:w-full print:h-full print:aspect-auto">
+          <div className="print-section bg-[#FAF9F6] border-8 border-[#060708] rounded-2xl shadow-xl p-8 md:p-14 text-center relative overflow-hidden max-w-3xl mx-auto aspect-[1.414/1] flex flex-col justify-between select-none print:shadow-none print:rounded-none">
+            {/* Elegant Background Watermark Crest */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none z-0">
+              <Award className="h-[28rem] w-[28rem] text-[#060708]" />
+            </div>
+
             {/* Top/Bottom Certificate Borders */}
-            <div className="absolute inset-4 border border-[#C6B5BF]/20 pointer-events-none" />
-            <div className="absolute inset-5 border-2 border-double border-[#C6B5BF]/40 pointer-events-none" />
+            <div className="absolute inset-6 border border-[#C6B5BF]/40 pointer-events-none z-10" />
+            <div className="absolute inset-8 border-2 border-double border-[#C6B5BF]/60 pointer-events-none z-10" />
             
             {/* Ornamental Corners */}
-            <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-[#C6B5BF] pointer-events-none" />
-            <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-[#C6B5BF] pointer-events-none" />
-            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-[#C6B5BF] pointer-events-none" />
-            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-[#C6B5BF] pointer-events-none" />
+            <div className="absolute top-9 left-9 w-8 h-8 border-t-2 border-l-2 border-[#060708] pointer-events-none z-10" />
+            <div className="absolute top-9 right-9 w-8 h-8 border-t-2 border-r-2 border-[#060708] pointer-events-none z-10" />
+            <div className="absolute bottom-9 left-9 w-8 h-8 border-b-2 border-l-2 border-[#060708] pointer-events-none z-10" />
+            <div className="absolute bottom-9 right-9 w-8 h-8 border-b-2 border-r-2 border-[#060708] pointer-events-none z-10" />
 
             {/* Header */}
-            <div className="space-y-1 mt-4">
+            <div className="space-y-1 mt-4 z-10">
               <span className="text-[10px] font-sans font-extrabold uppercase tracking-[0.25em] text-[#C6B5BF]">
                 Belajara Academic Board
               </span>
@@ -1002,20 +1099,20 @@ export default function CourseDetailPage({ params }: PageProps) {
             </div>
 
             {/* Recipient */}
-            <div className="space-y-3 my-6">
+            <div className="space-y-3 my-4 z-10">
               <span className="text-[10px] font-sans font-semibold italic text-slate-500">
                 Diberikan secara resmi kepada mahasiswa:
               </span>
               <h1 className="text-2xl md:text-4xl font-heading font-black tracking-wide text-[#060708] border-b border-slate-200 pb-2 max-w-lg mx-auto leading-normal">
                 {cert.student_name}
               </h1>
-              <p className="text-xs md:text-sm font-sans font-medium text-slate-600 max-w-md mx-auto leading-relaxed mt-2">
+              <p className="text-xs md:text-sm font-sans font-medium text-slate-650 max-w-md mx-auto leading-relaxed mt-2">
                 Atas keberhasilan menyelesaikan kurikulum mata kuliah akademik terverifikasi secara penuh pada program studi <strong>{course?.department}</strong>
               </p>
             </div>
 
             {/* Course Title */}
-            <div className="my-2">
+            <div className="my-2 z-10">
               <h3 className="text-lg md:text-xl font-heading font-black text-[#CF3A1F] uppercase tracking-wide">
                 {cert.course_title || course?.title}
               </h3>
@@ -1025,7 +1122,7 @@ export default function CourseDetailPage({ params }: PageProps) {
             </div>
 
             {/* Signatures & Footer metadata */}
-            <div className="flex flex-row items-end justify-between mt-8 px-4 font-sans">
+            <div className="flex flex-row items-end justify-between mt-6 px-4 font-sans z-10">
               <div className="text-left space-y-1">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-widest">Nomor Sertifikat</span>
                 <span className="text-[10px] font-mono font-bold text-[#060708]">{cert.certificate_id}</span>
@@ -1034,21 +1131,27 @@ export default function CourseDetailPage({ params }: PageProps) {
               </div>
               
               <div className="relative pb-2 flex flex-col items-center">
-                {/* Decorative Signature */}
-                <span className="font-serif italic text-sm text-slate-500 absolute -top-5 font-bold tracking-widest">Tony Stark</span>
-                <div className="w-24 h-px bg-slate-300 mt-2" />
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1 block">Tony Stark</span>
-                <span className="text-[8px] text-slate-300 font-bold block">Certified Software Trainer</span>
+                {/* Elegant cursive signature using standard Brush Script MT fallback */}
+                <span className="italic text-lg text-slate-700 absolute -top-7 font-bold tracking-widest" style={{ fontFamily: '"Brush Script MT", "Great Vibes", "Dancing Script", cursive' }}>
+                  Tony Stark
+                </span>
+                <div className="w-28 h-px bg-slate-300 mt-2" />
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1 block">Tony Stark</span>
+                <span className="text-[8px] text-slate-400 font-medium block">Certified Software Trainer</span>
               </div>
               
               <div className="relative pb-2 flex flex-col items-center">
-                {/* Decorative Academic Seal */}
-                <div className="h-10 w-10 border border-dashed border-[#C6B5BF] rounded-full flex items-center justify-center absolute -top-9 bg-white shadow-3xs">
-                  <span className="text-[6px] font-black text-slate-400 font-heading">SEAL</span>
+                {/* Gold metallic seal */}
+                <div className="h-16 w-16 bg-gradient-to-br from-[#D4AF37] via-[#FFF3A8] to-[#AA7C11] rounded-full flex items-center justify-center absolute -top-12 bg-white shadow-md border border-white/60">
+                  <div className="h-13 w-13 border border-dashed border-white/60 rounded-full flex flex-col items-center justify-center">
+                    <span className="text-[5px] font-extrabold text-[#7A5C13] tracking-widest uppercase">ACADEMIC</span>
+                    <Award className="h-4 w-4 text-[#7A5C13] my-0.5" />
+                    <span className="text-[5px] font-bold text-[#7A5C13] tracking-widest uppercase">SEAL</span>
+                  </div>
                 </div>
-                <div className="w-24 h-px bg-slate-300 mt-2" />
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1 block">Academic Board</span>
-                <span className="text-[8px] text-slate-300 font-bold block">Belajara Indonesia</span>
+                <div className="w-28 h-px bg-slate-300 mt-2" />
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1 block">Academic Board</span>
+                <span className="text-[8px] text-slate-400 font-medium block">Belajara Indonesia</span>
               </div>
             </div>
           </div>
@@ -1176,159 +1279,8 @@ export default function CourseDetailPage({ params }: PageProps) {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#FAF9FB] p-4 rounded-xl border border-border/60">
-            <div>
-              <h5 className="text-xs font-bold text-primary">Status Penayangan</h5>
-              <p className="text-[10px] text-slate-500 mt-0.5">Tonton video hingga selesai untuk melengkapi aktivitas ini.</p>
-            </div>
-            {activeSubChapter && (
-              <Button
-                size="sm"
-                onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
-                disabled={completedSubChapters.includes(activeSubChapter.id)}
-                className={`font-bold text-xs rounded-lg cursor-pointer w-full sm:w-auto ${
-                  completedSubChapters.includes(activeSubChapter.id)
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                    : "bg-[#060708] hover:bg-[#060708]/90 text-white"
-                }`}
-              >
-                {completedSubChapters.includes(activeSubChapter.id) ? (
-                  <span className="flex items-center justify-center gap-1">
-                    <Check className="h-3.5 w-3.5" />
-                    Sudah Ditonton
-                  </span>
-                ) : (
-                  "Tandai Selesai Menonton"
-                )}
-              </Button>
-            )}
-          </div>
         </CardContent>
       </Card>
-
-      <div className="space-y-4">
-        {/* Sub-tabs under video */}
-        <div className="flex gap-2 border-b border-slate-100 pb-2">
-          <button
-            onClick={() => setActiveVideoTab("transcript")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border-none ${
-              activeVideoTab === "transcript"
-                ? "bg-[#7F56D9] text-white"
-                : "bg-slate-100 text-slate-650 hover:bg-slate-200"
-            }`}
-          >
-            Transcript
-          </button>
-          <button
-            onClick={() => setActiveVideoTab("notes")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border-none ${
-              activeVideoTab === "notes"
-                ? "bg-[#7F56D9] text-white"
-                : "bg-slate-100 text-slate-655 hover:bg-slate-200"
-            }`}
-          >
-            Notes
-          </button>
-          <button
-            onClick={() => setActiveVideoTab("resources")}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border-none ${
-              activeVideoTab === "resources"
-                ? "bg-[#7F56D9] text-white"
-                : "bg-slate-100 text-slate-655 hover:bg-slate-200"
-            }`}
-          >
-            Resources
-          </button>
-        </div>
-
-        {/* Dynamic content card based on Video Sub-Tab */}
-        <Card className="border border-border bg-white rounded-2xl shadow-xs p-6 space-y-6">
-          {/* AI Banner sparkles */}
-          <div className="flex items-start gap-3 p-4 bg-[#7F56D9]/5 border border-[#7F56D9]/15 rounded-2xl">
-            <Sparkles className="h-5 w-5 text-[#7F56D9] shrink-0 mt-0.5 animate-pulse" />
-            <div>
-              <h6 className="text-xs font-bold text-[#7F56D9]">Ask the AI to generate advanced summaries of the video content and take notes</h6>
-              <button className="text-[10px] text-[#7F56D9] font-extrabold underline mt-1 block border-none bg-transparent">Try them out now!</button>
-            </div>
-          </div>
-
-          {activeVideoTab === "transcript" && (
-            <div className="space-y-4 text-xs">
-              <div 
-                onClick={() => setVideoPlayTime("0:00")}
-                className="p-3 border rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex gap-3 items-start"
-              >
-                <span className="font-mono font-bold text-[#7F56D9] bg-[#7F56D9]/10 px-1.5 py-0.5 rounded">00:00</span>
-                <p className="text-slate-700 leading-relaxed font-sans">
-                  Hi everyone, and welcome back to our course! I'm super excited to be here with you today, and in this session, we're going to talk about something really important: the fundamentals of UI and UX.
-                </p>
-              </div>
-              <div 
-                onClick={() => setVideoPlayTime("1:20")}
-                className="p-3 border rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex gap-3 items-start bg-slate-50/50"
-              >
-                <span className="font-mono font-bold text-[#7F56D9] bg-[#7F56D9]/10 px-1.5 py-0.5 rounded">01:20</span>
-                <p className="text-slate-700 leading-relaxed font-sans">
-                  Now, I know that these two terms — UI and UX — are often used together, and sometimes even interchangeably. But they actually refer to two very different aspects of the design process. So let's break it down in a simple way.
-                </p>
-              </div>
-              <div 
-                onClick={() => setVideoPlayTime("4:10")}
-                className="p-3 border rounded-xl hover:bg-slate-50 transition-colors cursor-pointer flex gap-3 items-start"
-              >
-                <span className="font-mono font-bold text-[#7F56D9] bg-[#7F56D9]/10 px-1.5 py-0.5 rounded">04:10</span>
-                <p className="text-slate-700 leading-relaxed font-sans">
-                  User interface, or UI, is everything that the user interacts with visually: buttons, layouts, colors, fonts, and responsive components. User experience, or UX, is the overall feel and workflow.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activeVideoTab === "notes" && (
-            <div className="grid md:grid-cols-2 gap-4 text-xs">
-              <div className="p-4 bg-white border rounded-xl space-y-2">
-                <h5 className="font-bold text-slate-800">Meeting notes</h5>
-                <p className="text-slate-600 leading-relaxed font-serif italic">
-                  "The lecture focused on discussing the core principles of the project. We analyzed the visual design rules, typography options, and how color plays a role in student retention."
-                </p>
-              </div>
-              <div className="p-4 bg-white border rounded-xl space-y-2">
-                <h5 className="font-bold text-slate-800">Action points</h5>
-                <ul className="list-disc pl-4 text-slate-600 space-y-1">
-                  <li>Review the typography styles and spacing</li>
-                  <li>Incorporate dynamic syllabus integration</li>
-                  <li>Maintain recursive forum structures</li>
-                </ul>
-              </div>
-            </div>
-          )}
-
-          {activeVideoTab === "resources" && (
-            <div className="grid sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-white border rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded bg-red-50 text-red-650 flex items-center justify-center font-bold font-sans text-[10px]">PDF</div>
-                  <div>
-                    <p className="font-bold text-slate-800">Design Document</p>
-                    <p className="text-[10px] text-muted-foreground">94 KB • added 2 days ago</p>
-                  </div>
-                </div>
-                <button className="text-slate-500 hover:text-slate-800 border-none bg-transparent"><Download className="h-4 w-4" /></button>
-              </div>
-              <div className="p-3 bg-white border rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded bg-emerald-50 text-emerald-650 flex items-center justify-center font-bold font-sans text-[10px]">EXL</div>
-                  <div>
-                    <p className="font-bold text-slate-800">Account File</p>
-                    <p className="text-[10px] text-muted-foreground">94 KB • added 2 days ago</p>
-                  </div>
-                </div>
-                <button className="text-slate-500 hover:text-slate-800 border-none bg-transparent"><Download className="h-4 w-4" /></button>
-              </div>
-            </div>
-          )}
-        </Card>
-      </div>
     </div>
   )
 
@@ -1398,28 +1350,12 @@ export default function CourseDetailPage({ params }: PageProps) {
           )}
         </div>
 
-        {activeSubChapter && (
-          <div className="flex justify-end pt-6 border-t border-slate-100 mt-12">
-            <Button
-              size="sm"
-              onClick={() => markSubChapterAsCompleted(activeSubChapter.id)}
-              disabled={completedSubChapters.includes(activeSubChapter.id)}
-              className={`font-bold text-xs rounded-xl px-6 py-2.5 cursor-pointer border-none ${
-                completedSubChapters.includes(activeSubChapter.id)
-                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
-                  : "bg-[#060708] hover:bg-[#060708]/90 text-white"
-              }`}
-            >
-              {completedSubChapters.includes(activeSubChapter.id) ? "Selesai Dibaca" : "Tandai Selesai Membaca"}
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   )
 
   const renderQuizView = () => {
-    if (enrollmentMode === "audit") {
+    if (enrollmentMode === "audit" && !user?.is_premium) {
       return (
         <Card className="border border-border bg-white rounded-2xl shadow-xs p-12 text-center flex flex-col items-center justify-center min-h-[380px] mt-4">
           <div className="h-16 w-16 bg-destructive/10 text-destructive border border-destructive/20 rounded-full flex items-center justify-center mb-4">
@@ -1569,7 +1505,7 @@ export default function CourseDetailPage({ params }: PageProps) {
                           {submittedOpt ? `(${submittedOpt.id}) ${submittedOpt.text}` : "(Tidak Dijawab)"}
                         </strong>
                       </p>
-                      {!isCorrect && (
+                      {!isCorrect && correctOpt && (
                         <p className="text-[11px] text-muted-foreground">
                           Jawaban Benar: <strong className="text-primary">
                             ({correctOpt.id}) {correctOpt.text}
@@ -1863,8 +1799,7 @@ export default function CourseDetailPage({ params }: PageProps) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                const u = getUser()
-                if (u?.is_instructor) {
+                if (user?.is_instructor) {
                   router.push("/instructor")
                 } else {
                   router.push("/dashboard")
@@ -1882,8 +1817,7 @@ export default function CourseDetailPage({ params }: PageProps) {
             
             <button
               onClick={() => {
-                const u = getUser()
-                if (u?.is_instructor) {
+                if (user?.is_instructor) {
                   router.push("/instructor")
                 } else {
                   router.push("/courses")
@@ -1990,7 +1924,7 @@ export default function CourseDetailPage({ params }: PageProps) {
               </div>
 
               {/* Audit Alert */}
-              {enrollmentMode === "audit" && activeSidebarTab === "path" && (
+              {enrollmentMode === "audit" && !user?.is_premium && activeSidebarTab === "path" && (
                 <div className="m-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col gap-1.5 shrink-0">
                   <div className="flex items-center gap-1.5 text-amber-800 text-[10px] font-bold">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
@@ -2032,10 +1966,17 @@ export default function CourseDetailPage({ params }: PageProps) {
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[9px] font-bold text-slate-400 uppercase">Modul {mod.order}</span>
                                 {isModulePremium && (
-                                  <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5 shrink-0">
-                                    <Lock className="h-2 w-2" />
-                                    Premium
-                                  </span>
+                                  isUserPremium ? (
+                                    <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-250 flex items-center gap-0.5 shrink-0">
+                                      <Unlock className="h-2 w-2" />
+                                      Premium Unlocked
+                                    </span>
+                                  ) : (
+                                    <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-0.5 shrink-0">
+                                      <Lock className="h-2 w-2" />
+                                      Premium
+                                    </span>
+                                  )
                                 )}
                                 {completedInModule === 4 && (
                                   <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
@@ -2225,21 +2166,23 @@ export default function CourseDetailPage({ params }: PageProps) {
                       <Award className="h-5 w-5 text-[#C6B5BF] shrink-0 mt-0.5" />
                       <div className="space-y-1">
                         <span className="text-xs font-bold text-slate-800">
-                          {enrollmentMode === "audit" 
+                          {activeCertificateStatus === "locked"
                             ? "Terkunci (Audit)" 
-                            : certificateStatus === "claimed" 
+                            : activeCertificateStatus === "claimed" 
                             ? "Telah Diklaim" 
-                            : certificateStatus === "eligible" 
+                            : activeCertificateStatus === "eligible" 
                             ? "Siap Diklaim" 
                             : "Belum Memenuhi Syarat"}
                         </span>
                         <p className="text-[10px] text-muted-foreground leading-normal font-medium mt-0.5">
-                          {enrollmentMode === "audit" 
+                          {activeCertificateStatus === "locked"
                             ? "Upgrade ke Premium untuk memperoleh sertifikat kelulusan resmi." 
-                            : certificateStatus === "claimed" 
+                            : activeCertificateStatus === "claimed" 
                             ? "Sertifikat kompetensi Anda telah berhasil diterbitkan." 
-                            : certificateStatus === "eligible" 
+                            : activeCertificateStatus === "eligible" 
                             ? "Semua kuis lulus! Silakan lakukan klaim di layar utama." 
+                            : progressPercent < 100
+                            ? "Selesaikan seluruh materi kuliah (kemajuan 100%) untuk klaim sertifikat."
                             : "Selesaikan seluruh kuis evaluasi dengan skor ≥ 60%."}
                         </p>
                       </div>

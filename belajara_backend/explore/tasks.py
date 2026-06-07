@@ -102,6 +102,7 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id, target_prodi=None):
                 "description": c.description,
                 "sks": c.sks,
                 "semester": c.semester,
+                "department": c.department,
             }
             for c in courses
         ]
@@ -132,6 +133,21 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id, target_prodi=None):
             }
             course_matches = raw_result if isinstance(raw_result, list) else []
 
+        # Python-side validation to clean and filter completed_subjects list to prevent hallucinations
+        import re
+        completed_subjects = academic_profile.get("completed_subjects", [])
+        if isinstance(completed_subjects, list):
+            cleaned_raw_text = re.sub(r'[^a-zA-Z0-9]', '', text).lower()
+            filtered_completed = []
+            for subject in completed_subjects:
+                if not subject:
+                    continue
+                cleaned_subject = re.sub(r'[^a-zA-Z0-9]', '', str(subject)).lower()
+                # Check if the cleaned subject exists as a substring in the cleaned raw text
+                if cleaned_subject and cleaned_subject in cleaned_raw_text:
+                    filtered_completed.append(subject)
+            academic_profile["completed_subjects"] = filtered_completed
+
         # Apply premium gating
         academic_profile, course_matches = apply_premium_gating(academic_profile, course_matches, is_premium)
 
@@ -150,15 +166,7 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id, target_prodi=None):
                     "reason": reason,
                 })
 
-        # Fallback if no courses could be matched
-        if not saved_recommendations_list and courses.exists():
-            max_fallback = 3 if not is_premium else len(list(courses))
-            for c in list(courses)[:min(2, max_fallback)]:
-                saved_recommendations_list.append({
-                    "code": c.code,
-                    "match_percentage": 85,
-                    "reason": f"Mata kuliah dasar ini direkomendasikan untuk menunjang pilar keahlian {prodi_name} Anda.",
-                })
+        # Bypassing fallback recommendations (do not add mock course recommendations if empty)
 
         recommendations_payload = {
             "academic_profile": academic_profile,
@@ -174,7 +182,15 @@ def analyze_curriculum_task(curriculum_id, mahasiswa_id, target_prodi=None):
         logger.info(f"Successfully processed curriculum recommendation: {ai_recommendation.id} (premium={is_premium})")
     except Exception as e:
         logger.exception(f"Error processing curriculum recommendation task: {str(e)}")
-        raise
+        try:
+            AIRecommendation.objects.create(
+                mahasiswa=mahasiswa,
+                curriculum=curriculum,
+                recommendations_data={"status": "error", "error_message": str(e)},
+            )
+        except Exception as db_err:
+            logger.error(f"Failed to save error state to DB: {str(db_err)}")
+        raise e
 
 
 @shared_task

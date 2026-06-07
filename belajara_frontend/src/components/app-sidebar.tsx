@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   BookOpen,
@@ -38,28 +39,25 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { getUser, clearToken } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const router = useRouter()
-  const [user, setUser] = React.useState<any>(null)
+  const { user, logout } = useAuth()
   const [isInstructor, setIsInstructor] = React.useState(false)
   const pathname = usePathname()
 
   React.useEffect(() => {
-    const u = getUser()
-    setUser(u)
-    setIsInstructor(!!u?.is_instructor)
+    setIsInstructor(!!user?.is_instructor)
 
     // Onboarding guard: redirect if profile is incomplete
-    if (u && u.is_onboarded === false && pathname !== "/onboarding") {
+    if (user && user.is_onboarded === false && pathname !== "/onboarding") {
       router.push("/onboarding")
     }
-  }, [pathname, router])
+  }, [user, pathname, router])
 
-  const handleLogout = () => {
-    clearToken()
-    window.location.href = "/login"
+  const handleLogout = async () => {
+    await logout()
   }
 
   const studentNav = [
@@ -72,6 +70,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const instructorNav = [
     { title: "Portal Dosen", url: "/instructor", icon: Home },
+    { title: "Kredit AI", url: "/instructor/credits", icon: Sparkles },
   ]
 
   const navItems = isInstructor ? instructorNav : studentNav
@@ -114,7 +113,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                      render={<a href={item.url} />}
+                      render={<Link href={item.url} />}
                       className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                         isActive
                           ? "bg-[#060708] text-white font-medium shadow-xs"
@@ -198,13 +197,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <p className="text-[9px] text-[#FAF9FB]/70 mt-1 leading-relaxed">
                   Buka rekomendasi mata kuliah AI & bank soal premium sekarang.
                 </p>
-                <a
+                <Link
                   href="/pricing"
                   className="mt-3 w-full bg-[#FAF9FB] hover:bg-[#F3F1F4] text-[#060708] text-[10px] font-bold py-2 px-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-1 group/btn"
                 >
                   Mulai Langganan
                   <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover/btn:translate-x-0.5" />
-                </a>
+                </Link>
               </div>
             </div>
           )
@@ -250,17 +249,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <div className="px-2 py-1.5 text-[10px] font-bold text-[#7E7C82] uppercase tracking-wider">
               Akun Saya
             </div>
-            <DropdownMenuItem className="rounded-lg text-xs cursor-pointer focus:bg-[#FAF9FB] focus:text-[#060708] p-0">
-              <a href="/profile" className="flex items-center gap-2 w-full px-2.5 py-2 text-inherit no-underline">
-                <User className="h-3.5 w-3.5 shrink-0" />
-                <span>Lihat Profil</span>
-              </a>
+            <DropdownMenuItem
+              render={<Link href="/profile" />}
+              className="rounded-lg text-xs cursor-pointer focus:bg-[#FAF9FB] focus:text-[#060708] flex items-center gap-2 w-full px-2.5 py-2 text-inherit no-underline"
+            >
+              <User className="h-3.5 w-3.5 shrink-0" />
+              <span>Lihat Profil</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="rounded-lg text-xs cursor-pointer focus:bg-[#FAF9FB] focus:text-[#060708] p-0">
-              <a href="/settings" className="flex items-center gap-2 w-full px-2.5 py-2 text-inherit no-underline">
-                <Settings className="h-3.5 w-3.5 shrink-0" />
-                <span>Pengaturan</span>
-              </a>
+            <DropdownMenuItem
+              render={<Link href="/settings" />}
+              className="rounded-lg text-xs cursor-pointer focus:bg-[#FAF9FB] focus:text-[#060708] flex items-center gap-2 w-full px-2.5 py-2 text-inherit no-underline"
+            >
+              <Settings className="h-3.5 w-3.5 shrink-0" />
+              <span>Pengaturan</span>
             </DropdownMenuItem>
             <SidebarSeparator className="my-1 bg-[#F3F1F4]" />
             <DropdownMenuItem

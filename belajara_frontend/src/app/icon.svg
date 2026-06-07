@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background: Deep Charcoal -->
+  <rect width="32" height="32" rx="8" fill="#060708"/>
+
+  <!-- Stylized "B" letterform -->
+  <!-- Vertical stem -->
+  <rect x="9" y="7" width="3.5" height="18" rx="1.5" fill="#FAF9FB"/>
+
+  <!-- Top bowl -->
+  <path d="M12.5 7h4.5a4 4 0 0 1 0 8h-4.5V7z" fill="#FAF9FB"/>
+
+  <!-- Bottom bowl (slightly wider = classic B proportion) -->
+  <path d="M12.5 15h5a4.5 4.5 0 0 1 0 9h-5V15z" fill="#FAF9FB"/>
+
+  <!-- Accent dot: Vibrant Red -->
+  <circle cx="24" cy="8" r="2.5" fill="#CF3A1F"/>
+</svg>

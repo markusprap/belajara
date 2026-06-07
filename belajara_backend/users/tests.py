@@ -92,9 +92,9 @@ def test_login_and_me_api():
     }
     response = client.post(login_url, login_data, format='json')
     assert response.status_code == status.HTTP_200_OK
-    assert "access" in response.data
+    assert "access_token" in response.cookies
     
-    access_token = response.data["access"]
+    access_token = response.cookies["access_token"].value
     client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
     
     me_url = reverse('auth_me')
@@ -116,7 +116,8 @@ def test_google_oauth_new_user(settings):
     }
     response = client.post(url, data, format='json')
     assert response.status_code == status.HTTP_200_OK
-    assert "tokens" in response.data
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
     assert response.data["user"]["email"] == "newgoogle@example.com"
     assert response.data["user"]["is_mahasiswa"] is True
     assert response.data["user"]["mahasiswa_profile"]["nim"] is not None
@@ -143,7 +144,8 @@ def test_google_oauth_existing_user(settings):
     }
     response = client.post(url, data, format='json')
     assert response.status_code == status.HTTP_200_OK
-    assert "tokens" in response.data
+    assert "access_token" in response.cookies
+    assert "refresh_token" in response.cookies
     assert response.data["user"]["username"] == "existinggoogle"
     assert response.data["user"]["mahasiswa_profile"]["nim"] == "77776666"
     assert response.data["user"]["is_onboarded"] is True

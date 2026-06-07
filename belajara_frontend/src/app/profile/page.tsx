@@ -10,7 +10,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { User, GraduationCap, AlertCircle, Loader2, ShieldCheck, Trophy, Sparkles, BookOpen, Crown } from "lucide-react"
-import { getUser, getToken, api, BASE_URL } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +19,7 @@ import { Label } from "@/components/ui/label"
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [user, setUser] = React.useState<any>(null)
+  const { user, refreshUser, loading: authLoading } = useAuth()
   const [isEditMode, setIsEditMode] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -40,7 +41,7 @@ export default function ProfilePage() {
   const [dashData, setDashData] = React.useState<any>(null)
   const [loadingData, setLoadingData] = React.useState(false)
 
-  const loadProfileData = async () => {
+  const loadProfileData = React.useCallback(async () => {
     setLoadingData(true)
     try {
       const sub = await api.payment.mySubscription()
@@ -50,19 +51,14 @@ export default function ProfilePage() {
     }
 
     try {
-      const token = getToken()
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json"
-      }
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-      }
-      const res = await fetch(`${BASE_URL}/dashboard/`, { headers })
+      const res = await fetch(`${BASE_URL}/dashboard/`, { 
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+      })
       if (res.ok) {
         const d = await res.json()
         setDashData(d)
       } else {
-        // Dashboard endpoint unavailable — leave dashData as null for empty state
         console.warn("Dashboard endpoint returned non-OK response:", res.status)
       }
     } catch (err) {
@@ -70,32 +66,33 @@ export default function ProfilePage() {
     } finally {
       setLoadingData(false)
     }
-  }
+  }, [])
 
   React.useEffect(() => {
-    const u = getUser()
-    if (!u) {
+    if (authLoading) return
+
+    if (!user) {
       router.push("/login")
       return
     }
-    setUser(u)
-    setFirstName(u.first_name || "")
-    setLastName(u.last_name || "")
+
+    setFirstName(user.first_name || "")
+    setLastName(user.last_name || "")
     
-    const isInst = u.is_instructor;
+    const isInst = user.is_instructor;
     if (isInst) {
-      setNidn(u.instructor_profile?.nidn || u.nidn || "")
-      setBidangKeahlian(u.instructor_profile?.bidang_keahlian || u.bidang_keahlian || "")
-      setUniversitas(u.instructor_profile?.universitas || u.universitas || "")
+      setNidn(user.instructor_profile?.nidn || user.nidn || "")
+      setBidangKeahlian(user.instructor_profile?.bidang_keahlian || user.bidang_keahlian || "")
+      setUniversitas(user.instructor_profile?.universitas || user.universitas || "")
     } else {
-      setNim(u.mahasiswa_profile?.nim || u.nim || "")
-      setJurusan(u.mahasiswa_profile?.jurusan || u.jurusan || "")
-      setUniversitas(u.mahasiswa_profile?.universitas || u.universitas || "")
-      setSemester(u.mahasiswa_profile?.semester || u.semester || 1)
+      setNim(user.mahasiswa_profile?.nim || user.nim || "")
+      setJurusan(user.mahasiswa_profile?.jurusan || user.jurusan || "")
+      setUniversitas(user.mahasiswa_profile?.universitas || user.universitas || "")
+      setSemester(user.mahasiswa_profile?.semester || user.semester || 1)
       
       loadProfileData()
     }
-  }, [router])
+  }, [user, authLoading, router, loadProfileData])
 
   const handleCancelEdit = () => {
     setIsEditMode(false)
@@ -151,8 +148,8 @@ export default function ProfilePage() {
         payload.semester = semester
       }
       
-      const updatedUser = await api.auth.updateProfile(payload)
-      setUser(updatedUser)
+      await api.auth.updateProfile(payload)
+      await refreshUser()
       setIsEditMode(false)
       setSuccess("Profil berhasil diperbarui.")
     } catch (err: any) {
@@ -162,7 +159,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (!user) return null
+  if (authLoading || !user) return null
 
   return (
     <SidebarProvider>

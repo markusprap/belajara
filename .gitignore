@@ -48,3 +48,9 @@ belajara_backend/celery_beat.log
 staticfiles/
 belajara_backend/staticfiles/
 
+# Logs
+*.log
+
+# Subagent state
+.agents/
+

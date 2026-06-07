@@ -3,7 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { api, getToken, clearToken, getUser, BASE_URL } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -31,7 +32,6 @@ import {
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { searchProdi } from "@/lib/indonesia-academic-data"
 
 // ─── Autocomplete Input Component ─────────────────────────────────────────
@@ -145,8 +145,8 @@ function AutocompleteInput({
 
 export default function CatalogPage() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false)
-  const [currentUser, setCurrentUser] = React.useState<any>(null)
+  const { user: currentUser, logout } = useAuth()
+  const isLoggedIn = !!currentUser
 
   // Catalog and Enrollment states
   const [courses, setCourses] = React.useState<any[]>([])
@@ -193,15 +193,12 @@ export default function CatalogPage() {
 
   // Fetch student active courses to check enrollment status
   const fetchActiveCourses = React.useCallback(() => {
-    const token = getToken()
-    if (!token) return
-    const u = getUser()
-    if (u?.is_instructor) return // Instructors do not have enrollments
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
-    fetch(`${BASE_URL}/dashboard/`, { headers })
+    if (!isLoggedIn) return
+    if (currentUser?.is_instructor) return // Instructors do not have enrollments
+    fetch(`${BASE_URL}/dashboard/`, { 
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    })
       .then((res) => {
         if (res.ok) return res.json()
         throw new Error()
@@ -212,7 +209,7 @@ export default function CatalogPage() {
         }
       })
       .catch(() => {})
-  }, [])
+  }, [isLoggedIn, currentUser])
 
   // Reset page to 1 when filters are changed
   React.useEffect(() => {
@@ -248,29 +245,10 @@ export default function CatalogPage() {
   }, [search, department, currentPage])
 
   React.useEffect(() => {
-    const token = getToken()
-    if (token) {
-      setIsLoggedIn(true)
-      const u = getUser()
-      setCurrentUser(u)
+    if (isLoggedIn) {
       fetchActiveCourses()
     }
-  }, [fetchActiveCourses])
-
-  React.useEffect(() => {
-    if (!isLoggedIn) {
-      const root = window.document.documentElement
-      const hadDark = root.classList.contains("dark")
-      root.classList.remove("dark")
-      root.classList.add("light")
-      return () => {
-        if (hadDark) {
-          root.classList.remove("light")
-          root.classList.add("dark")
-        }
-      }
-    }
-  }, [isLoggedIn])
+  }, [isLoggedIn, fetchActiveCourses])
 
   React.useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -280,48 +258,27 @@ export default function CatalogPage() {
   }, [search, department, currentPage, fetchCourses])
 
   const handleLogout = () => {
-    clearToken()
-    setIsLoggedIn(false)
-    setCurrentUser(null)
-    router.push("/")
+    logout()
   }
 
   const handleEnroll = (courseCode: string, mode: string = 'audit') => {
-    const token = getToken()
-    if (!token) {
+    if (!currentUser) {
       router.push("/login?redirect=catalog")
       return
     }
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
 
-    fetch(`${BASE_URL}/courses/enroll/`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ course_code: courseCode, enrollment_mode: mode })
-    })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then(data => {
-            throw new Error(data.detail || "Gagal mendaftar kelas.")
-          })
-        }
-        return res.json()
-      })
+    api.courses.enroll(courseCode, mode)
       .then(() => {
         fetchActiveCourses()
         router.push(`/courses/${courseCode}`)
       })
-      .catch((err) => {
+      .catch((err: any) => {
         alert(err.message)
       })
   }
 
   const handleCheckoutTrigger = async (course: any) => {
-    const token = getToken()
-    if (!token) {
+    if (!currentUser) {
       router.push("/login?redirect=catalog")
       return
     }
@@ -812,7 +769,6 @@ export default function CatalogPage() {
                 Katalog Mata Kuliah
               </div>
             </div>
-            <ThemeToggle />
           </header>
           <div className="p-6 bg-[#FAF9FB] flex-1">
             <div className="max-w-7xl mx-auto">

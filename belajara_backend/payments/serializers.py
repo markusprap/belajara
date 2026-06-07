@@ -29,6 +29,7 @@ class TransactionSerializer(serializers.ModelSerializer):
             "order_id",
             "course",
             "course_title",
+            "instructor",
             "transaction_type",
             "transaction_type_display",
             "amount",

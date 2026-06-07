@@ -3,8 +3,8 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,6 +39,7 @@ function decodeJwt(token: string) {
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login, googleLogin } = useAuth()
   const [username, setUsername] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [showPassword, setShowPassword] = React.useState(false)
@@ -51,19 +52,6 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search)
       setRedirectUrl(params.get("redirect"))
-    }
-  }, [])
-
-  React.useEffect(() => {
-    const root = window.document.documentElement
-    const hadDark = root.classList.contains("dark")
-    root.classList.remove("dark")
-    root.classList.add("light")
-    return () => {
-      if (hadDark) {
-        root.classList.remove("light")
-        root.classList.add("dark")
-      }
     }
   }, [])
 
@@ -84,8 +72,8 @@ export default function LoginPage() {
                 const lastName = payload.family_name || "";
                 const googleId = payload.sub || "";
                 
-                const res = await api.auth.googleLogin(email, firstName, lastName, googleId, undefined, response.credential);
-                const user = res?.user || api.auth.getUser();
+                const res = await googleLogin(email, firstName, lastName, googleId, undefined, response.credential);
+                const user = res?.user;
                 if (user && user.is_onboarded === false) {
                   router.push('/onboarding');
                 } else if (user?.is_instructor) {
@@ -124,7 +112,7 @@ export default function LoginPage() {
     }, 500);
 
     return () => clearInterval(timer);
-  }, [redirectUrl, router]);
+  }, [redirectUrl, router, googleLogin]);
 
 
 
@@ -139,8 +127,8 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const res = await api.auth.login(username, password)
-      const user = res?.user || api.auth.getUser()
+      const res = await login(username, password)
+      const user = res?.user
       if (user && user.is_onboarded === false) {
         router.push('/onboarding')
       } else if (user?.is_instructor) {

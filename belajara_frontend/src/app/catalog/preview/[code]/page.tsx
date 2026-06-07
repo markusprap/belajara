@@ -25,7 +25,8 @@ import {
   ExternalLink,
   Laptop
 } from "lucide-react"
-import { api, getToken, getUser, setUser, BASE_URL } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -42,8 +43,8 @@ export default function CoursePreviewPage({ params }: PageProps) {
   const courseCode = resolvedParams.code
 
   // User auth state
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false)
-  const [currentUser, setCurrentUser] = React.useState<any>(null)
+  const { user: currentUser, loading: authLoading } = useAuth()
+  const isLoggedIn = !!currentUser
   const [activeCourseCodes, setActiveCourseCodes] = React.useState<string[]>([])
 
   // Course detail states
@@ -83,36 +84,14 @@ export default function CoursePreviewPage({ params }: PageProps) {
 
   // Check login session & active courses
   const fetchSessionData = React.useCallback(() => {
-    const token = getToken()
-    if (token) {
-      setIsLoggedIn(true)
-      
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      }
-
-      // Fetch fresh profile data to keep premium status in sync
-      fetch(`${BASE_URL}/auth/me/`, { headers })
-        .then((res) => {
-          if (res.ok) return res.json()
-          throw new Error()
-        })
-        .then((userData: any) => {
-          setCurrentUser(userData)
-          setUser(userData)
-        })
-        .catch(() => {
-          // Fallback to local storage
-          const u = getUser()
-          setCurrentUser(u)
-        })
-      
-      const u = getUser()
-      if (u?.is_instructor) return // Instructors do not have enrollments
+    if (isLoggedIn) {
+      if (currentUser?.is_instructor) return // Instructors do not have enrollments
       
       // Fetch enrolled courses to check enrollment status
-      fetch(`${BASE_URL}/dashboard/`, { headers })
+      fetch(`${BASE_URL}/dashboard/`, { 
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+      })
         .then((res) => {
           if (res.ok) return res.json()
           throw new Error()
@@ -124,7 +103,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
         })
         .catch(() => {})
     }
-  }, [])
+  }, [isLoggedIn, currentUser])
 
   React.useEffect(() => {
     fetchSessionData()
@@ -172,21 +151,16 @@ export default function CoursePreviewPage({ params }: PageProps) {
 
   // General enrollment handler
   const handleEnroll = (mode: string = 'audit') => {
-    const token = getToken()
-    if (!token) {
+    if (!isLoggedIn) {
       router.push(`/login?redirect=catalog/preview/${courseCode}`)
       return
     }
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
-
     fetch(`${BASE_URL}/courses/enroll/`, {
       method: "POST",
-      headers,
-      body: JSON.stringify({ course_code: courseCode, enrollment_mode: mode })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ course_code: courseCode, enrollment_mode: mode }),
+      credentials: "include"
     })
       .then((res) => {
         if (!res.ok) {

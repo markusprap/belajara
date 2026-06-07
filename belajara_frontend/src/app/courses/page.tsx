@@ -3,7 +3,8 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
-import { getToken, getUser, BASE_URL } from "@/lib/api"
+import { BASE_URL } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import {
   SidebarInset,
   SidebarProvider,
@@ -21,7 +22,6 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, AlertTriangle, ArrowRight, Sparkles, Check } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 interface Module {
   id: number
@@ -58,6 +58,7 @@ interface DashboardData {
 
 export default function CoursesPage() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [courses, setCourses] = React.useState<Course[]>([])
   const [student, setStudent] = React.useState<Student | null>(null)
   const [loading, setLoading] = React.useState<boolean>(true)
@@ -65,28 +66,24 @@ export default function CoursesPage() {
   const [username, setUsername] = React.useState<string>("")
 
   React.useEffect(() => {
-    const token = getToken()
-    if (!token) {
+    if (authLoading) return
+
+    if (!user) {
       router.push("/login")
       return
     }
 
-    const u = getUser()
-    if (u?.is_instructor) {
+    if (user.is_instructor) {
       router.push("/instructor")
       return
     }
 
-    if (u) {
-      setUsername(u.username || "mahasiswa")
-    }
+    setUsername(user.username || "mahasiswa")
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    }
-
-    fetch(`${BASE_URL}/dashboard/`, { headers })
+    fetch(`${BASE_URL}/dashboard/`, { 
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    })
       .then((res) => {
         if (!res.ok) {
           throw new Error("Gagal mengambil data kelas terdaftar.")
@@ -102,7 +99,7 @@ export default function CoursesPage() {
         setError(err.message || "Gagal menghubungi server backend.")
         setLoading(false)
       })
-  }, [router])
+  }, [user, authLoading, router])
 
   // Local helper to resolve progress percentage from localStorage
   const getCourseProgress = (courseCode: string, totalModules: number) => {
@@ -132,7 +129,6 @@ export default function CoursesPage() {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <span className="text-xs font-semibold text-[#060708]">Mata Kuliah Saya</span>
           </div>
-          <ThemeToggle />
         </header>
 
         {/* Scrollable Container */}

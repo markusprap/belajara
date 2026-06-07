@@ -29,7 +29,23 @@ class InstructorProfile(models.Model):
     nidn = models.CharField(max_length=20, unique=True)
     bidang_keahlian = models.CharField(max_length=100)
     universitas = models.CharField(max_length=150)
+    ai_credits = models.IntegerField(default=20)
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.nidn})"
+
+
+class AICreditTransaction(models.Model):
+    instructor = models.ForeignKey(InstructorProfile, on_delete=models.CASCADE, related_name='credit_transactions')
+    amount = models.IntegerField()  # positive for top-up, negative for consumption
+    description = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reference_id = models.CharField(max_length=100, blank=True, null=True)  # transaction order_id if top-up
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.instructor.user.username} — {self.amount} ({self.description})"
+
 

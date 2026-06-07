@@ -19,7 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, Trophy, Sparkles, AlertCircle } from "lucide-react"
 
 import { useRouter } from "next/navigation"
-import { getToken, clearToken, getUser, BASE_URL } from "@/lib/api"
+import { BASE_URL } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 
 interface Student {
   name: string
@@ -69,6 +70,7 @@ interface DashboardData {
 
 export default function Page() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [data, setData] = React.useState<DashboardData | null>(null)
   const [loading, setLoading] = React.useState<boolean>(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -76,18 +78,13 @@ export default function Page() {
   const fetchDashboardData = () => {
     setLoading(true)
     setError(null)
-    const token = getToken()
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json"
-    }
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`
-    }
 
-    fetch(`${BASE_URL}/dashboard/`, { headers })
+    fetch(`${BASE_URL}/dashboard/`, { 
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    })
       .then((res) => {
         if (res.status === 401) {
-          clearToken()
           router.push("/login")
           throw new Error("Sesi telah berakhir. Silakan login kembali.")
         }
@@ -107,25 +104,25 @@ export default function Page() {
   }
 
   React.useEffect(() => {
-    const token = getToken()
-    if (!token) {
+    if (authLoading) return
+
+    if (!user) {
       router.push("/login")
       return
     }
 
-    const user = getUser()
-    if (user && user.is_onboarded === false) {
+    if (user.is_onboarded === false) {
       router.push("/onboarding")
       return
     }
 
-    if (user?.is_instructor) {
+    if (user.is_instructor) {
       router.push("/instructor")
       return
     }
 
     fetchDashboardData()
-  }, [router])
+  }, [user, authLoading, router])
 
   return (
     <SidebarProvider>

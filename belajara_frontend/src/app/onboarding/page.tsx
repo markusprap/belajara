@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { api, getToken, getUser } from "@/lib/api"
+import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -121,6 +122,7 @@ function AutocompleteInput({
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { user, refreshUser, loading: authLoading } = useAuth()
   const [role, setRole] = React.useState<"student" | "instructor" | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -140,26 +142,24 @@ export default function OnboardingPage() {
   const [bidangKeahlian, setBidangKeahlian] = React.useState("")
 
   React.useEffect(() => {
-    const token = getToken()
-    if (!token) {
+    if (authLoading) return
+
+    if (!user) {
       router.push("/login")
       return
     }
 
-    const user = getUser()
-    if (user) {
-      setFirstName(user.first_name || "")
-      setLastName(user.last_name || "")
-      // If user has already onboarded, redirect to dashboard
-      if (user.is_onboarded === true) {
-        if (user.is_instructor) {
-          router.push("/instructor")
-        } else {
-          router.push("/dashboard")
-        }
+    setFirstName(user.first_name || "")
+    setLastName(user.last_name || "")
+    // If user has already onboarded, redirect to dashboard
+    if (user.is_onboarded === true) {
+      if (user.is_instructor) {
+        router.push("/instructor")
+      } else {
+        router.push("/dashboard")
       }
     }
-  }, [router])
+  }, [user, authLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -198,8 +198,8 @@ export default function OnboardingPage() {
       await api.auth.updateProfile(payload)
       
       // Get updated user details
-      const user = getUser()
-      if (user?.is_instructor) {
+      const updatedUser = await refreshUser()
+      if (updatedUser?.is_instructor) {
         router.push("/instructor")
       } else {
         router.push("/dashboard")

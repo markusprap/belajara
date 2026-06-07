@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
+from users.views import (
+    StudentDashboardView, RegisterView, MeView, GoogleOAuthView, 
+    ChangePasswordView, ForgotPasswordView, ResetPasswordView, VerifyEmailView,
+    CookieTokenObtainPairView, CookieTokenRefreshView, CookieLogoutView,
+    InstructorCreditView
 )
-from users.views import StudentDashboardView, RegisterView, MeView, GoogleOAuthView, ChangePasswordView, ForgotPasswordView, ResetPasswordView, VerifyEmailView
 from courses.views import (
     CourseListView, CourseEnrollView, CourseDetailView,
     CourseCreateView, CourseUpdateDeleteView,
@@ -20,14 +21,16 @@ urlpatterns = [
 
     # Authentication endpoints
     path('api/auth/register/', RegisterView.as_view(), name='auth_register'),
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/login/', CookieTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/google/', GoogleOAuthView.as_view(), name='auth_google'),
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/logout/', CookieLogoutView.as_view(), name='auth_logout'),
     path('api/auth/me/', MeView.as_view(), name='auth_me'),
     path('api/auth/change-password/', ChangePasswordView.as_view(), name='auth_change_password'),
     path('api/auth/forgot-password/', ForgotPasswordView.as_view(), name='auth_forgot_password'),
     path('api/auth/reset-password/', ResetPasswordView.as_view(), name='auth_reset_password'),
     path('api/auth/verify-email/', VerifyEmailView.as_view(), name='auth_verify_email'),
+    path('api/users/instructor/credits/', InstructorCreditView.as_view(), name='instructor_credits'),
 
     # Student endpoints
     path('api/dashboard/', StudentDashboardView.as_view(), name='student-dashboard'),

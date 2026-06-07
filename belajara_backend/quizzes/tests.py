@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -7,10 +8,24 @@ from users.services.mahasiswa_service import create_mahasiswa
 from quizzes.models import Quiz, QuizSubmission
 
 @pytest.mark.django_db
-@pytest.mark.django_db
-def test_quiz_lifecycle():
+@patch('quizzes.views.generate_quiz_for_module')
+def test_quiz_lifecycle(mock_generate):
     course = Course.objects.create(code="IF202", title="Pemberitahuan Sistem", sks=3, semester=3, department="Informatika")
     module = CourseModule.objects.create(course=course, title="Modul Pengenalan", description="Membahas pengenalan sistem", order=1)
+
+    questions_mock = [
+        {"question": "Q1", "options": {"A": "A1", "B": "B1"}, "correct_answer": "B", "explanation": "E1"},
+        {"question": "Q2", "options": {"A": "A2", "B": "B2"}, "correct_answer": "B", "explanation": "E2"},
+        {"question": "Q3", "options": {"A": "A3", "B": "B3"}, "correct_answer": "B", "explanation": "E3"},
+        {"question": "Q4", "options": {"A": "A4", "B": "B4"}, "correct_answer": "A", "explanation": "E4"},
+        {"question": "Q5", "options": {"A": "A5", "B": "B5"}, "correct_answer": "B", "explanation": "E5"},
+    ]
+    mock_quiz = Quiz.objects.create(
+        module=module,
+        questions_json=questions_mock,
+        generated_by_ai=True
+    )
+    mock_generate.return_value = mock_quiz
 
     student = create_mahasiswa(
         username="quizstudent",
@@ -90,11 +105,23 @@ def test_quiz_lifecycle():
 
 
 @pytest.mark.django_db
-def test_quiz_time_limits_and_premium_gating():
+@patch('quizzes.views.generate_quiz_for_module')
+def test_quiz_time_limits_and_premium_gating(mock_generate):
     free_course = Course.objects.create(code="IF203", title="Advanced Data Structures", sks=3, semester=4, department="Informatika", is_premium=False)
     premium_course = Course.objects.create(code="IF204", title="Premium Data Structures", sks=3, semester=4, department="Informatika", is_premium=True)
     free_module = CourseModule.objects.create(course=free_course, title="Introduction to Trees", description="Free intro", order=1)
     premium_module = CourseModule.objects.create(course=premium_course, title="Red-Black Trees", description="Premium chapter", order=2)
+
+    def mock_gen_func(module_id):
+        from quizzes.models import Quiz
+        from courses.models import CourseModule
+        m = CourseModule.objects.get(pk=module_id)
+        return Quiz.objects.create(
+            module=m,
+            questions_json=[{"question": "Q1", "options": {"A": "A1"}, "correct_answer": "A", "explanation": "E1"}],
+            generated_by_ai=True
+        )
+    mock_generate.side_effect = mock_gen_func
 
     from django.contrib.auth import get_user_model
     User = get_user_model()

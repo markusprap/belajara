@@ -449,4 +449,39 @@ class TestCourseCertificate:
         assert resp.data['status'] == 'claimed'
         assert resp.data['certificate']['student_name'] == 'student_test'
 
+    def test_premium_user_in_audit_mode_can_claim_certificate(self, api_client, student_user, sample_course, enrollment_audit):
+        # Upgrade student to premium/scholar
+        student_user.is_premium = True
+        student_user.save()
+
+        # Create a module and a quiz for the course
+        module = CourseModule.objects.create(course=sample_course, title='Modul 1', order=1)
+        from quizzes.models import Quiz, QuizSubmission
+        quiz = Quiz.objects.create(module=module, questions_json=[{"question": "1+1?", "correct_answer": "2"}])
+        
+        # Create passed quiz submission
+        from users.models import Mahasiswa
+        mahasiswa = Mahasiswa.objects.get(user=student_user)
+        QuizSubmission.objects.create(
+            mahasiswa=mahasiswa,
+            quiz=quiz,
+            answers_json={"0": "2"},
+            score=100.0,
+            passed=True
+        )
+
+        token = get_token(api_client, 'student_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        # GET status - should be eligible (not locked!)
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data['status'] == 'eligible'
+
+        # POST claim - should succeed
+        resp = api_client.post(f'/api/courses/{sample_course.code}/claim-certificate/')
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data['status'] == 'claimed'
+
+
 

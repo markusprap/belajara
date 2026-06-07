@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { GraduationCap, Plus, BookOpen, ChevronRight, Loader2, AlertCircle, Users } from "lucide-react"
-import { api, getToken, BASE_URL } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
 
 // ── Cover gradient helper ──────────────────────────────────────────────────
 const COVER_PALETTES = [
@@ -57,9 +57,9 @@ export default function InstructorPage() {
     setLoading(true)
     setError(null)
     try {
-      const token = getToken()
       const res = await fetch(`${BASE_URL}/courses/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
       })
       if (res.ok) {
         const data = await res.json()

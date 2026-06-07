@@ -3,8 +3,8 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { api } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -151,6 +151,7 @@ function decodeJwt(token: string) {
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { googleLogin } = useAuth()
   const [formData, setFormData] = React.useState({
     username: "",
     email: "",
@@ -183,19 +184,6 @@ export default function RegisterPage() {
   }, [])
 
   React.useEffect(() => {
-    const root = window.document.documentElement
-    const hadDark = root.classList.contains("dark")
-    root.classList.remove("dark")
-    root.classList.add("light")
-    return () => {
-      if (hadDark) {
-        root.classList.remove("light")
-        root.classList.add("dark")
-      }
-    }
-  }, [])
-
-  React.useEffect(() => {
     const initializeGoogleSignIn = () => {
       if (typeof window !== "undefined" && (window as any).google?.accounts?.id) {
         const google = (window as any).google;
@@ -212,8 +200,8 @@ export default function RegisterPage() {
                 const lastName = payload.family_name || "";
                 const googleId = payload.sub || "";
                 
-                const res = await api.auth.googleLogin(email, firstName, lastName, googleId, formData.role, response.credential);
-                const user = res?.user || api.auth.getUser();
+                const res = await googleLogin(email, firstName, lastName, googleId, formData.role, response.credential);
+                const user = res?.user;
                 
                 if (user && user.is_onboarded === false) {
                   router.push('/onboarding');

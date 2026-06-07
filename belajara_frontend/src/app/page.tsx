@@ -3,7 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { api, getToken, clearToken, getUser, BASE_URL } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -33,12 +34,11 @@ import {
   UserCheck,
   ChevronDown
 } from "lucide-react"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LandingPage() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false)
-  const [currentUser, setCurrentUser] = React.useState<any>(null)
+  const { user: currentUser, logout, loading: authLoading } = useAuth()
+  const isLoggedIn = !!currentUser
   const [allCourses, setAllCourses] = React.useState<any[]>([])
   const [activeCourseCodes, setActiveCourseCodes] = React.useState<string[]>([])
   
@@ -65,19 +65,6 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  React.useEffect(() => {
-    const root = window.document.documentElement
-    const hadDark = root.classList.contains("dark")
-    root.classList.remove("dark")
-    root.classList.add("light")
-    return () => {
-      if (hadDark) {
-        root.classList.remove("light")
-        root.classList.add("dark")
-      }
-    }
-  }, [])
-
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -87,13 +74,11 @@ export default function LandingPage() {
 
   // Fetch student active courses to check enrollment status
   const fetchActiveCourses = React.useCallback(() => {
-    const token = getToken()
-    if (!token) return
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
-    }
-    fetch(`${BASE_URL}/dashboard/`, { headers })
+    if (!isLoggedIn) return
+    fetch(`${BASE_URL}/dashboard/`, { 
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    })
       .then((res) => {
         if (res.ok) return res.json()
         throw new Error()
@@ -104,7 +89,7 @@ export default function LandingPage() {
         }
       })
       .catch(() => {})
-  }, [])
+  }, [isLoggedIn])
 
   const fetchFeaturedCourses = React.useCallback(() => {
     setCatalogLoading(true)
@@ -128,15 +113,11 @@ export default function LandingPage() {
   }, [])
 
   React.useEffect(() => {
-    const token = getToken()
-    if (token) {
-      setIsLoggedIn(true)
-      const u = getUser()
-      setCurrentUser(u)
+    if (isLoggedIn) {
       fetchActiveCourses()
     }
     fetchFeaturedCourses()
-  }, [fetchActiveCourses, fetchFeaturedCourses])
+  }, [isLoggedIn, fetchActiveCourses, fetchFeaturedCourses])
 
   // Handle department filtering inline
   const handleDeptFilter = (dept: string) => {
@@ -149,11 +130,8 @@ export default function LandingPage() {
     }
   }
 
-  const handleLogout = () => {
-    clearToken()
-    setIsLoggedIn(false)
-    setCurrentUser(null)
-    router.refresh()
+  const handleLogout = async () => {
+    await logout()
   }
 
   return (

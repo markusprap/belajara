@@ -3,57 +3,54 @@ import { inferProgramStudiGroup } from "./indonesia-academic-data";
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001/api";
 
 export function getToken(): string | null {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("token");
-  }
   return null;
 }
 
-export function setToken(token: string) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("token", token);
-  }
-}
+export function setToken(token: string) {}
 
 export function clearToken() {
   if (typeof window !== "undefined") {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    localStorage.removeItem("isLoggedIn");
   }
 }
 
 export function getUser() {
-  if (typeof window !== "undefined") {
-    const userStr = localStorage.getItem("user");
-    if (userStr) {
-      try {
-        return JSON.parse(userStr);
-      } catch (e) {
-        return null;
-      }
-    }
-  }
   return null;
 }
 
-export function setUser(user: any) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("user", JSON.stringify(user));
-  }
-}
+export function setUser(user: any) {}
 
-async function request(endpoint: string, options: RequestInit = {}) {
-  const token = getToken();
+async function request(endpoint: string, options: RequestInit = {}): Promise<any> {
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  let response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: "include",
   });
+
+  // Handle automatic silent refresh if unauthorized and it's not the login/refresh endpoint itself
+  if (response.status === 401 && !endpoint.includes("/auth/login/") && !endpoint.includes("/auth/refresh/")) {
+    try {
+      const refreshRes = await fetch(`${BASE_URL}/auth/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      
+      if (refreshRes.ok) {
+        // Retry the original request
+        response = await fetch(`${BASE_URL}${endpoint}`, {
+          ...options,
+          headers,
+          credentials: "include",
+        });
+      }
+    } catch (refreshErr) {
+      console.error("Automatic token refresh failed:", refreshErr);
+    }
+  }
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
@@ -70,17 +67,6 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ username, password }),
       });
-      setToken(data.tokens?.access || data.token || data.access);
-
-      // Fetch real user details after successful login
-      try {
-        const userProfile = await request("/auth/me/");
-        setUser(userProfile);
-        data.user = userProfile;
-      } catch (profileErr) {
-        console.warn("Failed retrieving user profile after login:", profileErr);
-      }
-
       return data;
     },
 
@@ -96,14 +82,6 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ email, first_name: firstName, last_name: lastName, google_id: googleId, role, credential }),
       });
-      setToken(data.tokens?.access || data.token || data.access);
-      try {
-        const userProfile = await request("/auth/me/");
-        setUser(userProfile);
-        data.user = userProfile;
-      } catch (profileErr) {
-        console.warn("Failed retrieving user profile after Google login:", profileErr);
-      }
       return data;
     },
 
@@ -115,12 +93,10 @@ export const api = {
     },
 
     updateProfile: async (profileData: any) => {
-      const updatedUser = await request("/auth/me/", {
+      return await request("/auth/me/", {
         method: "PUT",
         body: JSON.stringify(profileData),
       });
-      setUser(updatedUser);
-      return updatedUser;
     },
 
     changePassword: async (oldPassword: string, newPassword: string) => {
@@ -151,16 +127,22 @@ export const api = {
       });
     },
 
+    logout: async () => {
+      return await request("/auth/logout/", {
+        method: "POST",
+      });
+    },
+
+    me: async () => {
+      return await request("/auth/me/");
+    },
+
     getUser: () => {
-      return getUser();
+      return null;
     },
 
     updatePremiumStatus: (status: boolean) => {
-      const user = getUser();
-      if (user) {
-        user.is_premium = status;
-        setUser(user);
-      }
+      // Deprecated/Stub: state is now managed reactively via AuthContext
     },
   },
 
@@ -258,6 +240,13 @@ export const api = {
       return await request("/payments/transactions/");
     },
 
+    checkoutCredits: async (packageId: "package_10" | "package_50" | "package_100") => {
+      return await request("/payments/checkout-credits/", {
+        method: "POST",
+        body: JSON.stringify({ package: packageId }),
+      });
+    },
+
     verify: async (orderId: string, status: string) => {
       const result = await request("/payments/verify/", {
         method: "POST",
@@ -271,6 +260,9 @@ export const api = {
   },
 
   instructor: {
+    getCredits: async () => {
+      return await request("/users/instructor/credits/");
+    },
     createCourse: async (data: any) => {
       return await request("/courses/create/", { method: "POST", body: JSON.stringify(data) });
     },
@@ -325,15 +317,10 @@ export const api = {
         formData.append("target_prodi", targetProdi);
         formData.append("department", targetProdi);
       }
-      const token = getToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
       const response = await fetch(`${BASE_URL}/explore/analyze/`, {
         method: "POST",
-        headers,
         body: formData,
+        credentials: "include",
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

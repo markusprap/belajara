@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from users.models import Mahasiswa, InstructorProfile
+from users.models import Mahasiswa, InstructorProfile, AICreditTransaction
 from users.services.mahasiswa_service import create_mahasiswa
 from users.services.instructor_service import create_instructor
 
@@ -14,7 +14,12 @@ class MahasiswaProfileSerializer(serializers.ModelSerializer):
 class InstructorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = InstructorProfile
-        fields = ('id', 'nidn', 'bidang_keahlian', 'universitas')
+        fields = ('id', 'nidn', 'bidang_keahlian', 'universitas', 'ai_credits')
+
+class AICreditTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AICreditTransaction
+        fields = ('id', 'amount', 'description', 'reference_id', 'created_at')
 
 class UserSerializer(serializers.ModelSerializer):
     mahasiswa_profile = MahasiswaProfileSerializer(read_only=True)

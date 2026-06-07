@@ -65,43 +65,10 @@ def test_llm_service_fallback():
         {"code": "IF101", "title": "Algoritma & Struktur Data", "description": "Mempelajari array", "sks": 3, "semester": 2},
         {"code": "IF201", "title": "Basis Data", "description": "Mempelajari ERD", "sks": 4, "semester": 3}
     ]
-    # Without environment API key set, it should fallback to mock recommendations
+    # Without environment API key set, it should raise ValueError
     with patch.dict('os.environ', {'GEMINI_API_KEY': 'your-gemini-api-key'}):
-        recs = analyze_curriculum_text("Rencana belajar pemrograman", available_courses, study_program="Farmasi")
-        assert "academic_profile" in recs
-        assert "course_matches" in recs
-        profile = recs["academic_profile"]
-        assert profile["study_program"] == "Farmasi"
-        assert "readiness_score" in profile
-        assert "confidence_score" in profile
-        assert "competency_scores" in profile
-        assert isinstance(profile["competency_scores"], dict)
-        assert "competency_axis_labels" in profile
-        assert isinstance(profile["competency_axis_labels"], dict)
-        # Verify rich gap_map structure
-        assert "gap_map" in profile
-        gap_map = profile["gap_map"]
-        assert "mandatory" in gap_map
-        assert "elective" in gap_map
-        assert "career" in gap_map
-        assert isinstance(gap_map["mandatory"], list)
-        if len(gap_map["mandatory"]) > 0:
-            assert isinstance(gap_map["mandatory"][0], dict)
-            assert "gap" in gap_map["mandatory"][0]
-            assert "priority" in gap_map["mandatory"][0]
-            assert "reason" in gap_map["mandatory"][0]
-        # Verify next_best_action
-        assert "next_best_action" in profile
-        assert isinstance(profile["next_best_action"], str)
-        # Verify career recommendations are normalized
-        assert isinstance(profile["career_recommendations"], list)
-        if len(profile["career_recommendations"]) > 0:
-            career = profile["career_recommendations"][0]
-            assert "title" in career
-            assert "fit_score" in career
-        assert "semester_plan" in profile
-        assert len(recs["course_matches"]) >= 1
-        assert recs["course_matches"][0]["code"] == "IF101"
+        with pytest.raises(ValueError):
+            analyze_curriculum_text("Rencana belajar pemrograman", available_courses, study_program="Farmasi")
 
 @pytest.mark.django_db
 @patch('explore.views.analyze_curriculum_task.delay')
@@ -169,6 +136,57 @@ def test_curriculum_upload_api(mock_extract):
     db_course = Course.objects.filter(code__in=created_codes).first()
     assert db_course is not None
     assert db_course.modules.count() > 0
+
+    # Verify AI credit is deducted (from 20 to 19)
+    from users.models import InstructorProfile, AICreditTransaction
+    instructor = InstructorProfile.objects.get(user__username="curriculuminstructor")
+    assert instructor.ai_credits == 19
+    assert AICreditTransaction.objects.filter(instructor=instructor, amount=-1).exists()
+
+
+@pytest.mark.django_db
+@patch('explore.services.curriculum_service.extract_text_from_pdf', return_value="Some SI curriculum text")
+def test_curriculum_upload_api_insufficient_credits(mock_extract):
+    client = APIClient()
+    authenticate_instructor(client, "curriculuminstructor_zero")
+    
+    # Set credits to 0
+    from users.models import InstructorProfile
+    instructor = InstructorProfile.objects.get(user__username="curriculuminstructor_zero")
+    instructor.ai_credits = 0
+    instructor.save()
+
+    url = reverse('curriculum-upload')
+    pdf_file = io.BytesIO(b"fake PDF bytes")
+    pdf_file.name = "curriculum_sistem_informasi.pdf"
+
+    response = client.post(url, {'file': pdf_file, 'department': 'Sistem Informasi'}, format='multipart')
+    
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert "Kredit AI habis" in response.data["detail"]
+
+
+@pytest.mark.django_db
+@patch('explore.services.curriculum_service.extract_text_from_pdf', return_value="Some SI curriculum text")
+@patch('explore.services.curriculum_service.call_gemini_to_extract_courses', side_effect=ValueError("Gemini quota exceeded"))
+def test_curriculum_upload_api_failed_does_not_deduct_credits(mock_gemini, mock_extract):
+    client = APIClient()
+    authenticate_instructor(client, "curriculuminstructor_fail")
+    
+    url = reverse('curriculum-upload')
+    pdf_file = io.BytesIO(b"fake PDF bytes")
+    pdf_file.name = "curriculum_sistem_informasi.pdf"
+
+    response = client.post(url, {'file': pdf_file, 'department': 'Sistem Informasi'}, format='multipart')
+    
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Gemini quota exceeded" in response.data["detail"]
+
+    # Verify credit is NOT deducted (remains 20)
+    from users.models import InstructorProfile, AICreditTransaction
+    instructor = InstructorProfile.objects.get(user__username="curriculuminstructor_fail")
+    assert instructor.ai_credits == 20
+    assert AICreditTransaction.objects.filter(instructor=instructor).count() == 0
 
 @pytest.mark.django_db
 def test_course_enroll_api(settings):
@@ -241,6 +259,35 @@ def test_ai_recommendation_status_success():
     assert response.data["recommendations"][0]["course"]["code"] == "IF101"
     assert response.data["recommendations"][0]["match_percentage"] == 90
     assert response.data["recommendations"][0]["reason"] == "Cocok dengan minat pemrograman"
+
+@pytest.mark.django_db
+def test_ai_recommendation_status_error():
+    client = APIClient()
+    from users.models import Mahasiswa
+    from django.contrib.auth import get_user_model
+    from explore.models import Curriculum, AIRecommendation
+
+    User = get_user_model()
+    user = User.objects.create_user(username="testuser_err", password="password123")
+    mahasiswa = Mahasiswa.objects.create(user=user, nim="123456", jurusan="Informatika")
+    curriculum = Curriculum.objects.create(user=user, file_name="curriculum.pdf")
+
+    # Create the recommendation in DB with error state
+    AIRecommendation.objects.create(
+        mahasiswa=mahasiswa,
+        curriculum=curriculum,
+        recommendations_data={
+            "status": "error",
+            "error_message": "ResourceExhausted: 429 Quota exceeded"
+        }
+    )
+
+    url = reverse('ai-recommendation-status', kwargs={'curriculum_id': curriculum.id})
+    client.force_authenticate(user=user)
+    response = client.get(url)
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["status"] == "error"
+    assert response.data["detail"] == "ResourceExhausted: 429 Quota exceeded"
 
 @pytest.mark.django_db
 @patch('explore.tasks.analyze_curriculum_text')
@@ -544,3 +591,112 @@ def test_premium_course_enrollment_gating(settings):
     resp2 = client.post(url, {'course_code': 'IF302', 'enrollment_mode': 'verified'}, format='json')
     assert resp2.status_code == status.HTTP_200_OK
     assert resp2.data['enrollment_mode'] == 'verified'
+
+
+@pytest.mark.django_db
+def test_dynamic_study_program_detection_accounting():
+    from explore.services.llm_service import normalize_academic_profile
+    # Test that when study_program is detected as Akuntansi, the competency keys and labels map to Akuntansi
+    raw_profile = {
+        "study_program": "Akuntansi",
+        "competency_scores": {},  # Trigger fallback resolution
+        "competency_axis_labels": {},
+    }
+    normalized = normalize_academic_profile(raw_profile, "General")
+    assert normalized["study_program"] == "Akuntansi"
+    assert "financial_accounting" in normalized["competency_scores"]
+    assert "auditing" in normalized["competency_scores"]
+    assert normalized["competency_axis_labels"]["financial_accounting"] == "Akuntansi Keuangan"
+
+
+@pytest.mark.django_db
+def test_dynamic_study_program_detection_si():
+    from explore.services.llm_service import normalize_academic_profile
+    # Test that when study_program is detected as Sistem Informasi, the competency keys and labels map to Sistem Informasi
+    raw_profile = {
+        "study_program": "Sistem Informasi",
+        "competency_scores": {},  # Trigger fallback resolution
+        "competency_axis_labels": {},
+    }
+    normalized = normalize_academic_profile(raw_profile, "General")
+    assert normalized["study_program"] == "Sistem Informasi"
+    assert "data_analytics" in normalized["competency_scores"]
+    assert "enterprise_architecture" in normalized["competency_scores"]
+    assert normalized["competency_axis_labels"]["data_analytics"] == "Data & Analitik Bisnis"
+
+
+@pytest.mark.django_db
+def test_strict_subject_extraction_no_hallucination():
+    from explore.tasks import analyze_curriculum_task
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from users.models import Mahasiswa
+    from django.contrib.auth import get_user_model
+    from explore.models import Curriculum, AIRecommendation
+
+    # Mock analyze_curriculum_text to return some completed subjects, including a hallucinated one
+    mock_llm_result = {
+        "academic_profile": {
+            "study_program": "Informatika",
+            "detected_semester": 4,
+            "readiness_score": 72,
+            "confidence_score": 80,
+            "summary": "Solid",
+            "next_best_action": "Study hard",
+            "completed_subjects": ["Algoritma dan Struktur Data", "Basis Data", "Hallucinated Course X"],
+            "competency_scores": {},
+            "competency_axis_labels": {},
+            "competency_evidence": [],
+            "gap_map": {"mandatory": [], "elective": [], "career": []},
+            "career_recommendations": []
+        },
+        "course_matches": []
+    }
+
+    User = get_user_model()
+    user = User.objects.create_user(username="testuser_strict", password="password123")
+    mahasiswa = Mahasiswa.objects.create(user=user, nim="strict123", jurusan="Informatika")
+    uploaded_file = SimpleUploadedFile("transcript.pdf", b"fake PDF bytes")
+    curriculum = Curriculum.objects.create(user=user, file_name="transcript.pdf", file_url=uploaded_file)
+
+    # Raw text only contains "Algoritma dan Struktur Data" and "Basis Data", but not "Hallucinated Course X"
+    raw_text = "Transkrip Nilai: Algoritma dan Struktur Data (A), Basis Data (B+)"
+
+    with patch('explore.tasks.extract_text_from_pdf', return_value=raw_text):
+        with patch('explore.tasks.analyze_curriculum_text', return_value=mock_llm_result):
+            analyze_curriculum_task(curriculum.id, mahasiswa.id)
+            
+            recs = AIRecommendation.objects.filter(curriculum=curriculum)
+            assert recs.exists()
+            rec = recs.first()
+            completed = rec.recommendations_data["academic_profile"]["completed_subjects"]
+            # Hallucinated Course X must be discarded because it is not in raw_text
+            assert "Algoritma dan Struktur Data" in completed
+            assert "Basis Data" in completed
+            assert "Hallucinated Course X" not in completed
+
+
+@pytest.mark.django_db
+def test_instructor_credit_protection_on_api_failure():
+    from explore.services.curriculum_service import parse_curriculum_and_save
+    from users.models import InstructorProfile, AICreditTransaction
+    from django.contrib.auth import get_user_model
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    User = get_user_model()
+    user = User.objects.create_user(username="instructor_protect", password="password123", is_instructor=True)
+    instructor = InstructorProfile.objects.create(user=user, nidn="inst123", ai_credits=20)
+
+    uploaded_file = SimpleUploadedFile("curriculum.pdf", b"fake PDF bytes")
+
+    # Mock call_gemini_to_extract_courses to raise an Exception (API failure)
+    with patch('explore.services.curriculum_service.extract_text_from_pdf', return_value="Kurikulum"):
+        with patch('explore.services.curriculum_service.call_gemini_to_extract_courses', side_effect=ValueError("Gemini API Error")):
+            
+            # The view uses parse_curriculum_and_save, let's verify that a failed parsing raises ValueError
+            with pytest.raises(ValueError):
+                parse_curriculum_and_save(uploaded_file, "curriculum.pdf", "Informatika")
+
+            # Check that instructor credit is not deducted (still 20) and no transaction is created
+            instructor.refresh_from_db()
+            assert instructor.ai_credits == 20
+            assert AICreditTransaction.objects.filter(instructor=instructor).count() == 0
