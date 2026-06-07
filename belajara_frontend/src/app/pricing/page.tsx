@@ -318,19 +318,33 @@ export default function PricingPage() {
 
       if (data.snap_token && typeof window !== "undefined") {
         if (data.snap_token.startsWith("mock-")) {
-          // If mock token, simulate success immediately after a small delay
-          setTimeout(async () => {
-            try {
-              await api.payment.verify(data.order_id, "success");
-              api.auth.updatePremiumStatus(true);
-              setCurrentTier(tierId);
-              setIsLoading(null);
-              window.location.href = "/dashboard?subscribed=true";
-            } catch (err: any) {
-              setError("Gagal memproses simulasi langganan.");
-              setIsLoading(null);
+          // If mock token, show a simulation prompt to the user
+          const price = tierId === "pro" ? "Rp99.000" : "Rp49.000";
+          const confirmPayment = window.confirm(
+            `[Simulasi Midtrans Sandbox]\n\nAnda sedang melakukan simulasi langganan paket ${tierId.toUpperCase()} seharga ${price}.\n\nKlik OK untuk menyimulasikan pembayaran berhasil.`
+          );
+          
+          if (confirmPayment) {
+            setTimeout(async () => {
+              try {
+                await api.payment.verify(data.order_id, "success");
+                api.auth.updatePremiumStatus(true);
+                setCurrentTier(tierId);
+                setIsLoading(null);
+                window.location.href = "/dashboard?subscribed=true";
+              } catch (err: any) {
+                setError("Gagal memproses simulasi langganan.");
+                setIsLoading(null);
+              }
+            }, 1000);
+          } else {
+            setIsLoading(null);
+            if (data.order_id) {
+              try {
+                await api.payment.cancelTransaction(data.order_id);
+              } catch (e) {}
             }
-          }, 1500);
+          }
           return;
         }
 
