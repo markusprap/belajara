@@ -374,6 +374,9 @@ export default function PricingPage() {
         } else {
           openSnap(data.snap_token, tierId, data.order_id);
         }
+      } else {
+        setError(data.detail || "Anda sudah berlangganan paket ini.");
+        setIsLoading(null);
       }
     } catch (err: any) {
       setError(err.message || "Gagal memulai proses pembayaran. Coba lagi.");

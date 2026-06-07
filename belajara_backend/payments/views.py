@@ -250,16 +250,17 @@ class SubscribeView(APIView):
             mahasiswa=mahasiswa, status="active"
         ).first()
         if existing_sub and existing_sub.is_active:
-            return Response(
-                {
-                    "detail": (
-                        f"Anda sudah memiliki langganan {existing_sub.get_tier_display()} aktif "
-                        f"hingga {existing_sub.current_period_end.strftime('%d %B %Y')}."
-                    ),
-                    "subscription": SubscriptionSerializer(existing_sub).data,
-                },
-                status=status.HTTP_200_OK,
-            )
+            if existing_sub.tier == tier:
+                return Response(
+                    {
+                        "detail": (
+                            f"Anda sudah memiliki langganan {existing_sub.get_tier_display()} aktif "
+                            f"hingga {existing_sub.current_period_end.strftime('%d %B %Y')}."
+                        ),
+                        "subscription": SubscriptionSerializer(existing_sub).data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
 
         amount = SUBSCRIPTION_PRICES[tier]
         order_id = generate_order_id(f"SUB-{tier.upper()}")
