@@ -1,3 +1,12 @@
+---
+title: Belajara Backend
+emoji: 🎓
+colorFrom: purple
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # Belajara
 
 Platform Pembelajaran Interaktif Berbasis AI dengan Sistem Rekomendasi Mata Kuliah untuk Mahasiswa Indonesia.
