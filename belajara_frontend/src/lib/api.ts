@@ -176,13 +176,17 @@ export const api = {
       return await request(url);
     },
 
-    getCertificate: async (code: string) => {
-      return await request(`/courses/${code}/certificate/`);
+    getCertificate: async (code: string, completedSubchapters?: string[]) => {
+      const query = completedSubchapters && completedSubchapters.length > 0
+        ? `?completed_subchapters=${encodeURIComponent(completedSubchapters.join(","))}`
+        : "";
+      return await request(`/courses/${code}/certificate/${query}`);
     },
 
-    claimCertificate: async (code: string) => {
+    claimCertificate: async (code: string, completedSubchapters?: string[]) => {
       return await request(`/courses/${code}/claim-certificate/`, {
         method: "POST",
+        body: JSON.stringify({ completed_subchapters: completedSubchapters }),
       });
     },
   },

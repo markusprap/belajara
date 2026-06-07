@@ -468,6 +468,34 @@ class CourseCertificateView(APIView):
                 }
             }, status=status.HTTP_200_OK)
 
+        # 3b. Verify subchapter completion progress (100% required)
+        from .models import SubChapter
+        completed_param = request.query_params.get("completed_subchapters", "")
+        completed_subchapters = [x.strip() for x in completed_param.split(",") if x.strip()] if completed_param else []
+
+        non_forum_completed = set()
+        for sub_id in completed_subchapters:
+            sub_id_str = str(sub_id)
+            if sub_id_str.endswith("_sub5"):
+                continue
+            if sub_id_str.isdigit():
+                try:
+                    sub_obj = SubChapter.objects.get(id=int(sub_id_str))
+                    if sub_obj.type == 'forum':
+                        continue
+                except SubChapter.DoesNotExist:
+                    pass
+            non_forum_completed.add(sub_id_str)
+
+        db_non_forum_count = SubChapter.objects.filter(
+            module__course=course
+        ).exclude(type='forum').count()
+
+        if db_non_forum_count == 0:
+            db_non_forum_count = modules.count() * 4
+
+        is_progress_eligible = (len(non_forum_completed) >= db_non_forum_count)
+
         total_modules_count = modules.count()
         passed_modules_count = 0
         details = []
@@ -494,11 +522,19 @@ class CourseCertificateView(APIView):
                 "quiz_passed": passed
             })
 
-        is_eligible = (passed_modules_count == total_modules_count)
+        is_eligible = (passed_modules_count == total_modules_count) and is_progress_eligible
         
+        if not is_eligible:
+            if not is_progress_eligible:
+                detail = f"Selesaikan seluruh materi kuliah 100% terlebih dahulu ({len(non_forum_completed)}/{db_non_forum_count} sub-bab selesai)."
+            else:
+                detail = "Selesaikan seluruh kuis evaluasi dengan nilai minimal 60%."
+        else:
+            detail = "Anda berhak mengklaim sertifikat!"
+
         return Response({
             "status": "eligible" if is_eligible else "not_eligible",
-            "detail": "Anda berhak mengklaim sertifikat!" if is_eligible else "Selesaikan seluruh kuis evaluasi dengan nilai minimal 60%.",
+            "detail": detail,
             "progress": {
                 "passed_modules_count": passed_modules_count,
                 "total_modules_count": total_modules_count,
@@ -543,6 +579,39 @@ class CourseClaimCertificateView(APIView):
         # 2. Check if in audit mode
         if enrollment.mode == 'audit' and not request.user.is_premium:
             return Response({"detail": "Sertifikat hanya tersedia untuk Kelas Terverifikasi (Premium)."}, status=status.HTTP_403_FORBIDDEN)
+
+        # 2b. Verify subchapter completion progress (100% required)
+        from .models import SubChapter
+        completed_subchapters = request.data.get("completed_subchapters", [])
+        if not isinstance(completed_subchapters, list):
+            completed_subchapters = []
+
+        non_forum_completed = set()
+        for sub_id in completed_subchapters:
+            sub_id_str = str(sub_id)
+            if sub_id_str.endswith("_sub5"):
+                continue
+            if sub_id_str.isdigit():
+                try:
+                    sub_obj = SubChapter.objects.get(id=int(sub_id_str))
+                    if sub_obj.type == 'forum':
+                        continue
+                except SubChapter.DoesNotExist:
+                    pass
+            non_forum_completed.add(sub_id_str)
+
+        db_non_forum_count = SubChapter.objects.filter(
+            module__course=course
+        ).exclude(type='forum').count()
+
+        if db_non_forum_count == 0:
+            db_non_forum_count = course.modules.count() * 4
+
+        if len(non_forum_completed) < db_non_forum_count:
+            return Response(
+                {"detail": f"Kemajuan belajar Anda belum mencapai 100% ({len(non_forum_completed)}/{db_non_forum_count} sub-bab selesai). Harap selesaikan seluruh materi terlebih dahulu."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # 3. Verify eligibility
         modules = course.modules.all()

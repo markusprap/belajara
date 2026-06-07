@@ -432,18 +432,26 @@ class TestCourseCertificate:
         token = get_token(api_client, 'student_test', 'testpass123')
         api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
 
+        # completed subchapters list to reach 100% (4 non-forum subchapters)
+        completed_subs = [f"{module.pk}_sub1", f"{module.pk}_sub2", f"{module.pk}_sub3", f"{module.pk}_sub4"]
+        query_str = f"?completed_subchapters={','.join(completed_subs)}"
+
         # GET status - should be eligible
-        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/{query_str}')
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data['status'] == 'eligible'
 
         # POST claim - should succeed (201 Created)
-        resp = api_client.post(f'/api/courses/{sample_course.code}/claim-certificate/')
+        resp = api_client.post(
+            f'/api/courses/{sample_course.code}/claim-certificate/',
+            {'completed_subchapters': completed_subs},
+            format='json'
+        )
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data['status'] == 'claimed'
         assert 'certificate_id' in resp.data['certificate']
 
-        # GET status again - should return claimed
+        # GET status again - should return claimed (even without query params, since it's already claimed)
         resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data['status'] == 'claimed'
@@ -473,15 +481,59 @@ class TestCourseCertificate:
         token = get_token(api_client, 'student_test', 'testpass123')
         api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
 
+        completed_subs = [f"{module.pk}_sub1", f"{module.pk}_sub2", f"{module.pk}_sub3", f"{module.pk}_sub4"]
+        query_str = f"?completed_subchapters={','.join(completed_subs)}"
+
         # GET status - should be eligible (not locked!)
-        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/{query_str}')
         assert resp.status_code == status.HTTP_200_OK
         assert resp.data['status'] == 'eligible'
 
         # POST claim - should succeed
-        resp = api_client.post(f'/api/courses/{sample_course.code}/claim-certificate/')
+        resp = api_client.post(
+            f'/api/courses/{sample_course.code}/claim-certificate/',
+            {'completed_subchapters': completed_subs},
+            format='json'
+        )
         assert resp.status_code == status.HTTP_201_CREATED
         assert resp.data['status'] == 'claimed'
+
+    def test_claim_certificate_insufficient_progress(self, api_client, student_user, sample_course, enrollment_verified):
+        module = CourseModule.objects.create(course=sample_course, title='Modul 1', order=1)
+        from quizzes.models import Quiz, QuizSubmission
+        quiz = Quiz.objects.create(module=module, questions_json=[{"question": "1+1?", "correct_answer": "2"}])
+        
+        from users.models import Mahasiswa
+        mahasiswa = Mahasiswa.objects.get(user=student_user)
+        QuizSubmission.objects.create(
+            mahasiswa=mahasiswa,
+            quiz=quiz,
+            answers_json={"0": "2"},
+            score=100.0,
+            passed=True
+        )
+
+        token = get_token(api_client, 'student_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        # Only completed 2 out of 4 non-forum subchapters
+        completed_subs = [f"{module.pk}_sub1", f"{module.pk}_sub2"]
+        query_str = f"?completed_subchapters={','.join(completed_subs)}"
+
+        # GET status - should be not_eligible
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/{query_str}')
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data['status'] == 'not_eligible'
+        assert "Selesaikan seluruh materi kuliah 100%" in resp.data['detail']
+
+        # POST claim - should fail (400 Bad Request) due to insufficient progress
+        resp = api_client.post(
+            f'/api/courses/{sample_course.code}/claim-certificate/',
+            {'completed_subchapters': completed_subs},
+            format='json'
+        )
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Kemajuan belajar Anda belum mencapai 100%" in resp.data['detail']
 
 
 

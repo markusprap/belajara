@@ -503,7 +503,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     if (!courseCode) return
     setCertificateLoading(true)
     try {
-      const res = await api.courses.getCertificate(courseCode)
+      const res = await api.courses.getCertificate(courseCode, completedSubChapters)
       setCertificateStatus(res.status)
       setCertificateData(res)
     } catch (err) {
@@ -511,7 +511,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     } finally {
       setCertificateLoading(false)
     }
-  }, [courseCode])
+  }, [courseCode, completedSubChapters])
 
   React.useEffect(() => {
     if (activeSidebarTab === "certificate") {
@@ -527,7 +527,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     }
     setCertificateLoading(true)
     try {
-      const res = await api.courses.claimCertificate(courseCode)
+      const res = await api.courses.claimCertificate(courseCode, completedSubChapters)
       setCertificateStatus(res.status)
       setCertificateData(res)
     } catch (err: any) {
