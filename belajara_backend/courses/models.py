@@ -9,13 +9,14 @@ class Course(models.Model):
     department = models.CharField(max_length=100)  # e.g., "Informatika", "Sistem Informasi"
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     is_premium = models.BooleanField(default=False)
-    category = models.CharField(max_length=100, default='Design')
-    instructor_name = models.CharField(max_length=200, default='Tony Stark')
-    instructor_email = models.CharField(max_length=200, default='tonystark@lms.com')
+    category = models.CharField(max_length=100, default='IT & Software')
+    instructor_name = models.CharField(max_length=200, default='')
+    instructor_email = models.CharField(max_length=200, default='')
     thumbnail_url = models.CharField(max_length=500, default='/images/daniel_scott_thumbnail.png', blank=True, null=True)
     status = models.CharField(max_length=50, default='public')
-    tags = models.CharField(max_length=500, default='UIUX,Design,User Research', blank=True)
+    tags = models.CharField(max_length=500, default='', blank=True)
     level = models.CharField(max_length=50, default='beginner')
+
 
     def __str__(self):
         return f"{self.code} - {self.title}"

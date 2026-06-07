@@ -20,7 +20,16 @@ class CourseModuleSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        
+        # Skip mock subchapter injection for instructor syllabus management views
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated and getattr(request.user, 'is_instructor', False):
+            if not data.get('subchapters'):
+                data['subchapters'] = []
+            return data
+            
         if not data.get('subchapters'):
+
             clean_title = instance.title
             if ":" in clean_title:
                 clean_title = clean_title.split(":", 1)[1].strip()

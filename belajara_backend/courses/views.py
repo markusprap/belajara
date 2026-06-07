@@ -192,9 +192,19 @@ class CourseCreateView(APIView):
     def post(self, request):
         serializer = CourseSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            # Dynamically set instructor and category details from logged-in instructor
+            instructor_name = request.user.get_full_name() or request.user.username
+            instructor_email = request.user.email
+            category = request.data.get('category') or request.data.get('department') or 'IT & Software'
+            
+            serializer.save(
+                instructor_name=instructor_name,
+                instructor_email=instructor_email,
+                category=category
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class CourseUpdateDeleteView(APIView):
