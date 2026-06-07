@@ -74,13 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = React.useCallback(async (username: string, password: string) => {
     const res = await api.auth.login(username, password);
     const freshUser = await fetchUser();
     return { ...res, user: freshUser };
-  };
+  }, []);
 
-  const googleLogin = async (
+  const googleLogin = React.useCallback(async (
     email: string,
     firstName: string,
     lastName: string,
@@ -91,9 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.auth.googleLogin(email, firstName, lastName, googleId, role, credential);
     const freshUser = await fetchUser();
     return { ...res, user: freshUser };
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = React.useCallback(async () => {
     try {
       await api.auth.logout();
     } catch (e) {
@@ -104,11 +104,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("isLoggedIn");
     }
     router.push("/login");
-  };
+  }, [router]);
 
-  const refreshUser = async () => {
+  const refreshUser = React.useCallback(async () => {
     return await fetchUser();
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, googleLogin, logout, refreshUser }}>

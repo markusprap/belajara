@@ -55,62 +55,73 @@ export default function LoginPage() {
     }
   }, [])
 
+  const googleInitRef = React.useRef(false)
+
   React.useEffect(() => {
     let intervalId: any = null;
 
     const initializeGoogleSignIn = () => {
       const google = (window as any).google;
       if (google?.accounts?.id) {
+        // Clear interval as soon as SDK is found
         if (intervalId) clearInterval(intervalId);
         
-        google.accounts.id.initialize({
-          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1051932175490-ir0vmmo1bb290nk73n5kn6tvcvf29b6i.apps.googleusercontent.com",
-          callback: async (response: any) => {
-            setLoading(true);
-            setError(null);
-            try {
-              const payload = decodeJwt(response.credential);
-              if (payload) {
-                const res = await googleLogin(payload.email, payload.given_name || "", payload.family_name || "", payload.sub || "", undefined, response.credential);
-                const user = res?.user;
-                if (user && user.is_onboarded === false) {
-                  router.push('/onboarding');
-                } else if (user?.is_instructor) {
-                  router.push('/instructor');
-                } else {
-                  router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard');
+        // Only initialize once
+        if (!googleInitRef.current) {
+          google.accounts.id.initialize({
+            client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1051932175490-ir0vmmo1bb290nk73n5kn6tvcvf29b6i.apps.googleusercontent.com",
+            callback: async (response: any) => {
+              setLoading(true);
+              setError(null);
+              try {
+                const payload = decodeJwt(response.credential);
+                if (payload) {
+                  const res = await googleLogin(payload.email, payload.given_name || "", payload.family_name || "", payload.sub || "", undefined, response.credential);
+                  const user = res?.user;
+                  if (user && user.is_onboarded === false) {
+                    router.push('/onboarding');
+                  } else if (user?.is_instructor) {
+                    router.push('/instructor');
+                  } else {
+                    router.push(redirectUrl ? `/${redirectUrl}` : '/dashboard');
+                  }
                 }
+              } catch (err: any) {
+                setError(err.message || "Gagal masuk dengan Google.");
+              } finally {
+                setLoading(false);
               }
-            } catch (err: any) {
-              setError(err.message || "Gagal masuk dengan Google.");
-            } finally {
-              setLoading(false);
-            }
-          },
-          auto_select: false,
-          itp_support: true
-        });
+            },
+            auto_select: false,
+            itp_support: true
+          });
+          googleInitRef.current = true;
+        }
 
-        google.accounts.id.renderButton(
-          document.getElementById("google-signin-button-target"),
-          { 
-            theme: "outline", 
-            size: "large", 
-            width: "100%", 
-            shape: "pill",
-            text: "signin_with",
-            logo_alignment: "center"
-          }
-        );
+        // Render button if container exists
+        const btnContainer = document.getElementById("google-signin-button-target");
+        if (btnContainer) {
+          google.accounts.id.renderButton(
+            btnContainer,
+            { 
+              theme: "outline", 
+              size: "large", 
+              width: 350, 
+              shape: "pill",
+              text: "signin_with",
+              logo_alignment: "center"
+            }
+          );
+        }
       }
     };
 
-    // Initial check
+    // Try immediate initialization
     initializeGoogleSignIn();
 
-    // Setup interval only if not loaded yet
+    // Setup interval if SDK not yet available
     if (!(window as any).google?.accounts?.id) {
-      intervalId = setInterval(initializeGoogleSignIn, 500);
+      intervalId = setInterval(initializeGoogleSignIn, 1000);
     }
 
     return () => {
