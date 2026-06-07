@@ -24,5 +24,5 @@ EXPOSE 7860
 
 WORKDIR /app/belajara_backend
 
-# Run migrations and start gunicorn
-CMD python manage.py migrate && gunicorn belajara_backend.wsgi:application --bind 0.0.0.0:7860
+CMD python manage.py migrate && python manage.py collectstatic --noinput && celery -A belajara_backend worker -l info --detach && gunicorn belajara_backend.wsgi:application --bind 0.0.0.0:7860
+

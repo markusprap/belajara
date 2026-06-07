@@ -43,3 +43,8 @@ belajara_backend/celerybeat-schedule
 belajara_backend/celery_beat.log
 .vercel
 .env*.local
+
+# Production Static Files
+staticfiles/
+belajara_backend/staticfiles/
+
