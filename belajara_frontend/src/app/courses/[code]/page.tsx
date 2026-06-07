@@ -850,18 +850,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     ))
   }
 
-  // Pre-calculate workspace dimensions/proportions (4 sub-chapters per module since Forum is a sidebar tab)
-  const totalSubChapters = (course?.modules?.length || 0) * 4
-  const completedCount = completedSubChapters.filter(id => !String(id).endsWith("_sub5")).length
-  const progressPercent = totalSubChapters > 0 ? Math.min(100, Math.round((completedCount / totalSubChapters) * 100)) : 0
 
-  const activeCertificateStatus = React.useMemo(() => {
-    let status = (enrollmentMode === "audit" && !user?.is_premium) ? "locked" : certificateStatus
-    if (status !== "locked" && status !== "claimed" && progressPercent < 100) {
-      return "not_eligible"
-    }
-    return status
-  }, [enrollmentMode, user?.is_premium, certificateStatus, progressPercent])
 
   // Flattened sequential sub-chapters list for sequential bottom navigation
   const flatSubChapters = React.useMemo(() => {
@@ -874,6 +863,20 @@ export default function CourseDetailPage({ params }: PageProps) {
     })
     return items
   }, [course])
+
+  // Progress calculation based on actual subchapter IDs from flatSubChapters
+  const totalSubChapters = flatSubChapters.length
+  const completedCount = flatSubChapters.filter(s => completedSubChapters.includes(s.id)).length
+  const progressPercent = totalSubChapters > 0 ? Math.min(100, Math.round((completedCount / totalSubChapters) * 100)) : 0
+
+  // Certificate eligibility — depends on progressPercent so must come after it
+  const activeCertificateStatus = React.useMemo(() => {
+    let status = (enrollmentMode === "audit" && !user?.is_premium) ? "locked" : certificateStatus
+    if (status !== "locked" && status !== "claimed" && progressPercent < 100) {
+      return "not_eligible"
+    }
+    return status
+  }, [enrollmentMode, user?.is_premium, certificateStatus, progressPercent])
 
   const activeIndex = flatSubChapters.findIndex(item => item.id === activeSubChapter?.id)
 
@@ -2299,10 +2302,12 @@ export default function CourseDetailPage({ params }: PageProps) {
                             size="sm"
                             onClick={() => {
                               markSubChapterAsCompleted(activeSubChapter.id)
-                              showAlert(
-                                "Mata Kuliah Selesai!",
-                                "Selamat! Anda telah menyelesaikan seluruh sub-bab pembelajaran pada mata kuliah ini. Semoga sukses dalam ujian akhir!"
-                              )
+                              // Small delay to let state update propagate before navigating
+                              setTimeout(() => {
+                                setActiveSidebarTab("certificate")
+                                setIsCreatingPost(false)
+                              }, 150)
+                              showToast("Selamat! Mata kuliah selesai. Cek status sertifikat Anda di tab Sertifikat.", "success")
                             }}
                             className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white text-xs gap-1 font-bold rounded-lg h-9 shadow-sm border-none"
                           >
