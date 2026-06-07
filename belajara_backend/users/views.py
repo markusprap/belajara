@@ -218,14 +218,35 @@ class GoogleOAuthView(APIView):
             logger.warning("OAuth: Request submitted without email")
             return Response({"detail": "Email harus diisi."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # ... (rest of logic for user finding/creation)
+        # Try to find user with this email
         try:
             user = User.objects.get(email=email)
             logger.info(f"OAuth: Found existing user: {user.username}")
+            
+            # Ensure user is active
             if not user.is_active:
                 user.is_active = True
+            
+            # Ensure role-specific flags and profiles exist
+            if role == 'instructor' or 'instructor' in email.lower() or 'dosen' in email.lower():
+                user.is_instructor = True
                 user.save()
-                logger.info(f"OAuth: Activated user: {user.username}")
+                if not InstructorProfile.objects.filter(user=user).exists():
+                    nidn = f"1001{random.randint(100000, 999999)}"
+                    while InstructorProfile.objects.filter(nidn=nidn).exists():
+                        nidn = f"1001{random.randint(100000, 999999)}"
+                    InstructorProfile.objects.create(user=user, nidn=nidn, bidang_keahlian="Umum", universitas="Universitas Indonesia")
+            else:
+                user.is_mahasiswa = True
+                user.save()
+                if not Mahasiswa.objects.filter(user=user).exists():
+                    nim = f"2201{random.randint(100000, 999999)}"
+                    while Mahasiswa.objects.filter(nim=nim).exists():
+                        nim = f"2201{random.randint(100000, 999999)}"
+                    Mahasiswa.objects.create(user=user, nim=nim, jurusan="Informatika", universitas="Universitas Indonesia", semester=1)
+            
+            user.save()
+
         except User.DoesNotExist:
             logger.info(f"OAuth: Creating new user for email: {email}")
             username = email.split('@')[0]

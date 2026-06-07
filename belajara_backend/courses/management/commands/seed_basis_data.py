@@ -31,7 +31,7 @@ class Command(BaseCommand):
                 "category": "IT & Software",
                 "instructor_name": "Dr. Ir. Rina Wijaya, MT",
                 "instructor_email": "rina.wijaya@belajara.id",
-                "thumbnail_url": "/images/basis_data_thumbnail.png",
+                "thumbnail_url": "/images/hero_student.png",
                 "status": "public",
                 "tags": "database,sql,postgresql,normalization,erd,nosql",
                 "level": "beginner",

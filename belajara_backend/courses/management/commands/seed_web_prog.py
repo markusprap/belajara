@@ -30,7 +30,7 @@ class Command(BaseCommand):
                 "category": "IT & Software",
                 "instructor_name": "Sarah Aulia, S.T., M.Cs",
                 "instructor_email": "sarah.aulia@belajara.id",
-                "thumbnail_url": "/images/web_prog_thumbnail.png",
+                "thumbnail_url": "/images/asian_instructor_thumbnail.png",
                 "status": "public",
                 "tags": "web,html,css,javascript,react,nextjs",
                 "level": "intermediate",
