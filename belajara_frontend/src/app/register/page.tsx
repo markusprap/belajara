@@ -312,11 +312,17 @@ export default function RegisterPage() {
         payload.bidang_keahlian = formData.bidang_keahlian
       }
 
-      await api.auth.register(payload)
+      const res = await api.auth.register(payload)
       setSuccess(true)
+      if (res.code_sandbox) {
+        localStorage.setItem(`verify_code_sandbox_${formData.email}`, res.code_sandbox)
+      }
       setTimeout(() => {
-        router.push(redirectUrl ? `/login?redirect=${redirectUrl}` : "/login")
-      }, 2500)
+        const queryParams = new URLSearchParams()
+        queryParams.append("email", formData.email)
+        if (redirectUrl) queryParams.append("redirect", redirectUrl)
+        router.push(`/verify-email?${queryParams.toString()}`)
+      }, 2000)
     } catch (err: any) {
       setError(err.message || "Registrasi gagal. Username, NIM, atau NIDN mungkin sudah terdaftar.")
     } finally {
@@ -423,7 +429,7 @@ export default function RegisterPage() {
               </div>
               <h3 className="font-heading text-xl font-bold text-primary">Registrasi Berhasil!</h3>
               <p className="text-sm text-muted-foreground max-w-xs">
-                Akun Anda berhasil didaftarkan. Mengalihkan Anda ke halaman login...
+                Akun Anda berhasil didaftarkan. Mengalihkan ke halaman verifikasi email...
               </p>
               <Loader2 className="h-5 w-5 text-accent animate-spin mt-2" />
             </div>

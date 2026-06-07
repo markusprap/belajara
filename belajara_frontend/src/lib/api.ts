@@ -130,6 +130,27 @@ export const api = {
       });
     },
 
+    forgotPassword: async (email: string) => {
+      return await request("/auth/forgot-password/", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+    },
+
+    resetPassword: async (email: string, code: string, newPassword: string) => {
+      return await request("/auth/reset-password/", {
+        method: "POST",
+        body: JSON.stringify({ email, code, new_password: newPassword }),
+      });
+    },
+
+    verifyEmail: async (email: string, code: string) => {
+      return await request("/auth/verify-email/", {
+        method: "POST",
+        body: JSON.stringify({ email, code }),
+      });
+    },
+
     getUser: () => {
       return getUser();
     },

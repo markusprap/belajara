@@ -17,16 +17,48 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        import random
+        from django.core.cache import cache
+        from django.core.mail import send_mail
+        from django.conf import settings
+
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            tokens = get_tokens_for_user(user)
-            user_data = UserSerializer(user).data
-            return Response({
-                "message": "Registrasi berhasil.",
-                "user": user_data,
-                "tokens": tokens
-            }, status=status.HTTP_201_CREATED)
+            user.is_active = False
+            user.save()
+
+            # Generate 6-digit code
+            code = str(random.randint(100000, 999999))
+            
+            # Save code in cache (24 hours timeout)
+            cache.set(f"email_verify_code_{user.email}", code, timeout=86400)
+            
+            # Send verification email via Resend SMTP
+            try:
+                send_mail(
+                    subject="Verifikasi Email Akun Belajara Anda",
+                    message=f"Halo {user.username},\n\nTerima kasih telah mendaftar di Belajara.\nKode verifikasi email Anda adalah: {code}\n\nMasukkan kode ini di aplikasi untuk memverifikasi akun Anda.",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                print(f"FAILED TO SEND VERIFICATION EMAIL TO {user.email}: {e}")
+
+            # Print code to terminal for easy manual testing
+            print(f"========================================")
+            print(f"EMAIL VERIFICATION CODE FOR {user.email}: {code}")
+            print(f"========================================")
+
+            response_data = {
+                "message": "Registrasi berhasil. Silakan cek email Anda untuk kode verifikasi.",
+                "email": user.email,
+            }
+            if settings.DEBUG:
+                response_data["code_sandbox"] = code
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class MeView(APIView):
@@ -275,3 +307,136 @@ class ChangePasswordView(APIView):
         user.set_password(new_password)
         user.save()
         return Response({"detail": "Password berhasil diubah."}, status=status.HTTP_200_OK)
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        import random
+        from django.core.cache import cache
+        from django.contrib.auth import get_user_model
+        from django.conf import settings
+        from django.core.mail import send_mail
+
+        User = get_user_model()
+        email = request.data.get("email")
+        if not email:
+            return Response({"detail": "Email harus diisi."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "Email tidak terdaftar."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Generate 6-digit code
+        code = str(random.randint(100000, 999999))
+        
+        # Store in cache for 10 minutes (600 seconds)
+        cache.set(f"reset_code_{email}", code, timeout=600)
+        
+        # Send reset email via Resend SMTP
+        try:
+            send_mail(
+                subject="Reset Password Akun Belajara Anda",
+                message=f"Halo,\n\nKami menerima permintaan untuk mereset password akun Belajara Anda.\nKode verifikasi reset password Anda adalah: {code}\n\nKode ini berlaku selama 10 menit.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"FAILED TO SEND RESET PASSWORD EMAIL TO {email}: {e}")
+
+        # Print to terminal for testing
+        print(f"========================================")
+        print(f"PASSWORD RESET CODE FOR {email}: {code}")
+        print(f"========================================")
+        
+        response_data = {"detail": "Kode verifikasi telah dikirim ke email Anda."}
+        if settings.DEBUG:
+            response_data["code_sandbox"] = code
+            
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.cache import cache
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        email = request.data.get("email")
+        code = request.data.get("code")
+        new_password = request.data.get("new_password")
+
+        if not email or not code or not new_password:
+            return Response(
+                {"detail": "Email, kode verifikasi, dan password baru harus diisi."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        cached_code = cache.get(f"reset_code_{email}")
+        if not cached_code or cached_code != str(code).strip():
+            return Response(
+                {"detail": "Kode verifikasi salah atau sudah kedaluwarsa."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(new_password) < 6:
+            return Response(
+                {"detail": "Password baru minimal 6 karakter."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "Email tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        user.set_password(new_password)
+        user.save()
+
+        # Clear code from cache
+        cache.delete(f"reset_code_{email}")
+
+        return Response({"detail": "Password berhasil direset. Silakan login kembali."}, status=status.HTTP_200_OK)
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.core.cache import cache
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        email = request.data.get("email")
+        code = request.data.get("code")
+
+        if not email or not code:
+            return Response(
+                {"detail": "Email dan kode verifikasi harus diisi."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        cached_code = cache.get(f"email_verify_code_{email}")
+        if not cached_code or cached_code != str(code).strip():
+            return Response(
+                {"detail": "Kode verifikasi salah atau sudah kedaluwarsa."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "Email tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        user.is_active = True
+        user.save()
+
+        # Clear code from cache
+        cache.delete(f"email_verify_code_{email}")
+
+        return Response({"detail": "Email berhasil diverifikasi. Akun Anda telah aktif!"}, status=status.HTTP_200_OK)

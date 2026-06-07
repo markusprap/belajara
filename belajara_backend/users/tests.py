@@ -24,6 +24,10 @@ def test_create_mahasiswa():
 
 @pytest.mark.django_db
 def test_register_api():
+    from django.core.cache import cache
+    from django.core import mail
+    
+    mail.outbox.clear()
     client = APIClient()
     url = reverse('auth_register')
     data = {
@@ -38,9 +42,36 @@ def test_register_api():
     }
     response = client.post(url, data, format='json')
     assert response.status_code == status.HTTP_201_CREATED
-    assert "tokens" in response.data
-    assert response.data["user"]["username"] == "newstudent"
-    assert response.data["user"]["mahasiswa_profile"]["nim"] == "87654321"
+    assert "email" in response.data
+    assert response.data["email"] == "newstudent@example.com"
+    
+    # Check that email was sent
+    assert len(mail.outbox) == 1
+    assert "Verifikasi Email Akun Belajara Anda" in mail.outbox[0].subject
+    
+    # Check that user is created but inactive
+    user = User.objects.get(email="newstudent@example.com")
+    assert user.username == "newstudent"
+    assert user.is_active is False
+    assert user.mahasiswa_profile.nim == "87654321"
+    
+    # Retrieve verify code from cache
+    code = cache.get(f"email_verify_code_{user.email}")
+    assert code is not None
+    
+    # Try verifying with wrong code
+    verify_url = reverse('auth_verify_email')
+    verify_resp = client.post(verify_url, {"email": user.email, "code": "invalid"}, format='json')
+    assert verify_resp.status_code == status.HTTP_400_BAD_REQUEST
+    
+    # Verify with correct code
+    verify_resp = client.post(verify_url, {"email": user.email, "code": code}, format='json')
+    assert verify_resp.status_code == status.HTTP_200_OK
+    assert verify_resp.data["detail"] == "Email berhasil diverifikasi. Akun Anda telah aktif!"
+    
+    # Check that user is now active
+    user.refresh_from_db()
+    assert user.is_active is True
 
 @pytest.mark.django_db
 def test_login_and_me_api():
@@ -119,6 +150,10 @@ def test_google_oauth_existing_user(settings):
 
 @pytest.mark.django_db
 def test_register_instructor_api():
+    from django.core.cache import cache
+    from django.core import mail
+    
+    mail.outbox.clear()
     client = APIClient()
     url = reverse('auth_register')
     data = {
@@ -134,11 +169,33 @@ def test_register_instructor_api():
     }
     response = client.post(url, data, format='json')
     assert response.status_code == status.HTTP_201_CREATED
-    assert "tokens" in response.data
-    assert response.data["user"]["username"] == "newinstructor"
-    assert response.data["user"]["is_instructor"] is True
-    assert response.data["user"]["instructor_profile"]["nidn"] == "9876543210"
-    assert response.data["user"]["instructor_profile"]["bidang_keahlian"] == "Kecerdasan Buatan"
+    assert "email" in response.data
+    assert response.data["email"] == "newinstructor@example.com"
+    
+    # Check that email was sent
+    assert len(mail.outbox) == 1
+    assert "Verifikasi Email Akun Belajara Anda" in mail.outbox[0].subject
+    
+    # Check that user is created but inactive
+    user = User.objects.get(email="newinstructor@example.com")
+    assert user.username == "newinstructor"
+    assert user.is_active is False
+    assert user.is_instructor is True
+    assert user.instructor_profile.nidn == "9876543210"
+    assert user.instructor_profile.bidang_keahlian == "Kecerdasan Buatan"
+    
+    # Retrieve verify code from cache
+    code = cache.get(f"email_verify_code_{user.email}")
+    assert code is not None
+    
+    # Verify with correct code
+    verify_url = reverse('auth_verify_email')
+    verify_resp = client.post(verify_url, {"email": user.email, "code": code}, format='json')
+    assert verify_resp.status_code == status.HTTP_200_OK
+    
+    # Check that user is now active
+    user.refresh_from_db()
+    assert user.is_active is True
 
 @pytest.mark.django_db
 def test_register_instructor_missing_nidn():
@@ -337,5 +394,70 @@ def test_change_password_api():
     # 5. Verify database user password updated
     mahasiswa.user.refresh_from_db()
     assert mahasiswa.user.check_password("newpassword123") is True
+
+
+@pytest.mark.django_db
+def test_forgot_password_and_reset_password_flow(settings):
+    settings.DEBUG = True
+    mahasiswa = create_mahasiswa(
+        username="resetstudent",
+        password="oldpassword123",
+        email="reset@example.com",
+        nim="11223344",
+        jurusan="Informatika",
+        universitas="UI"
+    )
+
+    client = APIClient()
+
+    # 1. Test forgot password missing email
+    forgot_url = reverse('auth_forgot_password')
+    response = client.post(forgot_url, {}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 2. Test forgot password invalid email
+    response = client.post(forgot_url, {"email": "notfound@example.com"}, format="json")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    # 3. Test forgot password success (generates code)
+    response = client.post(forgot_url, {"email": "reset@example.com"}, format="json")
+    assert response.status_code == status.HTTP_200_OK
+    assert "code_sandbox" in response.data
+    sandbox_code = response.data["code_sandbox"]
+
+    # 4. Test reset password missing fields
+    reset_url = reverse('auth_reset_password')
+    response = client.post(reset_url, {"email": "reset@example.com", "code": sandbox_code}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 5. Test reset password invalid code
+    response = client.post(reset_url, {
+        "email": "reset@example.com",
+        "code": "000000",
+        "new_password": "newsecurepassword123"
+    }, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 6. Test reset password short password
+    response = client.post(reset_url, {
+        "email": "reset@example.com",
+        "code": sandbox_code,
+        "new_password": "123"
+    }, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    # 7. Test reset password success
+    response = client.post(reset_url, {
+        "email": "reset@example.com",
+        "code": sandbox_code,
+        "new_password": "newsecurepassword123"
+    }, format="json")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["detail"] == "Password berhasil direset. Silakan login kembali."
+
+    # 8. Verify password updated
+    mahasiswa.user.refresh_from_db()
+    assert mahasiswa.user.check_password("newsecurepassword123") is True
+
 
 
