@@ -174,10 +174,14 @@ AUTHENTICATION_BACKENDS = [
 # Redis Cache Configuration with Local Memory Fallback
 REDIS_URL = os.environ.get('REDIS_URL')
 if REDIS_URL:
+    CACHE_REDIS_URL = REDIS_URL
+    if CACHE_REDIS_URL.startswith('rediss://') and 'ssl_cert_reqs' not in CACHE_REDIS_URL:
+        separator = '&' if '?' in CACHE_REDIS_URL else '?'
+        CACHE_REDIS_URL = f"{CACHE_REDIS_URL}{separator}ssl_cert_reqs=none"
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': REDIS_URL,
+            'LOCATION': CACHE_REDIS_URL,
         }
     }
 else:
@@ -268,8 +272,12 @@ SIMPLE_JWT = {
 # Celery Configurations with Synchronous Fallback
 REDIS_URL = os.environ.get('REDIS_URL')
 if REDIS_URL:
-    CELERY_BROKER_URL = REDIS_URL
-    CELERY_RESULT_BACKEND = REDIS_URL
+    CELERY_REDIS_URL = REDIS_URL
+    if CELERY_REDIS_URL.startswith('rediss://') and 'ssl_cert_reqs' not in CELERY_REDIS_URL:
+        separator = '&' if '?' in CELERY_REDIS_URL else '?'
+        CELERY_REDIS_URL = f"{CELERY_REDIS_URL}{separator}ssl_cert_reqs=CERT_NONE"
+    CELERY_BROKER_URL = CELERY_REDIS_URL
+    CELERY_RESULT_BACKEND = CELERY_REDIS_URL
 else:
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_BROKER_URL = 'memory://'
