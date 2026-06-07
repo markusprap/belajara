@@ -79,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (res.access) {
       if (typeof window !== "undefined") {
         localStorage.setItem("accessToken", res.access);
+        document.cookie = `access_token=${res.access}; path=/; max-age=86400; SameSite=Lax; Secure`;
       }
     }
     const freshUser = await fetchUser();
@@ -101,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res.access) {
         if (typeof window !== "undefined") {
           localStorage.setItem("accessToken", res.access);
+          document.cookie = `access_token=${res.access}; path=/; max-age=86400; SameSite=Lax; Secure`;
         }
       }
       
@@ -123,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.removeItem("isLoggedIn");
       localStorage.removeItem("accessToken");
+      document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     }
     router.push("/login");
   }, [router]);
