@@ -157,6 +157,9 @@ class StudentDashboardView(APIView):
         except Exception as e:
             return Response({"detail": f"Terjadi kesalahan internal: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+import logging
+logger = logging.getLogger(__name__)
+
 class GoogleOAuthView(APIView):
     permission_classes = [AllowAny]
 
@@ -167,60 +170,65 @@ class GoogleOAuthView(APIView):
         from users.models import Mahasiswa, InstructorProfile
 
         User = get_user_model()
-        email = request.data.get('email')
-        first_name = request.data.get('first_name', '')
-        last_name = request.data.get('last_name', '')
-        google_id = request.data.get('google_id', '')
-        credential = request.data.get('credential', '')
-        role = request.data.get('role', 'student')
+        data = request.data
+        email = data.get('email')
+        first_name = data.get('first_name', '')
+        last_name = data.get('last_name', '')
+        google_id = data.get('google_id', '')
+        credential = data.get('credential', '')
+        role = data.get('role', 'student')
+
+        logger.info(f"OAuth: Received login request for email={email}, role={role}")
 
         if credential and google_id != "mock-google-id":
             try:
                 from google.auth.transport import requests as google_requests
                 from google.oauth2 import id_token
 
-                # Log verification attempt (safe fields only)
-                print(f"DEBUG: Verifying Google Token for email: {email} with CID: {settings.GOOGLE_OAUTH_CLIENT_ID[:10]}...")
+                client_id = settings.GOOGLE_OAUTH_CLIENT_ID
+                logger.info(f"OAuth: Verifying token with Client ID: {client_id[:10]}...")
 
                 payload = id_token.verify_oauth2_token(
                     credential,
                     google_requests.Request(),
-                    settings.GOOGLE_OAUTH_CLIENT_ID,
+                    client_id,
                 )
+                
+                # Update info from verified payload
+                email = payload.get('email')
+                first_name = payload.get('given_name', first_name)
+                last_name = payload.get('family_name', last_name)
+                google_id = payload.get('sub', google_id)
+                logger.info(f"OAuth: Token verified successfully for email={email}")
+
             except Exception as e:
-                print(f"DEBUG: Google Token Verification Failed: {str(e)}")
+                logger.error(f"OAuth: Token Verification Failed: {str(e)}", exc_info=True)
                 return Response(
                     {"detail": f"Token Google tidak valid: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
-            email = payload.get('email')
-            first_name = payload.get('given_name', first_name)
-            last_name = payload.get('family_name', last_name)
-            google_id = payload.get('sub', google_id)
         elif not settings.DEBUG:
+            logger.warning("OAuth: Missing credential in production environment")
             return Response(
                 {"detail": "Credential Google wajib dikirim."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if not email:
+            logger.warning("OAuth: Request submitted without email")
             return Response({"detail": "Email harus diisi."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if 'instructor' in email.lower() or 'dosen' in email.lower():
-            role = 'instructor'
-
-        # Try to find user with this email
+        # ... (rest of logic for user finding/creation)
         try:
             user = User.objects.get(email=email)
-            # Ensure user is active if logging in via Google
+            logger.info(f"OAuth: Found existing user: {user.username}")
             if not user.is_active:
                 user.is_active = True
                 user.save()
+                logger.info(f"OAuth: Activated user: {user.username}")
         except User.DoesNotExist:
-            # Create user since they don't exist
+            logger.info(f"OAuth: Creating new user for email: {email}")
             username = email.split('@')[0]
-            # Handle username collision
             base_username = username
             counter = 1
             while User.objects.filter(username=username).exists():
@@ -230,6 +238,9 @@ class GoogleOAuthView(APIView):
             import secrets
             password = secrets.token_urlsafe(16)
             
+            if 'instructor' in email.lower() or 'dosen' in email.lower():
+                role = 'instructor'
+
             if role == 'instructor':
                 user = User.objects.create_user(
                     username=username,
@@ -240,20 +251,12 @@ class GoogleOAuthView(APIView):
                     is_instructor=True,
                     is_mahasiswa=False,
                     is_onboarded=False,
-                    is_active=True  # Ensure active
+                    is_active=True
                 )
-                
-                # Generate random NIDN
                 nidn = f"1001{random.randint(100000, 999999)}"
                 while InstructorProfile.objects.filter(nidn=nidn).exists():
                     nidn = f"1001{random.randint(100000, 999999)}"
-                
-                InstructorProfile.objects.create(
-                    user=user,
-                    nidn=nidn,
-                    bidang_keahlian="Umum",
-                    universitas="Universitas Indonesia"
-                )
+                InstructorProfile.objects.create(user=user, nidn=nidn, bidang_keahlian="Umum", universitas="Universitas Indonesia")
             else:
                 user = User.objects.create_user(
                     username=username,
@@ -264,24 +267,14 @@ class GoogleOAuthView(APIView):
                     is_mahasiswa=True,
                     is_instructor=False,
                     is_onboarded=False,
-                    is_active=True  # Ensure active
+                    is_active=True
                 )
-
-                # Generate random NIM
                 nim = f"2201{random.randint(100000, 999999)}"
                 while Mahasiswa.objects.filter(nim=nim).exists():
                     nim = f"2201{random.randint(100000, 999999)}"
+                Mahasiswa.objects.create(user=user, nim=nim, jurusan="Informatika", universitas="Universitas Indonesia", semester=1)
+            logger.info(f"OAuth: Successfully created user: {user.username}")
 
-                # Create Mahasiswa profile
-                Mahasiswa.objects.create(
-                    user=user,
-                    nim=nim,
-                    jurusan="Informatika",
-                    universitas="Universitas Indonesia",
-                    semester=1
-                )
-
-        # Generate simple JWT tokens
         tokens = get_tokens_for_user(user)
         user_data = UserSerializer(user).data
         
@@ -312,7 +305,7 @@ class GoogleOAuthView(APIView):
             httponly=True,
             samesite=samesite
         )
-        
+        logger.info(f"OAuth: Auth cookies set for user {user.username}, login complete.")
         return response
 
 

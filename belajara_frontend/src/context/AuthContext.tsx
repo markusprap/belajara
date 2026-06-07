@@ -88,9 +88,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role?: string,
     credential?: string
   ) => {
-    const res = await api.auth.googleLogin(email, firstName, lastName, googleId, role, credential);
-    const freshUser = await fetchUser();
-    return { ...res, user: freshUser };
+    console.log("DEBUG: Initiating googleLogin for:", email);
+    try {
+      const res = await api.auth.googleLogin(email, firstName, lastName, googleId, role, credential);
+      console.log("DEBUG: googleLogin API success:", res);
+      const freshUser = await fetchUser();
+      console.log("DEBUG: fetchUser after googleLogin:", freshUser);
+      return { ...res, user: freshUser };
+    } catch (err: any) {
+      console.error("DEBUG: googleLogin API failed:", err);
+      throw err;
+    }
   }, []);
 
   const logout = React.useCallback(async () => {
