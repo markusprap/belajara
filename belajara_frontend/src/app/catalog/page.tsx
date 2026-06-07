@@ -32,6 +32,116 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { searchProdi } from "@/lib/indonesia-academic-data"
+
+// ─── Autocomplete Input Component ─────────────────────────────────────────
+function AutocompleteInput({
+  id,
+  name,
+  placeholder,
+  value,
+  onChange,
+  searchFn,
+  disabled,
+}: {
+  id: string
+  name: string
+  placeholder: string
+  value: string
+  onChange: (val: string) => void
+  searchFn: (q: string) => string[]
+  disabled?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [suggestions, setSuggestions] = React.useState<string[]>([])
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    onChange(val)
+    const results = Array.from(new Set(searchFn(val)))
+    setSuggestions(results)
+    if (results.length > 0) {
+      setOpen(true)
+    } else {
+      setOpen(false)
+    }
+  }
+
+  const handleSelect = (item: string) => {
+    onChange(item)
+    setOpen(false)
+    setSuggestions([])
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") setOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <input
+          id={id}
+          name={name}
+          type="text"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={value}
+          onChange={handleInput}
+          onFocus={() => {
+            const results = Array.from(new Set(searchFn(value)))
+            if (results.length > 0) {
+              setSuggestions(results)
+              setOpen(true)
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="w-full h-9 bg-white border border-[#E8E5E9] rounded-lg pl-8 pr-8 text-[10px] font-extrabold uppercase tracking-wider text-slate-700 placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-[#060708]/10 focus:border-[#060708]/30 transition disabled:opacity-50"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => { onChange(""); setSuggestions([]); setOpen(false) }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1 py-0.5 font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <div
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-[#E8E5E9] rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto"
+        >
+          {suggestions.map((item, i) => (
+            <button
+              key={i}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(item) }}
+              className="w-full text-left px-3 py-2 text-xs text-primary hover:bg-slate-50 transition-colors border-b border-[#E8E5E9]/40 last:border-0 cursor-pointer"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function CatalogPage() {
   const router = useRouter()
@@ -337,25 +447,15 @@ export default function CatalogPage() {
               className="pl-9 bg-white border-[#E8E5E9] text-xs font-semibold h-9 rounded-lg"
             />
           </div>
-          <div className="relative w-full sm:w-56 shrink-0">
-            <select
+          <div className="w-full sm:w-56 shrink-0 z-10">
+            <AutocompleteInput
+              id="departmentFilter"
+              name="departmentFilter"
+              placeholder="SEMUA JURUSAN"
               value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="w-full h-9 pl-3 pr-9 bg-white border border-[#E8E5E9] text-[10px] font-extrabold uppercase tracking-wider rounded-lg text-slate-700 focus:outline-none focus:border-[#060708] transition-colors cursor-pointer appearance-none"
-            >
-              <option value="">Semua Jurusan</option>
-              <option value="Informatika">Informatika</option>
-              <option value="Sistem Informasi">Sistem Informasi</option>
-              <option value="Teknik Komputer">Teknik Komputer</option>
-              <option value="Teknologi Informasi">Teknologi Informasi</option>
-              <option value="Sains Data">Sains Data</option>
-              <option value="Rekayasa Perangkat Lunak">Rekayasa Perangkat Lunak</option>
-              <option value="Teknik Elektro">Teknik Elektro</option>
-              <option value="Desain Komunikasi Visual">Desain Komunikasi Visual</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
-              <ChevronDown className="h-3.5 w-3.5" />
-            </div>
+              onChange={(val) => setDepartment(val)}
+              searchFn={searchProdi}
+            />
           </div>
         </div>
       </div>
