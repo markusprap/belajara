@@ -338,8 +338,9 @@ export default function CatalogPage() {
       setSnapToken(response.snap_token)
       setOrderId(response.order_id)
       
-      if (typeof window !== "undefined" && (window as any).snap) {
+      if (typeof window !== "undefined" && (window as any).snap && !response.snap_token.startsWith("mock-")) {
         (window as any).snap.pay(response.snap_token, {
+
           onSuccess: async (result: any) => {
             setPaymentStatus("success")
             await api.payment.verify(response.order_id, "success")

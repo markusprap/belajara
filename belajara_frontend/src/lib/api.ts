@@ -386,69 +386,20 @@ export const api = {
       }
     },
     register: async (registerData: any) => {
-      try {
-        return await request("/auth/register/", {
-          method: "POST",
-          body: JSON.stringify(registerData),
-        });
-      } catch (err) {
-        console.warn("API register failed, simulating mock registration success:", err);
-        return {
-          message: "Registrasi berhasil (Simulated)",
-          user: {
-            username: registerData.username,
-            email: registerData.email,
-            first_name: registerData.first_name,
-            last_name: registerData.last_name,
-            is_mahasiswa: true,
-            nim: registerData.nim || "2201010101",
-            jurusan: registerData.jurusan || "Informatika",
-            universitas: registerData.universitas || "Universitas Indonesia",
-            semester: parseInt(registerData.semester) || 3
-          }
-        };
-      }
+      return await request("/auth/register/", {
+        method: "POST",
+        body: JSON.stringify(registerData),
+      });
     },
     updateProfile: async (profileData: any) => {
-      try {
-        const updatedUser = await request("/auth/me/", {
-          method: "PUT",
-          body: JSON.stringify(profileData),
-        });
-        setUser(updatedUser);
-        return updatedUser;
-      } catch (err) {
-        console.warn("API updateProfile failed, simulating mock update success:", err);
-        const currentUser = getUser() || {};
-        const role = profileData.role;
-        const isMahasiswa = role ? (role === 'student' || role === 'mahasiswa') : (currentUser.is_mahasiswa || false);
-        const isInst = role ? (role === 'instructor' || role === 'dosen') : (currentUser.is_instructor || false);
-        const updatedUser = {
-          ...currentUser,
-          is_mahasiswa: isMahasiswa,
-          is_instructor: isInst,
-          is_onboarded: true, // Mark onboarded on successful profile update
-          first_name: profileData.first_name !== undefined ? profileData.first_name : currentUser.first_name,
-          last_name: profileData.last_name !== undefined ? profileData.last_name : currentUser.last_name,
-          nim: !isInst ? (profileData.nim || profileData.mahasiswa_profile?.nim || currentUser.nim) : undefined,
-          jurusan: !isInst ? (profileData.jurusan || profileData.mahasiswa_profile?.jurusan || currentUser.jurusan) : undefined,
-          semester: !isInst ? (profileData.semester || profileData.mahasiswa_profile?.semester || currentUser.semester) : undefined,
-          nidn: isInst ? (profileData.nidn || profileData.instructor_profile?.nidn || currentUser.nidn) : undefined,
-          bidang_keahlian: isInst ? (profileData.bidang_keahlian || profileData.instructor_profile?.bidang_keahlian || currentUser.bidang_keahlian) : undefined,
-          universitas: profileData.universitas || profileData.mahasiswa_profile?.universitas || profileData.instructor_profile?.universitas || currentUser.universitas,
-          mahasiswa_profile: currentUser.is_mahasiswa ? {
-            ...currentUser.mahasiswa_profile,
-            ...(profileData.mahasiswa_profile || profileData),
-          } : undefined,
-          instructor_profile: currentUser.is_instructor ? {
-            ...currentUser.instructor_profile,
-            ...(profileData.instructor_profile || profileData),
-          } : undefined,
-        };
-        setUser(updatedUser);
-        return updatedUser;
-      }
+      const updatedUser = await request("/auth/me/", {
+        method: "PUT",
+        body: JSON.stringify(profileData),
+      });
+      setUser(updatedUser);
+      return updatedUser;
     },
+
     changePassword: async (oldPassword: string, newPassword: string) => {
       try {
         return await request("/auth/change-password/", {

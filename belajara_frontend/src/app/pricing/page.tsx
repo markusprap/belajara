@@ -317,6 +317,23 @@ export default function PricingPage() {
       const data = await api.payment.subscribe(tierId);
 
       if (data.snap_token && typeof window !== "undefined") {
+        if (data.snap_token.startsWith("mock-")) {
+          // If mock token, simulate success immediately after a small delay
+          setTimeout(async () => {
+            try {
+              await api.payment.verify(data.order_id, "success");
+              api.auth.updatePremiumStatus(true);
+              setCurrentTier(tierId);
+              setIsLoading(null);
+              window.location.href = "/dashboard?subscribed=true";
+            } catch (err: any) {
+              setError("Gagal memproses simulasi langganan.");
+              setIsLoading(null);
+            }
+          }, 1500);
+          return;
+        }
+
         // Load Midtrans Snap script
         const snapScript = document.getElementById("midtrans-snap");
         if (!snapScript) {
