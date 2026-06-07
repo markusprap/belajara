@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import {
   Sidebar,
   SidebarContent,
@@ -41,7 +41,15 @@ import {
   ArrowLeft, MoreVertical, Settings, Lock, DollarSign, Activity, PieChart, Users, Award, FileSpreadsheet,
   Info, Check, Sliders
 } from "lucide-react"
-import { api, getToken, BASE_URL } from "@/lib/api"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { api, BASE_URL } from "@/lib/api"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
 
 interface SubChapter {
@@ -189,10 +197,16 @@ const getSidebarIcon = (id: string) => {
 export default function CourseManagePage() {
   const params = useParams<{ code: string }>()
   const code = params?.code as string
+  const router = useRouter()
 
   const [course, setCourse] = React.useState<Course | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [toast, setToast] = React.useState<Toast>(null)
+
+  // Course deletion state
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [confirmCode, setConfirmCode] = React.useState("")
+  const [deletingCourse, setDeletingCourse] = React.useState(false)
 
   // Active view state
   const [activeView, setActiveView] = React.useState<string>("general")
@@ -255,6 +269,25 @@ export default function CourseManagePage() {
       showToast("error", err.message || "Gagal menyimpan pengaturan.")
     } finally {
       setSettingsSaving(false)
+    }
+  }
+
+  const handleDeleteCourse = async () => {
+    if (!course) return
+    if (confirmCode !== course.code) {
+      showToast("error", "Kode konfirmasi tidak cocok.")
+      return
+    }
+    setDeletingCourse(true)
+    try {
+      await api.instructor.deleteCourse(course.code)
+      showToast("success", "Mata kuliah berhasil dihapus.")
+      setDeleteDialogOpen(false)
+      router.push("/instructor")
+    } catch (err: any) {
+      showToast("error", err.message || "Gagal menghapus mata kuliah.")
+    } finally {
+      setDeletingCourse(false)
     }
   }
 
@@ -635,6 +668,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
       showToast("success", "Draf materi berhasil dibuat oleh AI! Silakan edit sesuai kebutuhan Anda.")
       setAiTopic("")
       setAiPanelOpen(false)
+      fetchCredits()
     } catch (err: any) {
       clearInterval(interval)
       showToast("error", err.message || "Gagal menghasilkan materi. Periksa koneksi ke backend.")
@@ -657,13 +691,26 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
     setTimeout(() => setToast(null), 4000)
   }
 
+  const [aiCredits, setAiCredits] = React.useState<number | null>(null)
+
+  const fetchCredits = async () => {
+    try {
+      const res = await api.instructor.getCredits()
+      if (res && typeof res.ai_credits === 'number') {
+        setAiCredits(res.ai_credits)
+      }
+    } catch (err) {
+      console.error("Failed to fetch AI credits:", err)
+    }
+  }
+
   const fetchCourse = async () => {
     if (!code) return
     setLoading(true)
     try {
-      const token = getToken()
       const res = await fetch(`${BASE_URL}/courses/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
       })
       if (res.ok) {
         const data = await res.json()
@@ -677,7 +724,10 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
     setLoading(false)
   }
 
-  React.useEffect(() => { fetchCourse() }, [code])
+  React.useEffect(() => { 
+    fetchCourse()
+    fetchCredits()
+  }, [code])
 
   // ─── Module Operations ───────────────────────────────────────────────────
   const handleAddModule = async (e: React.FormEvent) => {
@@ -862,6 +912,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
       }
       
       fetchCourse()
+      fetchCredits()
     } catch (err: any) {
       showToast("error", err.message || "Gagal membuat evaluasi pembelajaran.")
     } finally {
@@ -1355,9 +1406,9 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                                               <DropdownMenuItem
                                                 className="cursor-pointer gap-2 text-xs text-[#CF3A1F] focus:text-[#CF3A1F]"
                                                 onClick={() => handleGenerateQuiz(mod.id)}
-                                                disabled={!!quizLoading[mod.id]}
+                                                disabled={!!quizLoading[mod.id] || aiCredits === 0}
                                               >
-                                                <Sparkles className="h-3.5 w-3.5" /> Generate Quiz dengan AI
+                                                <Sparkles className="h-3.5 w-3.5" /> {aiCredits === 0 ? "Generate Quiz (Kredit Habis)" : "Generate Quiz dengan AI"}
                                               </DropdownMenuItem>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem
@@ -1840,6 +1891,36 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                                       </p>
                                     </div>
                                   )}
+                                </div>
+                              </CardContent>
+                            </Card>
+
+                            {/* Danger Zone */}
+                            <Card className="mt-6 border border-[#CF3A1F]/30 bg-[#FAF9FB] rounded-2xl shadow-xs overflow-hidden">
+                              <CardHeader className="bg-[#CF3A1F]/5 border-b border-[#CF3A1F]/10 py-4 px-6 flex flex-row items-center gap-2">
+                                <AlertCircle className="h-4 w-4 text-[#CF3A1F]" />
+                                <CardTitle className="font-heading text-sm font-bold text-[#CF3A1F]">Danger Zone</CardTitle>
+                              </CardHeader>
+                              <CardContent className="p-6 space-y-4">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                  <div className="space-y-1">
+                                    <h4 className="text-xs font-bold text-primary">Hapus Mata Kuliah Ini</h4>
+                                    <p className="text-[11px] text-muted-foreground leading-normal max-w-md">
+                                      Tindakan ini bersifat permanen dan tidak dapat dibatalkan. Seluruh data modul, materi, kuis, forum diskusi, serta riwayat pendaftaran dan sertifikat mahasiswa akan dihapus selamanya.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    type="button"
+                                    onClick={() => {
+                                      setConfirmCode("")
+                                      setDeleteDialogOpen(true)
+                                    }}
+                                    className="h-9 px-4 text-xs font-bold border-[#CF3A1F]/40 hover:bg-[#CF3A1F] hover:text-white hover:border-[#CF3A1F] text-[#CF3A1F] cursor-pointer rounded-lg transition-all shrink-0 self-start sm:self-auto"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                                    Hapus Kelas
+                                  </Button>
                                 </div>
                               </CardContent>
                             </Card>
@@ -3255,6 +3336,22 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                           </div>
                         ) : (
                           <>
+                            {/* AI Credits Info */}
+                            <div className="flex items-center justify-between bg-slate-900/50 rounded-xl p-3 border border-slate-800">
+                              <span className="text-[10px] text-slate-400 font-medium">Sisa Kredit AI</span>
+                              <Badge className="bg-[#CF3A1F] text-white text-[10px] font-bold px-2 py-0.5 rounded border-0 hover:bg-[#CF3A1F]/90">
+                                {aiCredits !== null ? `${aiCredits} Token` : 'Memuat...'}
+                              </Badge>
+                            </div>
+
+                            {aiCredits === 0 && (
+                              <div className="bg-amber-950/40 border border-amber-900/50 rounded-xl p-3 text-amber-200 text-[10px] leading-relaxed">
+                                <p className="font-bold mb-1">Kredit AI Habis</p>
+                                Sisa kredit AI Anda adalah 0 token. Silakan lakukan top-up kredit untuk terus menggunakan fitur asisten AI.
+                                <a href="/instructor/credits" className="block mt-1.5 font-bold text-[#CF3A1F] hover:underline">Top Up Kredit →</a>
+                              </div>
+                            )}
+
                             <div className="space-y-1.5">
                               <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Topik Fokus Materi</Label>
                               <Textarea
@@ -3282,7 +3379,8 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                             <Button
                               type="button"
                               onClick={handleAIGenerateDraft}
-                              className="w-full bg-[#FAF9FB] hover:bg-white text-[#060708] font-bold text-xs h-9 rounded-lg cursor-pointer gap-1.5 shadow-md"
+                              disabled={aiCredits === 0}
+                              className="w-full bg-[#FAF9FB] hover:bg-white text-[#060708] font-bold text-xs h-9 rounded-lg cursor-pointer gap-1.5 shadow-md disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
                             >
                               <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" />
                               Buat Draf AI
@@ -3443,16 +3541,16 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                 <Button
                   type="button"
                   onClick={() => handleGenerateQuiz(quizModuleId!)}
-                  disabled={!!quizLoading[quizModuleId!]}
+                  disabled={!!quizLoading[quizModuleId!] || aiCredits === 0}
                   variant="outline"
                   size="sm"
-                  className="bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/20 hover:bg-[#CF3A1F] hover:text-white gap-1.5 cursor-pointer h-8 text-[11px] font-bold"
+                  className="bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/20 hover:bg-[#CF3A1F] hover:text-white gap-1.5 cursor-pointer h-8 text-[11px] font-bold disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed"
                 >
                   {quizLoading[quizModuleId!]
                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     : <Sparkles className="h-3.5 w-3.5" />
                   }
-                  Generate dengan AI
+                  {aiCredits === 0 ? "Kredit AI Habis" : "Generate dengan AI"}
                 </Button>
 
                 <Button
@@ -3673,6 +3771,59 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
             </div>
           </div>
         )}
+      {/* Modal Konfirmasi Hapus Course */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md bg-white border border-[#E8E5E9] rounded-2xl shadow-xl p-6 font-sans">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="font-heading text-lg font-bold text-[#CF3A1F] flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Hapus Mata Kuliah
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 leading-normal">
+              Tindakan ini tidak dapat dibatalkan. Menghapus kelas <strong>{course?.title}</strong> akan melenyapkan seluruh materi, kuis, enrollments, dan sertifikat mahasiswa.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="my-5 space-y-3">
+            <p className="text-xs text-slate-700 leading-normal">
+              Ketik kode kelas <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded border text-[#060708] font-bold">{course?.code}</span> di bawah ini untuk mengonfirmasi:
+            </p>
+            <Input
+              type="text"
+              placeholder={course?.code}
+              value={confirmCode}
+              onChange={(e) => setConfirmCode(e.target.value)}
+              className="h-10 text-xs border-border bg-white rounded-lg focus-visible:ring-1 focus-visible:ring-primary uppercase"
+            />
+          </div>
+
+          <DialogFooter className="flex items-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deletingCourse}
+              className="h-10 flex-1 text-xs font-semibold border-border hover:bg-slate-50 rounded-lg cursor-pointer"
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={handleDeleteCourse}
+              disabled={confirmCode !== course?.code || deletingCourse}
+              className="h-10 flex-1 text-xs font-bold bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white rounded-lg shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deletingCourse ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Menghapus...
+                </>
+              ) : (
+                "Hapus Permanen"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       </SidebarInset>
     </SidebarProvider>
   )

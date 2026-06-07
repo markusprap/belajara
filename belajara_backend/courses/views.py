@@ -215,6 +215,14 @@ class CourseUpdateDeleteView(APIView):
             course = Course.objects.get(code=code)
         except Course.DoesNotExist:
             return Response({'detail': 'Mata kuliah tidak ditemukan.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check course ownership
+        if course.instructor_email and course.instructor_email != request.user.email:
+            return Response(
+                {'detail': 'Anda tidak memiliki akses untuk mengubah mata kuliah ini.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = CourseSerializer(course, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -226,6 +234,14 @@ class CourseUpdateDeleteView(APIView):
             course = Course.objects.get(code=code)
         except Course.DoesNotExist:
             return Response({'detail': 'Mata kuliah tidak ditemukan.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check course ownership
+        if course.instructor_email and course.instructor_email != request.user.email:
+            return Response(
+                {'detail': 'Anda tidak memiliki akses untuk menghapus mata kuliah ini.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         course.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -331,6 +347,24 @@ class MaterialAIGenerateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from users.models import InstructorProfile, AICreditTransaction
+        from django.db import transaction
+
+        # Check AI credit if instructor
+        is_instructor = getattr(request.user, 'is_instructor', False)
+        instructor = None
+        if is_instructor:
+            instructor, created = InstructorProfile.objects.get_or_create(
+                user=request.user,
+                defaults={"nidn": f"MOCK-{request.user.id}", "bidang_keahlian": "Umum", "universitas": "Universitas Indonesia"}
+            )
+            
+            if instructor.ai_credits < 1:
+                return Response(
+                    {"detail": "Kredit AI habis. Silakan lakukan top up."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
         topic = (request.data.get("topic") or "").strip()
         template_type = (request.data.get("template_type") or "theory").strip()
         subchapter_title = (request.data.get("subchapter_title") or "").strip()
@@ -354,6 +388,25 @@ class MaterialAIGenerateView(APIView):
                 subchapter_title=subchapter_title,
                 course_title=course_title,
             )
+
+            # Deduct credit if generation is successful and user is instructor
+            if is_instructor and instructor:
+                with transaction.atomic():
+                    # Reload credit to avoid race conditions
+                    instructor = InstructorProfile.objects.select_for_update().get(pk=instructor.pk)
+                    if instructor.ai_credits < 1:
+                        return Response(
+                            {"detail": "Kredit AI habis. Silakan lakukan top up."},
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                    instructor.ai_credits -= 1
+                    instructor.save()
+                    AICreditTransaction.objects.create(
+                        instructor=instructor,
+                        amount=-1,
+                        description=f"Pembuatan materi AI: {subchapter_title or topic}"
+                    )
+
             return Response({"content": content}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response(
@@ -396,7 +449,7 @@ class CourseCertificateView(APIView):
             }, status=status.HTTP_200_OK)
 
         # 2. Check if in audit mode
-        if enrollment.mode == 'audit':
+        if enrollment.mode == 'audit' and not request.user.is_premium:
             return Response({
                 "status": "locked",
                 "detail": "Sertifikat hanya tersedia untuk Kelas Terverifikasi (Premium)."
@@ -488,7 +541,7 @@ class CourseClaimCertificateView(APIView):
             }, status=status.HTTP_200_OK)
 
         # 2. Check if in audit mode
-        if enrollment.mode == 'audit':
+        if enrollment.mode == 'audit' and not request.user.is_premium:
             return Response({"detail": "Sertifikat hanya tersedia untuk Kelas Terverifikasi (Premium)."}, status=status.HTTP_403_FORBIDDEN)
 
         # 3. Verify eligibility
