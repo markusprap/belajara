@@ -9,9 +9,9 @@ def _get_model():
     if not api_key or api_key.strip() in ("", "your-gemini-api-key"):
         return None
     genai.configure(api_key=api_key)
-    # Use gemini-1.5-flash for fast, long-context generation
+    # Use gemini-3.5-flash for fast, long-context generation
     return genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-3.5-flash",
         generation_config={
             "temperature": 0.8,
             "top_p": 0.95,
