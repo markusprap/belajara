@@ -1,0 +1,16 @@
+belajara_backend/
+**/node_modules/
+**/.next/
+.venv/
+**/out/
+.git/
+.agents/
+.pytest_cache/
+curricula/
+docs/
+tasks/
+**/*.log
+celerybeat-schedule
+db.sqlite3
+pg_data/
+redis_data/
