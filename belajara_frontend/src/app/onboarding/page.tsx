@@ -7,13 +7,127 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { GraduationCap, Award, Loader2, Sparkles, AlertCircle } from "lucide-react"
+import { GraduationCap, Award, Loader2, Sparkles, AlertCircle, Search } from "lucide-react"
+import { searchUniversitas, searchProdi } from "@/lib/indonesia-academic-data"
+
+// ─── Autocomplete Input Component ─────────────────────────────────────────
+function AutocompleteInput({
+  id,
+  name,
+  placeholder,
+  value,
+  onChange,
+  searchFn,
+  disabled,
+}: {
+  id: string
+  name: string
+  placeholder: string
+  value: string
+  onChange: (val: string) => void
+  searchFn: (q: string) => string[]
+  disabled?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [suggestions, setSuggestions] = React.useState<string[]>([])
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    onChange(val)
+    const results = searchFn(val)
+    setSuggestions(results)
+    if (results.length > 0) {
+      setOpen(true)
+    } else {
+      setOpen(false)
+    }
+  }
+
+  const handleSelect = (item: string) => {
+    onChange(item)
+    setOpen(false)
+    setSuggestions([])
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") setOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <input
+          id={id}
+          name={name}
+          type="text"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={value}
+          onChange={handleInput}
+          onFocus={() => {
+            const results = searchFn(value)
+            if (results.length > 0) {
+              setSuggestions(results)
+              setOpen(true)
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          className="w-full bg-white border border-[#E8E5E9] rounded-xl pl-9 pr-8 py-2 text-sm text-[#060708] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#060708]/10 focus:border-[#060708]/30 transition disabled:opacity-50"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => { onChange(""); setSuggestions([]); setOpen(false) }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition text-[10px] bg-slate-100 hover:bg-slate-200 rounded px-1 py-0.5 font-bold"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <div
+          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-border rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto"
+        >
+          {suggestions.map((item, i) => (
+            <button
+              key={i}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(item) }}
+              className="w-full text-left px-3 py-2 text-xs text-[#060708] hover:bg-slate-50 transition-colors border-b border-border/40 last:border-0 cursor-pointer"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function OnboardingPage() {
   const router = useRouter()
   const [role, setRole] = React.useState<"student" | "instructor" | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+
+  // Name fields
+  const [firstName, setFirstName] = React.useState("")
+  const [lastName, setLastName] = React.useState("")
 
   // Student profile fields
   const [nim, setNim] = React.useState("")
@@ -33,12 +147,16 @@ export default function OnboardingPage() {
     }
 
     const user = getUser()
-    // If user has already onboarded, redirect to dashboard
-    if (user && user.is_onboarded === true) {
-      if (user.is_instructor) {
-        router.push("/instructor")
-      } else {
-        router.push("/dashboard")
+    if (user) {
+      setFirstName(user.first_name || "")
+      setLastName(user.last_name || "")
+      // If user has already onboarded, redirect to dashboard
+      if (user.is_onboarded === true) {
+        if (user.is_instructor) {
+          router.push("/instructor")
+        } else {
+          router.push("/dashboard")
+        }
       }
     }
   }, [router])
@@ -54,7 +172,11 @@ export default function OnboardingPage() {
     setLoading(true)
 
     try {
-      const payload: any = { role }
+      const payload: any = { 
+        role,
+        first_name: firstName,
+        last_name: lastName,
+      }
 
       if (role === "student") {
         if (!nim.trim() || !jurusan.trim() || !universitas.trim()) {
@@ -191,18 +313,46 @@ export default function OnboardingPage() {
                 <div className="space-y-4 pt-4 border-t border-[#F3F1F4] animate-fadeIn">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     
+                    {/* Name Fields */}
+                    <div className="space-y-2">
+                      <Label htmlFor="first_name" className="text-xs font-bold text-[#060708] uppercase tracking-wider">
+                        Nama Depan
+                      </Label>
+                      <Input
+                        id="first_name"
+                        placeholder="contoh: Budi"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="rounded-xl border-[#E8E5E9] focus:border-[#C6B5BF] focus:ring-0"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="last_name" className="text-xs font-bold text-[#060708] uppercase tracking-wider">
+                        Nama Belakang
+                      </Label>
+                      <Input
+                        id="last_name"
+                        placeholder="contoh: Santoso"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="rounded-xl border-[#E8E5E9] focus:border-[#C6B5BF] focus:ring-0"
+                      />
+                    </div>
+
                     {/* Common Field: Universitas */}
                     <div className="space-y-2 md:col-span-2">
                       <Label htmlFor="universitas" className="text-xs font-bold text-[#060708] uppercase tracking-wider">
                         Asal Universitas
                       </Label>
-                      <Input
+                      <AutocompleteInput
                         id="universitas"
+                        name="universitas"
                         placeholder="contoh: Universitas Indonesia"
                         value={universitas}
-                        onChange={(e) => setUniversitas(e.target.value)}
-                        className="rounded-xl border-[#E8E5E9] focus:border-[#C6B5BF] focus:ring-0"
-                        required
+                        onChange={(val) => setUniversitas(val)}
+                        searchFn={searchUniversitas}
                       />
                     </div>
 
@@ -227,13 +377,13 @@ export default function OnboardingPage() {
                           <Label htmlFor="jurusan" className="text-xs font-bold text-[#060708] uppercase tracking-wider">
                             Jurusan / Program Studi
                           </Label>
-                          <Input
+                          <AutocompleteInput
                             id="jurusan"
+                            name="jurusan"
                             placeholder="contoh: Teknik Informatika"
                             value={jurusan}
-                            onChange={(e) => setJurusan(e.target.value)}
-                            className="rounded-xl border-[#E8E5E9] focus:border-[#C6B5BF] focus:ring-0"
-                            required
+                            onChange={(val) => setJurusan(val)}
+                            searchFn={searchProdi}
                           />
                         </div>
 
