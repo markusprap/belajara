@@ -125,9 +125,27 @@ class CourseModuleSerializer(serializers.ModelSerializer):
 
 class CourseSerializer(serializers.ModelSerializer):
     modules = CourseModuleSerializer(many=True, read_only=True)
+    enrollment_count = serializers.SerializerMethodField()
+    completion_rate = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
-        fields = ['id', 'code', 'title', 'description', 'sks', 'semester', 'department', 'price', 'is_premium', 'category', 'instructor_name', 'instructor_email', 'thumbnail_url', 'status', 'tags', 'level', 'modules']
+        fields = [
+            'id', 'code', 'title', 'description', 'sks', 'semester',
+            'department', 'price', 'is_premium', 'category',
+            'instructor_name', 'instructor_email', 'thumbnail_url',
+            'status', 'tags', 'level', 'modules',
+            'enrollment_count', 'completion_rate',
+        ]
+
+    def get_enrollment_count(self, obj):
+        return obj.enrollments.count()
+
+    def get_completion_rate(self, obj):
+        total = obj.enrollments.count()
+        if total == 0:
+            return 0
+        completed = obj.enrollments.filter(status='completed').count()
+        return round((completed / total) * 100)
 
 

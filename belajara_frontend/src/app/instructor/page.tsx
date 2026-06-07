@@ -6,12 +6,6 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { GraduationCap, Plus, BookOpen, ChevronRight, Loader2, AlertCircle, Users } from "lucide-react"
 import { api, getToken, BASE_URL } from "@/lib/api"
@@ -34,17 +28,6 @@ const getCoverPalette = (code: string) => {
   return COVER_PALETTES[Math.abs(hash) % COVER_PALETTES.length]
 }
 
-const getMockStudentCount = (code: string) => {
-  let hash = 0
-  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash)
-  return 12 + (Math.abs(hash) % 35) // 12-46 students
-}
-
-const getMockCompletionRate = (code: string) => {
-  let hash = 0
-  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash)
-  return 65 + (Math.abs(hash) % 25) // 65-89%
-}
 
 interface CourseModule {
   id: number
@@ -65,18 +48,10 @@ interface Course {
   modules?: CourseModule[]
 }
 
-const EMPTY_FORM = {
-  code: "", title: "", description: "", department: "",
-  sks: 3, semester: 1, price: "0", is_premium: false,
-}
-
 export default function InstructorPage() {
   const [courses, setCourses] = React.useState<Course[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [dialogOpen, setDialogOpen] = React.useState(false)
-  const [creating, setCreating] = React.useState(false)
-  const [form, setForm] = React.useState(EMPTY_FORM)
 
   const fetchCourses = async () => {
     setLoading(true)
@@ -100,23 +75,7 @@ export default function InstructorPage() {
 
   React.useEffect(() => { fetchCourses() }, [])
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCreating(true)
-    try {
-      await api.instructor.createCourse({
-        ...form,
-        sks: Number(form.sks),
-        semester: Number(form.semester),
-      })
-      setDialogOpen(false)
-      setForm(EMPTY_FORM)
-      fetchCourses()
-    } catch (err: any) {
-      alert(err.message || "Gagal membuat kelas.")
-    }
-    setCreating(false)
-  }
+
 
   return (
     <SidebarProvider>
@@ -128,88 +87,11 @@ export default function InstructorPage() {
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="font-heading text-lg font-semibold text-[#060708]">Portal Dosen</div>
           <div className="ml-auto">
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white gap-2 shadow-sm">
-                  <Plus className="h-4 w-4" /> Tambah Mata Kuliah
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg bg-white">
-                <DialogHeader>
-                  <DialogTitle className="font-heading text-xl text-[#060708]">
-                    Buat Mata Kuliah Baru
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-4 mt-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Kode Mata Kuliah</Label>
-                      <Input
-                        placeholder="IF101"
-                        value={form.code}
-                        onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">SKS</Label>
-                      <Input
-                        type="number" min={1} max={6}
-                        value={form.sks}
-                        onChange={e => setForm(f => ({ ...f, sks: parseInt(e.target.value) }))}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Nama Mata Kuliah</Label>
-                    <Input
-                      placeholder="Algoritma & Struktur Data"
-                      value={form.title}
-                      onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Deskripsi</Label>
-                    <Textarea
-                      placeholder="Deskripsi singkat mata kuliah..."
-                      value={form.description}
-                      onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Departemen</Label>
-                      <Input
-                        placeholder="Informatika"
-                        value={form.department}
-                        onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">Semester</Label>
-                      <Input
-                        type="number" min={1} max={8}
-                        value={form.semester}
-                        onChange={e => setForm(f => ({ ...f, semester: parseInt(e.target.value) }))}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white"
-                    disabled={creating}
-                  >
-                    {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    {creating ? "Membuat..." : "Buat Mata Kuliah"}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <a href="/instructor/courses/create">
+              <Button className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white gap-2 shadow-sm cursor-pointer">
+                <Plus className="h-4 w-4" /> Tambah Mata Kuliah
+              </Button>
+            </a>
           </div>
         </header>
 
@@ -253,7 +135,7 @@ export default function InstructorPage() {
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Total Mahasiswa</p>
                   <p className="text-2xl font-heading font-bold text-[#060708] mt-1">
-                    {courses.reduce((sum, c) => sum + getMockStudentCount(c.code), 0)}
+                    {courses.reduce((sum, c) => sum + ((c as any).enrollment_count || 0), 0)}
                   </p>
                 </div>
                 <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center border border-purple-100">
@@ -267,7 +149,7 @@ export default function InstructorPage() {
                   <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Rerata Penyelesaian</p>
                   <p className="text-2xl font-heading font-bold text-[#CF3A1F] mt-1">
                     {courses.length > 0 
-                      ? Math.round(courses.reduce((sum, c) => sum + getMockCompletionRate(c.code), 0) / courses.length)
+                      ? Math.round(courses.reduce((sum, c) => sum + ((c as any).completion_rate || 0), 0) / courses.length)
                       : 0}%
                   </p>
                 </div>
@@ -352,7 +234,7 @@ export default function InstructorPage() {
                             <BookOpen className="h-2.5 w-2.5" /> {course.modules?.length ?? 0} Modul
                           </span>
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
-                            <Users className="h-2.5 w-2.5" /> {getMockStudentCount(course.code)} Mahasiswa
+                            <Users className="h-2.5 w-2.5" /> {(course as any).enrollment_count ?? "—"} Mahasiswa
                           </span>
                         </div>
                       </CardContent>

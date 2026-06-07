@@ -28,9 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -1111,25 +1108,47 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                               {sortedModules.length} modul · {sortedModules.reduce((acc, m) => acc + (m.subchapters?.length ?? 0), 0)} aktivitas
                             </p>
                           </div>
-                          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                            <DialogTrigger asChild>
-                              <Button className="bg-[#060708] hover:bg-[#060708]/80 text-white gap-1.5 h-9 px-4 text-xs font-semibold">
-                                <Plus className="h-3.5 w-3.5" /> Tambah Modul
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-md bg-white">
-                              <DialogHeader>
-                                <DialogTitle className="font-heading text-xl text-[#060708]">Tambah Modul Baru</DialogTitle>
-                              </DialogHeader>
-                              <form onSubmit={handleAddModule} className="space-y-4 mt-2">
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs font-semibold">Judul Modul</Label>
-                                  <Input
-                                    placeholder="cth: Pengantar Logika Matematika"
-                                    value={addForm.title}
-                                    onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
-                                    required
-                                  />
+                          <Button
+                            onClick={() => {
+                              setAddForm({ ...EMPTY_MODULE, order: sortedModules.length + 1 })
+                              setAddOpen(true)
+                            }}
+                            className="bg-[#060708] hover:bg-[#060708]/80 text-white gap-1.5 h-9 px-4 text-xs font-semibold cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Tambah Modul
+                          </Button>
+                        </div>
+
+                        {sortedModules.length === 0 ? (
+                          /* Empty State */
+                          addOpen ? (
+                            /* Inline Add Module Form */
+                            <Card className="border border-border p-5 bg-white rounded-xl shadow-sm space-y-4">
+                              <div className="flex items-center justify-between border-b pb-2">
+                                <h3 className="font-heading text-sm font-bold text-[#060708]">Tambah Modul Baru</h3>
+                              </div>
+                              <form onSubmit={handleAddModule} className="space-y-3">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="col-span-2 space-y-1.5">
+                                    <Label className="text-xs font-semibold">Judul Modul</Label>
+                                    <Input
+                                      placeholder="cth: Pengantar Logika Matematika"
+                                      value={addForm.title}
+                                      onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                                      required
+                                      className="h-9 text-xs"
+                                    />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Urutan</Label>
+                                    <Input
+                                      type="number" min={1}
+                                      value={addForm.order}
+                                      onChange={e => setAddForm(f => ({ ...f, order: parseInt(e.target.value) || 1 }))}
+                                      required
+                                      className="h-9 text-xs"
+                                    />
+                                  </div>
                                 </div>
                                 <div className="space-y-1.5">
                                   <Label className="text-xs font-semibold">Deskripsi</Label>
@@ -1138,42 +1157,49 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                                     value={addForm.description}
                                     onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
                                     rows={3}
+                                    className="text-xs"
                                   />
                                 </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs font-semibold">Urutan Modul</Label>
-                                  <Input
-                                    type="number" min={1}
-                                    value={addForm.order}
-                                    onChange={e => setAddForm(f => ({ ...f, order: parseInt(e.target.value) }))}
-                                    required
-                                  />
+                                <div className="flex gap-2 pt-1">
+                                  <Button
+                                    type="submit"
+                                    size="sm"
+                                    className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs cursor-pointer"
+                                    disabled={addLoading}
+                                  >
+                                    {addLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                                    Tambah Modul
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs cursor-pointer"
+                                    onClick={() => {
+                                      setAddOpen(false)
+                                      setAddForm(EMPTY_MODULE)
+                                    }}
+                                  >
+                                    Batal
+                                  </Button>
                                 </div>
-                                <Button
-                                  type="submit"
-                                  className="w-full bg-[#060708] hover:bg-[#060708]/80 text-white"
-                                  disabled={addLoading}
-                                >
-                                  {addLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                                  {addLoading ? 'Menyimpan...' : 'Tambah Modul'}
-                                </Button>
                               </form>
-                            </DialogContent>
-                          </Dialog>
-                        </div>
-
-                        {sortedModules.length === 0 ? (
-                          /* Empty State */
-                          <div
-                            className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-[#C6B5BF]/50 rounded-2xl bg-white text-center cursor-pointer hover:border-[#C6B5BF] hover:bg-[#FAF9FB] transition-all group"
-                            onClick={() => setAddOpen(true)}
-                          >
-                            <div className="h-14 w-14 rounded-2xl bg-[#060708]/5 flex items-center justify-center mb-4 group-hover:bg-[#060708]/10 transition-colors">
-                              <Plus className="h-7 w-7 text-[#060708]/30 group-hover:text-[#060708]/60" />
+                            </Card>
+                          ) : (
+                            <div
+                              className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-[#C6B5BF]/50 rounded-2xl bg-white text-center cursor-pointer hover:border-[#C6B5BF] hover:bg-[#FAF9FB] transition-all group"
+                              onClick={() => {
+                                setAddForm({ ...EMPTY_MODULE, order: 1 })
+                                setAddOpen(true)
+                              }}
+                            >
+                              <div className="h-14 w-14 rounded-2xl bg-[#060708]/5 flex items-center justify-center mb-4 group-hover:bg-[#060708]/10 transition-colors">
+                                <Plus className="h-7 w-7 text-[#060708]/30 group-hover:text-[#060708]/60" />
+                              </div>
+                              <p className="font-heading text-base font-semibold text-[#060708]">Tambah Modul Pertama</p>
+                              <p className="text-xs text-muted-foreground mt-1 max-w-xs">Klik di sini untuk mulai membangun silabus dan course outline kelas Anda.</p>
                             </div>
-                            <p className="font-heading text-base font-semibold text-[#060708]">Tambah Modul Pertama</p>
-                            <p className="text-xs text-muted-foreground mt-1 max-w-xs">Klik di sini untuk mulai membangun silabus dan course outline kelas Anda.</p>
-                          </div>
+                          )
                         ) : (
                           <div className="space-y-2">
                             {sortedModules.map((mod, modIdx) => {
@@ -1451,15 +1477,85 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                               )
                             })}
 
+                            {addOpen && (
+                              <Card className="border border-border p-5 bg-white rounded-xl shadow-sm space-y-4 mt-2">
+                                <div className="flex items-center justify-between border-b pb-2">
+                                  <h3 className="font-heading text-sm font-bold text-[#060708]">Tambah Modul Baru</h3>
+                                </div>
+                                <form onSubmit={handleAddModule} className="space-y-3">
+                                  <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-2 space-y-1.5">
+                                      <Label className="text-xs font-semibold">Judul Modul</Label>
+                                      <Input
+                                        placeholder="cth: Pengantar Logika Matematika"
+                                        value={addForm.title}
+                                        onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                                        required
+                                        className="h-9 text-xs"
+                                      />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <Label className="text-xs font-semibold">Urutan</Label>
+                                      <Input
+                                        type="number" min={1}
+                                        value={addForm.order}
+                                        onChange={e => setAddForm(f => ({ ...f, order: parseInt(e.target.value) || 1 }))}
+                                        required
+                                        className="h-9 text-xs"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold">Deskripsi</Label>
+                                    <Textarea
+                                      placeholder="Deskripsi materi modul..."
+                                      value={addForm.description}
+                                      onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
+                                      rows={3}
+                                      className="text-xs"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2 pt-1">
+                                    <Button
+                                      type="submit"
+                                      size="sm"
+                                      className="bg-[#060708] hover:bg-[#060708]/90 text-white text-xs cursor-pointer"
+                                      disabled={addLoading}
+                                    >
+                                      {addLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                                      Tambah Modul
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs cursor-pointer"
+                                      onClick={() => {
+                                        setAddOpen(false)
+                                        setAddForm(EMPTY_MODULE)
+                                      }}
+                                    >
+                                      Batal
+                                    </Button>
+                                  </div>
+                                </form>
+                              </Card>
+                            )}
+
                             {/* Footer: Add Module */}
-                            <button
-                              type="button"
-                              className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed border-[#C6B5BF]/50 text-xs font-semibold text-slate-400 hover:border-[#060708]/40 hover:text-[#060708] hover:bg-white transition-all cursor-pointer"
-                              onClick={() => setAddOpen(true)}
-                            >
-                              <Plus className="h-4 w-4" />
-                              Tambah Modul Baru
-                            </button>
+                            {!addOpen && (
+                              <button
+                                type="button"
+                                className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed border-[#C6B5BF]/50 text-xs font-semibold text-slate-400 hover:border-[#060708]/40 hover:text-[#060708] hover:bg-white transition-all cursor-pointer"
+                                onClick={() => {
+                                  setAddForm({ ...EMPTY_MODULE, order: sortedModules.length + 1 })
+                                  setAddOpen(true)
+                                }}
+                              >
+                                <Plus className="h-4 w-4" />
+                                Tambah Modul Baru
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2865,9 +2961,9 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
           </div>
 
         {/* ──────────────────────────────────────────────────────────────────
-            Sub-Chapter: FULL-WINDOW Editor (Reading type only)
+            Sub-Chapter: FULL-WINDOW Editor
         ────────────────────────────────────────────────────────────────── */}
-        {subchapterOpen && subchapterForm.type === "reading" && (
+        {subchapterOpen && (
           <div className="fixed inset-0 z-[150] flex flex-col bg-[#FAF9FB] animate-in fade-in duration-200">
 
             {/* Top Navigation Bar */}
@@ -2885,7 +2981,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                 <div className="w-px h-5 bg-[#E8E5E9] shrink-0" />
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Editor Materi Kuliah
+                    Editor Sub-bab ({subchapterForm.type === "reading" ? "Materi Bacaan" : subchapterForm.type === "video" ? "Video" : "Forum"})
                   </p>
                   <p className="text-xs font-bold text-[#060708] truncate max-w-xs">
                     {subchapterForm.title || "Sub-bab Baru (Belum Berjudul)"}
@@ -2893,29 +2989,31 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                 </div>
               </div>
 
-              {/* Center: Word/Char Stats */}
-              <div className="hidden md:flex items-center gap-4 text-[10px] font-semibold text-slate-400">
-                <span className="flex items-center gap-1">
-                  <span className="font-bold text-[#060708]">
-                    {((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length).toLocaleString()}
-                  </span> kata
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="font-bold text-[#060708]">
-                    {((subchapterForm.content || "").length).toLocaleString()}
-                  </span> karakter
-                </span>
-                <span className="flex items-center gap-1">
-                  ~<span className="font-bold text-[#060708]">
-                    {Math.max(1, Math.ceil(((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length) / 200))}
-                  </span> mnt baca
-                </span>
-              </div>
+              {/* Center: Word/Char Stats (only for reading) */}
+              {subchapterForm.type === "reading" && (
+                <div className="hidden md:flex items-center gap-4 text-[10px] font-semibold text-slate-400">
+                  <span className="flex items-center gap-1">
+                    <span className="font-bold text-[#060708]">
+                      {((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length).toLocaleString()}
+                    </span> kata
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="font-bold text-[#060708]">
+                      {((subchapterForm.content || "").length).toLocaleString()}
+                    </span> karakter
+                  </span>
+                  <span className="flex items-center gap-1">
+                    ~<span className="font-bold text-[#060708]">
+                      {Math.max(1, Math.ceil(((subchapterForm.content || "").trim().split(/\s+/).filter(Boolean).length) / 200))}
+                    </span> mnt baca
+                  </span>
+                </div>
+              )}
 
               {/* Right: Action Buttons */}
               <div className="flex items-center gap-2 shrink-0">
-                {/* Restore Draft */}
-                {typeof window !== "undefined" && localStorage.getItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`) && (
+                {/* Restore Draft (only for reading) */}
+                {subchapterForm.type === "reading" && typeof window !== "undefined" && localStorage.getItem(`belajara_draft_${subchapterEditId || "new"}_${subchapterModuleId}`) && (
                   <Button
                     type="button"
                     variant="outline"
@@ -2934,21 +3032,23 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                   </Button>
                 )}
 
-                {/* AI Toggle */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAiPanelOpen(!aiPanelOpen)}
-                  className={`h-8 gap-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                    aiPanelOpen
-                      ? "bg-[#060708] text-white hover:bg-[#060708]/90 border-[#060708]"
-                      : "border-[#C6B5BF] text-[#060708] hover:bg-[#C6B5BF]/10"
-                  }`}
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Asisten AI
-                </Button>
+                {/* AI Toggle (only for reading) */}
+                {subchapterForm.type === "reading" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAiPanelOpen(!aiPanelOpen)}
+                    className={`h-8 gap-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                      aiPanelOpen
+                        ? "bg-[#060708] text-white hover:bg-[#060708]/90 border-[#060708]"
+                        : "border-[#C6B5BF] text-[#060708] hover:bg-[#C6B5BF]/10"
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Asisten AI
+                  </Button>
+                )}
 
                 <div className="w-px h-5 bg-[#E8E5E9]" />
 
@@ -2999,7 +3099,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     : <Save className="h-3.5 w-3.5" />
                   }
-                  Simpan Materi
+                  {subchapterForm.type === "reading" ? "Simpan Materi" : subchapterForm.type === "video" ? "Simpan Video" : "Simpan Forum"}
                 </Button>
               </div>
             </header>
@@ -3008,7 +3108,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
             <div className="shrink-0 px-6 py-3 border-b border-[#E8E5E9] bg-white">
               <div className="flex items-center gap-4">
                 <div className="flex-1 space-y-0.5">
-                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Judul Sub-bab</Label>
+                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Judul Sub-bab *</Label>
                   <Input
                     value={subchapterForm.title}
                     onChange={e => setSubchapterForm(f => ({ ...f, title: e.target.value }))}
@@ -3018,7 +3118,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                   />
                 </div>
                 <div className="w-28 space-y-0.5 shrink-0">
-                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Urutan</Label>
+                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Urutan *</Label>
                   <Input
                     type="number" min={1}
                     value={subchapterForm.order}
@@ -3028,7 +3128,7 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
                   />
                 </div>
                 <div className="w-36 space-y-0.5 shrink-0">
-                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Estimasi Durasi</Label>
+                  <Label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Estimasi Durasi *</Label>
                   <Input
                     value={subchapterForm.duration}
                     onChange={e => setSubchapterForm(f => ({ ...f, duration: e.target.value }))}
@@ -3042,456 +3142,536 @@ Berdasarkan analisis performa belajar mahasiswa Anda pada mata kuliah **${course
 
             {/* Main Editor Body */}
             <div className="flex-1 flex overflow-hidden">
-
-              {/* Markdown Editor Column */}
-              <div className={`flex flex-col border-r border-[#E8E5E9] transition-all duration-300 ${aiPanelOpen ? "w-[40%]" : "w-1/2"}`}>
-                {/* Markdown Toolbar */}
-                <div className="shrink-0 flex flex-wrap items-center gap-0.5 px-4 py-2 border-b border-[#E8E5E9] bg-white">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mr-2">Markdown</span>
-                  {[
-                    { action: "bold", icon: <Bold className="h-3.5 w-3.5" />, title: "Tebal (Bold)" },
-                    { action: "italic", icon: <Italic className="h-3.5 w-3.5" />, title: "Miring (Italic)" },
-                  ].map(btn => (
-                    <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
-                      className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
-                      {btn.icon}
-                    </button>
-                  ))}
-                  <div className="w-px h-4 bg-slate-200 mx-1" />
-                  {["H1","H2","H3"].map(h => (
-                    <button key={h} type="button" onClick={() => insertMarkdown(h.toLowerCase())}
-                      className="px-1.5 py-0.5 rounded text-[10px] font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer" title={`Heading ${h[1]}`}>
-                      {h}
-                    </button>
-                  ))}
-                  <div className="w-px h-4 bg-slate-200 mx-1" />
-                  {[
-                    { action: "code-block", icon: <Code className="h-3.5 w-3.5" />, title: "Code Block" },
-                    { action: "bullet", icon: <List className="h-3.5 w-3.5" />, title: "Bullet List" },
-                    { action: "number", icon: <ListOrdered className="h-3.5 w-3.5" />, title: "Numbered List" },
-                    { action: "quote", icon: <Quote className="h-3.5 w-3.5" />, title: "Blockquote" },
-                  ].map(btn => (
-                    <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
-                      className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
-                      {btn.icon}
-                    </button>
-                  ))}
-                  <div className="w-px h-4 bg-slate-200 mx-1" />
-                  {[
-                    { action: "link", icon: <Link className="h-3.5 w-3.5" />, title: "Sisipkan Tautan" },
-                    { action: "image", icon: <Image className="h-3.5 w-3.5" />, title: "Sisipkan Gambar" },
-                    { action: "table", icon: <Table className="h-3.5 w-3.5" />, title: "Sisipkan Tabel" },
-                  ].map(btn => (
-                    <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
-                      className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
-                      {btn.icon}
-                    </button>
-                  ))}
-                  <button type="button" onClick={() => insertMarkdown("hr")}
-                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer" title="Garis Pemisah">
-                    ---
-                  </button>
-                </div>
-
-                {/* Textarea */}
-                <Textarea
-                  ref={textareaRef}
-                  value={subchapterForm.content}
-                  onChange={e => setSubchapterForm(f => ({ ...f, content: e.target.value }))}
-                  required
-                  placeholder={"# Judul Materi Kuliah\n\nTulis konten materi menggunakan format Markdown di sini. Dukung bold, italic, heading, code block, link, tabel, dan lainnya..."}
-                  className="flex-1 resize-none rounded-none border-none bg-[#FAF9FB] font-mono text-sm leading-relaxed text-[#060708] p-6 focus-visible:ring-0 focus-visible:outline-none min-h-0"
-                />
-              </div>
-
-              {/* Live Preview Column */}
-              <div className={`flex flex-col transition-all duration-300 ${aiPanelOpen ? "w-[35%]" : "w-1/2"} border-r border-[#E8E5E9]`}>
-                <div className="shrink-0 px-6 py-2.5 border-b border-[#E8E5E9] bg-white flex items-center gap-2">
-                  <Eye className="h-3.5 w-3.5 text-slate-400" />
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Pratinjau Langsung</span>
-                </div>
-                <div className="flex-1 overflow-y-auto p-6 bg-white">
-                  <h1 className="text-2xl font-bold font-heading border-b border-[#E8E5E9] pb-3 mb-5 text-[#060708]">
-                    {subchapterForm.title || "Judul Sub-bab"}
-                  </h1>
-                  {subchapterForm.content ? (
-                    <div className="prose prose-slate max-w-none leading-relaxed">
-                      <MarkdownRenderer content={subchapterForm.content} />
+              {subchapterForm.type === "reading" ? (
+                <>
+                  {/* Markdown Editor Column */}
+                  <div className={`flex flex-col border-r border-[#E8E5E9] transition-all duration-300 ${aiPanelOpen ? "w-[40%]" : "w-1/2"}`}>
+                    {/* Markdown Toolbar */}
+                    <div className="shrink-0 flex flex-wrap items-center gap-0.5 px-4 py-2 border-b border-[#E8E5E9] bg-white">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mr-2">Markdown</span>
+                      {[
+                        { action: "bold", icon: <Bold className="h-3.5 w-3.5" />, title: "Tebal (Bold)" },
+                        { action: "italic", icon: <Italic className="h-3.5 w-3.5" />, title: "Miring (Italic)" },
+                      ].map(btn => (
+                        <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
+                          className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
+                          {btn.icon}
+                        </button>
+                      ))}
+                      <div className="w-px h-4 bg-slate-200 mx-1" />
+                      {["H1","H2","H3"].map(h => (
+                        <button key={h} type="button" onClick={() => insertMarkdown(h.toLowerCase())}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer" title={`Heading ${h[1]}`}>
+                          {h}
+                        </button>
+                      ))}
+                      <div className="w-px h-4 bg-slate-200 mx-1" />
+                      {[
+                        { action: "code-block", icon: <Code className="h-3.5 w-3.5" />, title: "Code Block" },
+                        { action: "bullet", icon: <List className="h-3.5 w-3.5" />, title: "Bullet List" },
+                        { action: "number", icon: <ListOrdered className="h-3.5 w-3.5" />, title: "Numbered List" },
+                        { action: "quote", icon: <Quote className="h-3.5 w-3.5" />, title: "Blockquote" },
+                      ].map(btn => (
+                        <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
+                          className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
+                          {btn.icon}
+                        </button>
+                      ))}
+                      <div className="w-px h-4 bg-slate-200 mx-1" />
+                      {[
+                        { action: "link", icon: <Link className="h-3.5 w-3.5" />, title: "Sisipkan Tautan" },
+                        { action: "image", icon: <Image className="h-3.5 w-3.5" />, title: "Sisipkan Gambar" },
+                        { action: "table", icon: <Table className="h-3.5 w-3.5" />, title: "Sisipkan Tabel" },
+                      ].map(btn => (
+                        <button key={btn.action} type="button" onClick={() => insertMarkdown(btn.action)}
+                          className="p-1.5 rounded hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer" title={btn.title}>
+                          {btn.icon}
+                        </button>
+                      ))}
+                      <button type="button" onClick={() => insertMarkdown("hr")}
+                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer" title="Garis Pemisah">
+                        ---
+                      </button>
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-48 text-center">
-                      <Edit3 className="h-10 w-10 text-slate-200 mb-3" />
-                      <p className="text-sm font-semibold text-slate-400">Pratinjau akan muncul di sini</p>
-                      <p className="text-xs text-slate-300 mt-1">Mulai menulis di panel kiri atau gunakan Asisten AI</p>
+
+                    {/* Textarea */}
+                    <Textarea
+                      ref={textareaRef}
+                      value={subchapterForm.content}
+                      onChange={e => setSubchapterForm(f => ({ ...f, content: e.target.value }))}
+                      required
+                      placeholder={"# Judul Materi Kuliah\n\nTulis konten materi menggunakan format Markdown di sini. Dukung bold, italic, heading, code block, link, tabel, dan lainnya..."}
+                      className="flex-1 resize-none rounded-none border-none bg-[#FAF9FB] font-mono text-sm leading-relaxed text-[#060708] p-6 focus-visible:ring-0 focus-visible:outline-none min-h-0"
+                    />
+                  </div>
+
+                  {/* Live Preview Column */}
+                  <div className={`flex flex-col transition-all duration-300 ${aiPanelOpen ? "w-[35%]" : "w-1/2"} border-r border-[#E8E5E9]`}>
+                    <div className="shrink-0 px-6 py-2.5 border-b border-[#E8E5E9] bg-white flex items-center gap-2">
+                      <Eye className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Pratinjau Langsung</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 bg-white">
+                      <h1 className="text-2xl font-bold font-heading border-b border-[#E8E5E9] pb-3 mb-5 text-[#060708]">
+                        {subchapterForm.title || "Judul Sub-bab"}
+                      </h1>
+                      {subchapterForm.content ? (
+                        <div className="prose prose-slate max-w-none leading-relaxed">
+                          <MarkdownRenderer content={subchapterForm.content} />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-48 text-center">
+                          <Edit3 className="h-10 w-10 text-slate-200 mb-3" />
+                          <p className="text-sm font-semibold text-slate-400">Pratinjau akan muncul di sini</p>
+                          <p className="text-xs text-slate-300 mt-1">Mulai menulis di panel kiri atau gunakan Asisten AI</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* AI Assistant Panel (collapsible) */}
+                  {aiPanelOpen && (
+                    <div className="w-[25%] flex flex-col bg-[#060708] text-white animate-in slide-in-from-right-4 duration-300">
+                      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-[#C6B5BF] animate-pulse" />
+                          <span className="text-xs font-bold font-heading">Asisten AI Belajara</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAiPanelOpen(false)}
+                          className="h-6 w-6 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <ArrowLeft className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {aiLoading ? (
+                          <div className="flex flex-col items-center justify-center h-full text-center py-10">
+                            <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF] mb-3" />
+                            <p className="text-[11px] font-medium text-slate-200 animate-pulse">{aiStatusMsg}</p>
+                            <p className="text-[9px] text-slate-500 mt-1">Sedang menyusun materi kuliah...</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Topik Fokus Materi</Label>
+                              <Textarea
+                                value={aiTopic}
+                                onChange={e => setAiTopic(e.target.value)}
+                                placeholder="cth: Cara kerja Quicksort dan kompleksitas Big-O"
+                                className="bg-slate-900 border-slate-800 text-white rounded-lg text-xs p-2.5 h-24 resize-none focus-visible:ring-1 focus-visible:ring-[#C6B5BF]/50 placeholder:text-slate-600"
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Jenis Draf</Label>
+                              <select
+                                value={aiTemplateType}
+                                onChange={e => setAiTemplateType(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#C6B5BF]/50 cursor-pointer"
+                              >
+                                <option value="theory">Pembahasan Teoretis</option>
+                                <option value="code">Praktik & Contoh Kode</option>
+                                <option value="case_study">Studi Kasus Industri</option>
+                                <option value="evaluation">Latihan Soal & Pembahasan</option>
+                              </select>
+                            </div>
+
+                            <Button
+                              type="button"
+                              onClick={handleAIGenerateDraft}
+                              className="w-full bg-[#FAF9FB] hover:bg-white text-[#060708] font-bold text-xs h-9 rounded-lg cursor-pointer gap-1.5 shadow-md"
+                            >
+                              <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" />
+                              Buat Draf AI
+                            </Button>
+
+                            <div className="border-t border-slate-800 pt-4 space-y-2">
+                              <h5 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Tips Penulisan</h5>
+                              <ul className="space-y-1.5 text-[10px] text-slate-400">
+                                <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Gunakan heading untuk struktur materi</li>
+                                <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Sematkan code block untuk algoritma</li>
+                                <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Gunakan tabel untuk merangkum data</li>
+                                <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Tambahkan referensi dengan format link</li>
+                              </ul>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* AI Assistant Panel (collapsible) */}
-              {aiPanelOpen && (
-                <div className="w-[25%] flex flex-col bg-[#060708] text-white animate-in slide-in-from-right-4 duration-300">
-                  <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-[#C6B5BF] animate-pulse" />
-                      <span className="text-xs font-bold font-heading">Asisten AI Belajara</span>
+                </>
+              ) : subchapterForm.type === "video" ? (
+                <>
+                  {/* Video URL Form Column */}
+                  <div className="w-1/2 flex flex-col p-6 space-y-4 bg-white border-r">
+                    <div>
+                      <h3 className="font-heading text-lg font-bold text-[#060708]">Sumber Video Pembelajaran</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Konfigurasikan detail URL dan lokasi penyimpanan video pembelajaran Anda.</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setAiPanelOpen(false)}
-                      className="h-6 w-6 flex items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                    </button>
+
+                    <div className="space-y-2 border border-border bg-[#FAF9FB] p-5 rounded-2xl">
+                      <Label className="text-xs font-bold text-[#060708]">URL Sematan Video (Iframe/YouTube) *</Label>
+                      <Input
+                        value={subchapterForm.video_url}
+                        onChange={e => setSubchapterForm(f => ({ ...f, video_url: e.target.value }))}
+                        required
+                        placeholder="https://www.youtube.com/embed/..."
+                        className="h-10 text-sm bg-white rounded-xl border-[#C6B5BF]/60 focus-visible:ring-1 focus-visible:ring-[#060708]"
+                      />
+                      <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
+                        Pastikan menggunakan link embed YouTube (mengandung kata <strong>/embed/</strong>) agar dapat diputar dengan lancar oleh mahasiswa.
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {aiLoading ? (
-                      <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                        <Loader2 className="h-8 w-8 animate-spin text-[#C6B5BF] mb-3" />
-                        <p className="text-[11px] font-medium text-slate-200 animate-pulse">{aiStatusMsg}</p>
-                        <p className="text-[9px] text-slate-500 mt-1">Sedang menyusun materi kuliah...</p>
+                  {/* Video Live Preview Column */}
+                  <div className="w-1/2 bg-slate-50 flex flex-col items-center justify-center p-8">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Live Preview Pemutar Video</h4>
+                    {subchapterForm.video_url ? (
+                      <div className="w-full max-w-2xl aspect-video rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-black">
+                        <iframe
+                          src={subchapterForm.video_url}
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          title="Live Video Preview"
+                        />
                       </div>
                     ) : (
-                      <>
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Topik Fokus Materi</Label>
-                          <Textarea
-                            value={aiTopic}
-                            onChange={e => setAiTopic(e.target.value)}
-                            placeholder="cth: Cara kerja Quicksort dan kompleksitas Big-O"
-                            className="bg-slate-900 border-slate-800 text-white rounded-lg text-xs p-2.5 h-24 resize-none focus-visible:ring-1 focus-visible:ring-[#C6B5BF]/50 placeholder:text-slate-600"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Jenis Draf</Label>
-                          <select
-                            value={aiTemplateType}
-                            onChange={e => setAiTemplateType(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#C6B5BF]/50 cursor-pointer"
-                          >
-                            <option value="theory">Pembahasan Teoretis</option>
-                            <option value="code">Praktik & Contoh Kode</option>
-                            <option value="case_study">Studi Kasus Industri</option>
-                            <option value="evaluation">Latihan Soal & Pembahasan</option>
-                          </select>
-                        </div>
-
-                        <Button
-                          type="button"
-                          onClick={handleAIGenerateDraft}
-                          className="w-full bg-[#FAF9FB] hover:bg-white text-[#060708] font-bold text-xs h-9 rounded-lg cursor-pointer gap-1.5 shadow-md"
-                        >
-                          <Sparkles className="h-3.5 w-3.5 text-[#C6B5BF]" />
-                          Buat Draf AI
-                        </Button>
-
-                        <div className="border-t border-slate-800 pt-4 space-y-2">
-                          <h5 className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Tips Penulisan</h5>
-                          <ul className="space-y-1.5 text-[10px] text-slate-400">
-                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Gunakan heading untuk struktur materi</li>
-                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Sematkan code block untuk algoritma</li>
-                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Gunakan tabel untuk merangkum data</li>
-                            <li className="flex items-start gap-1.5"><CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />Tambahkan referensi dengan format link</li>
-                          </ul>
-                        </div>
-                      </>
+                      <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-slate-200 rounded-2xl p-8 max-w-md text-center bg-white">
+                        <PlayCircle className="h-12 w-12 text-slate-300 mb-2" />
+                        <p className="text-xs font-semibold text-slate-500">Video Belum Dikonfigurasi</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Masukkan URL embed YouTube di kolom kiri untuk melihat preview pemutar video di sini.</p>
+                      </div>
                     )}
                   </div>
-                </div>
-              )}
+                </>
+              ) : subchapterForm.type === "forum" ? (
+                <>
+                  {/* Forum Settings Column */}
+                  <div className="w-1/2 flex flex-col p-6 space-y-4 bg-white border-r">
+                    <div>
+                      <h3 className="font-heading text-lg font-bold text-[#060708]">Forum Diskusi Interaktif</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5 font-semibold">Aktifkan ruang kolaboratif agar mahasiswa dapat bertanya dan berdiskusi.</p>
+                    </div>
+
+                    <div className="space-y-3 border border-border bg-[#FAF9FB] p-5 rounded-2xl">
+                      <Label className="text-xs font-bold text-[#060708]">Topik / Panduan Pemantik Diskusi</Label>
+                      <Textarea
+                        value={subchapterForm.content}
+                        onChange={e => setSubchapterForm(f => ({ ...f, content: e.target.value }))}
+                        placeholder="cth: Silakan diskusikan di sini mengenai pembuktian rumus induksi matematika..."
+                        className="min-h-32 text-sm bg-white rounded-xl border-[#C6B5BF]/60 p-3"
+                      />
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Panduan ini akan disematkan di bagian atas forum sebagai petunjuk atau bahan diskusi bagi mahasiswa.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Forum Live Preview Column */}
+                  <div className="w-1/2 bg-[#FAF9FB] flex flex-col p-6 overflow-y-auto">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Pratinjau Tampilan Forum (Mahasiswa)</h4>
+                    
+                    <div className="bg-white border border-[#E8E5E9] rounded-2xl p-5 shadow-xs space-y-4 max-w-xl">
+                      <div className="flex items-start gap-3">
+                        <MessageSquare className="h-5 w-5 text-purple-600 mt-0.5 shrink-0" />
+                        <div>
+                          <h4 className="text-sm font-bold text-[#060708]">Forum: {subchapterForm.title || "Judul Sub-bab Forum"}</h4>
+                          <p className="text-[11px] text-slate-500 mt-1 italic">
+                            {subchapterForm.content || "Tidak ada panduan tertulis. Silakan mulai berdiskusi secara bebas."}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="border-t border-[#E8E5E9] pt-4 space-y-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Diskusi Aktif (Simulasi)</p>
+                        
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-primary">Ahmad Ridwan</span>
+                            <span className="text-[8px] text-slate-400">Baru saja</span>
+                          </div>
+                          <p className="text-[10px] text-slate-600">
+                            Apakah kita harus selalu membuktikan basis induksi n=1? Bagaimana kalau rumusnya hanya berlaku mulai n=5?
+                          </p>
+                        </div>
+
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1 pl-6 border-l-2 border-purple-200">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-[#CF3A1F]">Dosen Pengampu (Anda)</span>
+                            <span className="text-[8px] text-slate-400">Simulasi Balasan</span>
+                          </div>
+                          <p className="text-[10px] text-slate-600">
+                            Pertanyaan bagus, Ahmad! Jika rumus berlaku mulai n=5, maka basis induksi yang dibuktikan pertama kali adalah untuk n=5.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : null}
             </div>
+
           </div>
         )}
 
-        {/* ──────────────────────────────────────────────────────────────────
-            Sub-Chapter: Compact Dialog (Video / Forum types)
-        ────────────────────────────────────────────────────────────────── */}
-        {subchapterOpen && subchapterForm.type !== "reading" && (
-          <Dialog open={subchapterOpen} onOpenChange={setSubchapterOpen}>
-            <DialogContent className="max-w-2xl bg-white max-h-[85vh] flex flex-col p-6 overflow-hidden">
-              <DialogHeader className="border-b pb-3 shrink-0">
-                <DialogTitle className="font-heading text-lg font-bold text-[#060708]">
-                  {subchapterEditId !== null ? "Edit Sub-bab" : "Tambah Sub-bab Baru"}
-                </DialogTitle>
-              </DialogHeader>
-
-              <form onSubmit={async (e) => {
-                e.preventDefault()
-                if (!subchapterModuleId) return
-                setSubchapterLoading(true)
-                try {
-                  if (subchapterEditId !== null && typeof subchapterEditId === "number") {
-                    await api.instructor.updateSubChapter(subchapterEditId, {
-                      ...subchapterForm,
-                      order: Number(subchapterForm.order)
-                    })
-                    showToast("success", "Sub-bab berhasil diperbarui.")
-                  } else {
-                    await api.instructor.createSubChapter(subchapterModuleId, {
-                      ...subchapterForm,
-                      order: Number(subchapterForm.order)
-                    })
-                    showToast("success", "Sub-bab berhasil ditambahkan.")
-                  }
-                  setSubchapterOpen(false)
-                  fetchCourse()
-                } catch (err: any) {
-                  showToast("error", err.message || "Gagal menyimpan sub-bab.")
-                } finally {
-                  setSubchapterLoading(false)
-                }
-              }} className="flex-1 flex flex-col overflow-hidden space-y-4 mt-4">
-
-                {/* Meta Fields */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Judul Sub-bab *</Label>
-                    <Input
-                      value={subchapterForm.title}
-                      onChange={e => setSubchapterForm(f => ({ ...f, title: e.target.value }))}
-                      required
-                      placeholder="cth: Pengenalan Logika"
-                      className="h-8 text-xs rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Urutan *</Label>
-                    <Input
-                      type="number" min={1}
-                      value={subchapterForm.order}
-                      onChange={e => setSubchapterForm(f => ({ ...f, order: parseInt(e.target.value) || 1 }))}
-                      required
-                      className="h-8 text-xs rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Durasi *</Label>
-                    <Input
-                      value={subchapterForm.duration}
-                      onChange={e => setSubchapterForm(f => ({ ...f, duration: e.target.value }))}
-                      required
-                      placeholder="15 mnt"
-                      className="h-8 text-xs rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                {/* Video URL Field */}
-                {subchapterForm.type === "video" && (
-                  <div className="space-y-2 border border-border bg-[#FAF9FB] p-5 rounded-xl">
-                    <Label className="text-xs font-bold text-[#060708]">URL Sematan Video (Iframe/YouTube) *</Label>
-                    <Input
-                      value={subchapterForm.video_url}
-                      onChange={e => setSubchapterForm(f => ({ ...f, video_url: e.target.value }))}
-                      required
-                      placeholder="https://www.youtube.com/embed/..."
-                      className="h-9 text-xs rounded-lg bg-white mt-1.5"
-                    />
-                    <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                      Pastikan menggunakan link embed YouTube (mengandung kata <strong>/embed/</strong>) agar dapat diputar dengan lancar oleh mahasiswa.
-                    </p>
-                  </div>
-                )}
-
-                {/* Forum placeholder */}
-                {subchapterForm.type === "forum" && (
-                  <div className="space-y-2 border border-border bg-[#FAF9FB] p-5 rounded-xl">
-                    <Label className="text-xs font-bold text-[#060708]">Sub-bab Forum Diskusi</Label>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Sub-bab ini akan membuka ruang diskusi interaktif bagi mahasiswa untuk bertanya dan berdiskusi.
-                      Tidak ada konten tambahan yang perlu ditambahkan — cukup simpan sub-bab ini.
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-2 border-t pt-3 shrink-0 mt-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setSubchapterOpen(false)}
-                    className="h-8 text-xs rounded-lg cursor-pointer"
-                  >
-                    Batal
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="h-8 text-xs bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg cursor-pointer font-semibold"
-                    disabled={subchapterLoading}
-                  >
-                    {subchapterLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-                    Simpan Sub-bab
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {/* Quiz Manual Editor Dialog */}
-        {/* Quiz Manual Editor Dialog */}
+        {/* Quiz Manual Editor Workspace */}
         {quizOpen && (
-          <Dialog open={quizOpen} onOpenChange={setQuizOpen}>
-            <DialogContent className="max-w-3xl bg-white max-h-[90vh] flex flex-col p-6 overflow-hidden">
-              <DialogHeader className="border-b pb-3 shrink-0 flex flex-row items-center justify-between">
+          <div className="fixed inset-0 z-[150] flex flex-col bg-[#FAF9FB] animate-in fade-in duration-200">
+            <header className="shrink-0 h-14 bg-white border-b border-[#E8E5E9] flex items-center px-6 justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setQuizOpen(false)}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#E8E5E9] text-slate-500 hover:text-[#060708] hover:bg-slate-100 transition-all cursor-pointer"
+                  title="Tutup Editor"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="w-px h-5 bg-[#E8E5E9]" />
                 <div>
-                  <DialogTitle className="font-heading text-lg font-bold text-[#060708]">
-                    Kelola Soal Evaluasi Manual
-                  </DialogTitle>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
-                    Edit daftar soal evaluasi, pilihan ganda, kunci jawaban, dan penjelasan.
-                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Editor Evaluasi & Kuis</p>
+                  <p className="text-xs font-bold text-[#060708]">Kelola Soal Evaluasi Manual</p>
                 </div>
-                <div className="flex gap-2 mr-6 shrink-0">
-                  <Button
-                    type="button"
-                    onClick={() => handleGenerateQuiz(quizModuleId!)}
-                    disabled={!!quizLoading[quizModuleId!]}
-                    size="xs"
-                    className="bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/20 hover:bg-[#CF3A1F] hover:text-white gap-1.5 cursor-pointer h-7 text-[10px] font-semibold"
-                  >
-                    {quizLoading[quizModuleId!]
-                      ? <Loader2 className="h-3 w-3 animate-spin" />
-                      : <Sparkles className="h-3 w-3" />
-                    }
-                    Generate dengan AI
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={addQuizQuestion}
-                    size="xs"
-                    className="bg-[#060708] text-white hover:bg-[#060708]/90 gap-1.5 cursor-pointer h-7 text-[10px]"
-                  >
-                    + Tambah Soal
-                  </Button>
-                </div>
-              </DialogHeader>
-
-              <div className="flex-1 overflow-y-auto pr-1 py-3 space-y-4 min-h-0">
-                {quizQuestions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <HelpCircle className="h-10 w-10 text-slate-300 mb-2" />
-                    <p className="text-xs font-bold text-primary">Belum Ada Soal Evaluasi</p>
-                    <p className="text-[11px] text-muted-foreground mt-1 max-w-xs leading-normal">
-                      Evaluasi ini belum memiliki soal. Klik &ldquo;Tambah Soal&rdquo; di kanan atas atau klik &ldquo;Generate AI&rdquo; pada modul untuk membuat evaluasi otomatis.
-                    </p>
-                  </div>
-                ) : (
-                  quizQuestions.map((q, qIdx) => (
-                    <Card key={qIdx} className="border border-border p-4 space-y-3 bg-slate-50/50">
-                      <div className="flex items-start justify-between gap-4 border-b pb-2">
-                        <span className="text-xs font-bold text-primary">Soal Nomor {qIdx + 1}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => removeQuizQuestion(qIdx)}
-                          className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive cursor-pointer"
-                        >
-                          <Trash className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-[10px] font-bold text-primary">Pertanyaan Soal</Label>
-                        <Input
-                          value={q.question}
-                          onChange={e => updateQuestionText(qIdx, e.target.value)}
-                          placeholder="Pertanyaan..."
-                          className="h-8 text-xs bg-white rounded-lg"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold text-primary">Opsi A</Label>
-                          <Input
-                            value={q.options?.A || ""}
-                            onChange={e => updateQuestionOption(qIdx, "A", e.target.value)}
-                            placeholder="Opsi A..."
-                            className="h-8 text-xs bg-white rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold text-primary">Opsi B</Label>
-                          <Input
-                            value={q.options?.B || ""}
-                            onChange={e => updateQuestionOption(qIdx, "B", e.target.value)}
-                            placeholder="Opsi B..."
-                            className="h-8 text-xs bg-white rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold text-primary">Opsi C</Label>
-                          <Input
-                            value={q.options?.C || ""}
-                            onChange={e => updateQuestionOption(qIdx, "C", e.target.value)}
-                            placeholder="Opsi C..."
-                            className="h-8 text-xs bg-white rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold text-primary">Opsi D</Label>
-                          <Input
-                            value={q.options?.D || ""}
-                            onChange={e => updateQuestionOption(qIdx, "D", e.target.value)}
-                            placeholder="Opsi D..."
-                            className="h-8 text-xs bg-white rounded-lg"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-1 space-y-1.5">
-                          <Label className="text-[10px] font-bold text-primary">Kunci Jawaban</Label>
-                          <select
-                            value={q.correct_answer}
-                            onChange={e => updateQuestionCorrect(qIdx, e.target.value)}
-                            className="w-full bg-white border border-border rounded-lg px-2 py-1 text-xs text-primary focus:outline-none cursor-pointer h-8"
-                          >
-                            <option value="A">Opsi A</option>
-                            <option value="B">Opsi B</option>
-                            <option value="C">Opsi C</option>
-                            <option value="D">Opsi D</option>
-                          </select>
-                        </div>
-                        <div className="col-span-2 space-y-1.5">
-                          <Label className="text-[10px] font-bold text-primary">Pembahasan / Penjelasan Soal</Label>
-                          <Input
-                            value={q.explanation || ""}
-                            onChange={e => updateQuestionExplanation(qIdx, e.target.value)}
-                            placeholder="Penjelasan..."
-                            className="h-8 text-xs bg-white rounded-lg"
-                          />
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
               </div>
 
-              <div className="flex justify-end gap-2 border-t pt-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={() => handleGenerateQuiz(quizModuleId!)}
+                  disabled={!!quizLoading[quizModuleId!]}
+                  variant="outline"
+                  size="sm"
+                  className="bg-[#CF3A1F]/10 text-[#CF3A1F] border border-[#CF3A1F]/20 hover:bg-[#CF3A1F] hover:text-white gap-1.5 cursor-pointer h-8 text-[11px] font-bold"
+                >
+                  {quizLoading[quizModuleId!]
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Sparkles className="h-3.5 w-3.5" />
+                  }
+                  Generate dengan AI
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={addQuizQuestion}
+                  size="sm"
+                  className="bg-[#060708] text-white hover:bg-[#060708]/90 gap-1.5 cursor-pointer h-8 text-[11px] font-bold"
+                >
+                  + Tambah Soal
+                </Button>
+
+                <div className="w-px h-5 bg-[#E8E5E9]" />
+
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setQuizOpen(false)}
-                  className="h-8 text-xs rounded-lg cursor-pointer"
+                  className="h-8 text-xs border-[#E8E5E9] text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer font-semibold"
                 >
                   Batal
                 </Button>
+
                 <Button
                   type="button"
                   onClick={handleSaveQuiz}
-                  className="h-8 text-xs bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg cursor-pointer"
+                  className="h-8 text-xs bg-[#060708] hover:bg-[#060708]/90 text-white rounded-lg cursor-pointer font-semibold"
                   disabled={quizSaving || quizQuestions.length === 0}
                 >
                   {quizSaving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
                   Simpan Evaluasi ({quizQuestions.length} Soal)
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
+            </header>
+
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left Column: Form & Edit Questions */}
+              <div className="w-1/2 flex flex-col p-6 border-r border-[#E8E5E9] bg-white overflow-y-auto min-h-0 space-y-4">
+                <div>
+                  <h3 className="font-heading text-lg font-bold text-[#060708]">Daftar Soal Evaluasi</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 font-semibold">
+                    Kelola detail pertanyaan, opsi pilihan ganda, kunci jawaban, dan penjelasannya.
+                  </p>
+                </div>
+
+                {quizQuestions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl p-8 bg-[#FAF9FB]">
+                    <HelpCircle className="h-12 w-12 text-slate-300 mb-2" />
+                    <p className="text-sm font-bold text-[#060708]">Belum Ada Soal Evaluasi</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-normal">
+                      Evaluasi ini belum memiliki soal. Klik &ldquo;Tambah Soal&rdquo; di kanan atas atau klik &ldquo;Generate dengan AI&rdquo; untuk membuat soal otomatis.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {quizQuestions.map((q, qIdx) => (
+                      <Card key={qIdx} className="border border-[#E8E5E9] p-5 space-y-4 bg-[#FAF9FB]/50 rounded-2xl relative">
+                        <div className="flex items-start justify-between border-b border-[#E8E5E9] pb-3">
+                          <span className="text-xs font-bold text-[#060708]">Soal Nomor {qIdx + 1}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeQuizQuestion(qIdx)}
+                            className="h-8 w-8 p-0 rounded-lg hover:bg-[#CF3A1F]/10 text-[#CF3A1F] cursor-pointer animate-in fade-in zoom-in-50"
+                            title="Hapus Soal"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold text-[#060708] uppercase tracking-wider">Pertanyaan Soal</Label>
+                          <Input
+                            value={q.question}
+                            onChange={e => updateQuestionText(qIdx, e.target.value)}
+                            placeholder="Tulis pertanyaan di sini..."
+                            className="h-9 text-xs bg-white rounded-lg border-[#E8E5E9]"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold text-[#060708] uppercase tracking-wider">Opsi A</Label>
+                            <Input
+                              value={q.options?.A || ""}
+                              onChange={e => updateQuestionOption(qIdx, "A", e.target.value)}
+                              placeholder="Teks Opsi A..."
+                              className="h-9 text-xs bg-white rounded-lg border-[#E8E5E9]"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold text-[#060708] uppercase tracking-wider">Opsi B</Label>
+                            <Input
+                              value={q.options?.B || ""}
+                              onChange={e => updateQuestionOption(qIdx, "B", e.target.value)}
+                              placeholder="Teks Opsi B..."
+                              className="h-9 text-xs bg-white rounded-lg border-[#E8E5E9]"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold text-[#060708] uppercase tracking-wider">Opsi C</Label>
+                            <Input
+                              value={q.options?.C || ""}
+                              onChange={e => updateQuestionOption(qIdx, "C", e.target.value)}
+                              placeholder="Teks Opsi C..."
+                              className="h-9 text-xs bg-white rounded-lg border-[#E8E5E9]"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[10px] font-bold text-[#060708] uppercase tracking-wider">Opsi D</Label>
+                            <Input
+                              value={q.options?.D || ""}
+                              onChange={e => updateQuestionOption(qIdx, "D", e.target.value)}
+                              placeholder="Teks Opsi D..."
+                              className="h-9 text-xs bg-white rounded-lg border-[#E8E5E9]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="col-span-1 space-y-1.5">
+                            <Label className="text-[10px] font-bold text-[#060708] uppercase tracking-wider">Kunci Jawaban</Label>
+                            <select
+                              value={q.correct_answer}
+                              onChange={e => updateQuestionCorrect(qIdx, e.target.value)}
+                              className="w-full bg-white border border-[#E8E5E9] rounded-lg px-3 py-1.5 text-xs text-primary focus:outline-none cursor-pointer h-9"
+                            >
+                              <option value="A">Opsi A</option>
+                              <option value="B">Opsi B</option>
+                              <option value="C">Opsi C</option>
+                              <option value="D">Opsi D</option>
+                            </select>
+                          </div>
+                          <div className="col-span-2 space-y-1.5">
+                            <Label className="text-[10px] font-bold text-[#060708] uppercase tracking-wider">Pembahasan / Penjelasan Soal</Label>
+                            <Input
+                              value={q.explanation || ""}
+                              onChange={e => updateQuestionExplanation(qIdx, e.target.value)}
+                              placeholder="Mengapa opsi tersebut benar? Tulis penjelasannya..."
+                              className="h-9 text-xs bg-white rounded-lg border-[#E8E5E9]"
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Real-time Student Quiz Preview */}
+              <div className="w-1/2 bg-[#FAF9FB] flex flex-col p-6 overflow-y-auto">
+                <div className="space-y-4 max-w-xl mx-auto w-full">
+                  <div className="bg-white border border-[#E8E5E9] p-5 rounded-2xl shadow-xs">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                      <HelpCircle className="h-4 w-4 text-amber-500 animate-pulse" />
+                      <span>Pratinjau Kuis Mahasiswa</span>
+                    </div>
+                    <h3 className="font-heading text-lg font-black text-primary">Evaluasi Pemahaman Modul</h3>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Berikut adalah pratinjau bagaimana mahasiswa akan melihat dan menjawab pertanyaan evaluasi ini di workspace mereka.
+                    </p>
+                  </div>
+
+                  {quizQuestions.length === 0 ? (
+                    <div className="bg-white border border-[#E8E5E9] p-8 rounded-2xl shadow-xs text-center text-slate-400">
+                      <Edit3 className="h-10 w-10 mx-auto text-slate-200 mb-2" />
+                      <p className="text-xs font-bold text-slate-400">Pratinjau Kuis Kosong</p>
+                      <p className="text-[10px] text-slate-300 mt-1">Tambah atau generate soal di kolom kiri untuk melihat simulasi pratinjau.</p>
+                    </div>
+                  ) : (
+                    quizQuestions.map((q, idx) => (
+                      <div key={idx} className="bg-white border border-[#E8E5E9] p-5 rounded-2xl shadow-xs space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <span className="text-xs font-bold text-[#060708]">Pertanyaan {idx + 1}</span>
+                          <span className="text-[10px] bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">Pilihan Ganda</span>
+                        </div>
+                        
+                        <p className="text-xs font-semibold text-slate-800 leading-relaxed">
+                          {q.question || "(Belum ada teks pertanyaan)"}
+                        </p>
+
+                        <div className="space-y-2 pt-1">
+                          {["A", "B", "C", "D"].map(opt => {
+                            const optText = q.options?.[opt] || "";
+                            const isCorrect = q.correct_answer === opt;
+                            return (
+                              <div
+                                key={opt}
+                                className={`flex items-center gap-3 p-3 rounded-xl border text-[11px] font-medium transition-all ${
+                                  isCorrect
+                                    ? "bg-emerald-50/50 border-emerald-200 text-emerald-800 animate-in fade-in duration-300"
+                                    : "border-slate-100 bg-slate-50/50 text-slate-600"
+                                }`}
+                              >
+                                <span className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 ${
+                                  isCorrect ? "bg-emerald-500 text-white" : "bg-white border border-slate-200 text-slate-400"
+                                }`}>
+                                  {opt}
+                                </span>
+                                <span className="flex-1 leading-normal">{optText || `(Opsi ${opt} kosong)`}</span>
+                                {isCorrect && <span className="text-[8px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded uppercase font-sans">Kunci Jawaban</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {q.explanation && (
+                          <div className="bg-amber-50/50 border border-amber-100 p-3 rounded-xl space-y-1 mt-2">
+                            <span className="text-[9px] font-bold text-amber-800 uppercase tracking-wider font-sans">Pembahasan / Penjelasan:</span>
+                            <p className="text-[10px] text-amber-900/80 leading-relaxed font-sans">{q.explanation}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </SidebarInset>
     </SidebarProvider>

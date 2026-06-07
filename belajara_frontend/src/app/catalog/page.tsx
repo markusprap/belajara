@@ -176,7 +176,6 @@ export default function CatalogPage() {
   const [snapToken, setSnapToken] = React.useState<string | null>(null)
   const [orderId, setOrderId] = React.useState<string | null>(null)
   const [paymentStatus, setPaymentStatus] = React.useState<"idle" | "pending" | "success" | "failed">("idle")
-  const [mockPaymentMethod, setMockPaymentMethod] = React.useState<"gopay" | "va">("gopay")
 
   // Load Midtrans snap.js dynamically on mount
   React.useEffect(() => {
@@ -400,28 +399,7 @@ export default function CatalogPage() {
     setPaymentStatus("idle")
   }
 
-  const handleMockPaymentSuccess = async () => {
-    if (!orderId || !checkoutCourse) return
-    setCheckoutLoading(true)
-    
-    setTimeout(async () => {
-      try {
-        await api.payment.verify(orderId, "success")
-        fetchActiveCourses()
-        setPaymentStatus("success")
-        
-        setTimeout(() => {
-          setCheckoutOpen(false)
-          setPaymentStatus("idle")
-          router.push(`/courses/${checkoutCourse.code}`)
-        }, 1500)
-      } catch (err) {
-        alert("Konfirmasi pembayaran gagal.")
-      } finally {
-        setCheckoutLoading(false)
-      }
-    }, 1500)
-  }
+
 
   // Define catalog content markup
   const renderCatalogContent = () => (
@@ -792,43 +770,25 @@ export default function CatalogPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2 text-left">
-                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Metode Simulasi Pembayaran:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setMockPaymentMethod("gopay")}
-                      className={`p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-                        mockPaymentMethod === "gopay" ? "border-[#060708] bg-slate-50 text-slate-900" : "border-border text-slate-500"
-                      }`}
+                <div className="text-center pt-2 space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Midtrans Snap belum berhasil dimuat. Pastikan koneksi internet stabil lalu coba lagi.
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                    <Button
+                      onClick={handleCancelPayment}
+                      variant="outline"
+                      className="text-xs h-9 cursor-pointer"
                     >
-                      QRIS / GoPay
-                    </button>
-                    <button
-                      onClick={() => setMockPaymentMethod("va")}
-                      className={`p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-                        mockPaymentMethod === "va" ? "border-[#060708] bg-slate-50 text-slate-900" : "border-border text-slate-500"
-                      }`}
+                      Batal
+                    </Button>
+                    <Button
+                      onClick={() => handleCheckoutTrigger(checkoutCourse)}
+                      className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white text-xs h-9 cursor-pointer"
                     >
-                      Virtual Account
-                    </button>
+                      Coba Lagi
+                    </Button>
                   </div>
-                </div>
-
-                <div className="flex gap-3 pt-4 border-t">
-                  <Button
-                    onClick={handleCancelPayment}
-                    variant="outline"
-                    className="flex-1 text-xs h-9 cursor-pointer"
-                    disabled={checkoutLoading}
-                  >
-                    Batal
-                  </Button>
-                  <Button
-                    onClick={handleMockPaymentSuccess}
-                    className="flex-1 bg-[#060708] hover:bg-[#060708]/90 text-white text-xs font-bold h-9 rounded-lg cursor-pointer"
-                  >
-                    Simulasikan Sukses
-                  </Button>
                 </div>
               </div>
             )}

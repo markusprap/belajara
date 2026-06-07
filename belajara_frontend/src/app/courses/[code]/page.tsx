@@ -343,14 +343,6 @@ export default function CourseDetailPage({ params }: PageProps) {
   const [videoDuration, setVideoDuration] = React.useState("12:40")
   const [videoPlaying, setVideoPlaying] = React.useState(false)
 
-  const mockLearners = React.useMemo(() => [
-    { name: "Ahmad Fauzi", avatar: "AF", status: "online" },
-    { name: "Siti Rahmawati", avatar: "SR", status: "online" },
-    { name: "Budi Pratama", avatar: "BP", status: "offline" },
-    { name: "Dewi Lestari", avatar: "DL", status: "online" }
-  ], [])
-
-
   // Quiz states
   const [activeQuiz, setActiveQuiz] = React.useState<any | null>(null)
   const [quizTaking, setQuizTaking] = React.useState(false)
@@ -374,7 +366,6 @@ export default function CourseDetailPage({ params }: PageProps) {
   const [snapToken, setSnapToken] = React.useState<string | null>(null)
   const [orderId, setOrderId] = React.useState<string | null>(null)
   const [paymentStatus, setPaymentStatus] = React.useState<"idle" | "pending" | "success" | "failed">("idle")
-  const [mockPaymentMethod, setMockPaymentMethod] = React.useState<"gopay" | "va">("gopay")
 
   // Authentication check
   React.useEffect(() => {
@@ -682,32 +673,6 @@ export default function CourseDetailPage({ params }: PageProps) {
     setPaymentStatus("idle")
   }
 
-  // Mock confirm payment callback for sandbox simulation
-  const handleMockPaymentSuccess = async () => {
-    if (!orderId) return
-    setCheckoutLoading(true)
-    
-    // Simulate API network call delay
-    setTimeout(async () => {
-      try {
-        await api.payment.verify(orderId, "success")
-        api.auth.updatePremiumStatus(true)
-        setUser(getUser()) // Refresh auth user state in React
-        await fetchCourseData() // Re-fetch course metadata to update enrollmentMode to 'verified'
-        setPaymentStatus("success")
-        
-        // Auto close checkout popup
-        setTimeout(() => {
-          setCheckoutOpen(false)
-          setPaymentStatus("idle")
-        }, 2000)
-      } catch (err) {
-        alert("Konfirmasi pembayaran gagal.")
-      } finally {
-        setCheckoutLoading(false)
-      }
-    }, 1500)
-  }
 
   // Nested Forum replies recursively render helper
   const renderReplies = (replies: any[], postId: number, level = 1) => {
@@ -2231,23 +2196,23 @@ export default function CourseDetailPage({ params }: PageProps) {
 
                 {activeSidebarTab === "learners" && (
                   <div className="p-4 space-y-4">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 block">Teman Sekelas ({mockLearners.length})</span>
-                    <div className="space-y-2.5">
-                      {mockLearners.map((learner, idx) => (
-                        <div key={idx} className="flex items-center gap-3 p-2.5 bg-white border border-slate-100 rounded-xl shadow-3xs">
-                          <Avatar className="h-7 w-7 border bg-secondary/50 font-sans font-bold flex items-center justify-center text-[10px]">
-                            <AvatarFallback>{learner.avatar}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <h5 className="text-[11px] font-bold text-slate-800 truncate">{learner.name}</h5>
-                            <span className="text-[9px] text-muted-foreground font-semibold flex items-center gap-1 mt-0.5">
-                              <span className={`h-1.5 w-1.5 rounded-full ${learner.status === "online" ? "bg-emerald-500 animate-pulse" : "bg-slate-350"}`} />
-                              {learner.status === "online" ? "Online" : "Offline"}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 block">
+                      Peserta Terdaftar
+                    </span>
+                    <div className="flex items-center gap-3 p-4 bg-white border border-slate-100 rounded-xl shadow-sm">
+                      <div className="h-10 w-10 rounded-full bg-[#C6B5BF]/20 flex items-center justify-center shrink-0">
+                        <Users className="h-5 w-5 text-[#C6B5BF]" />
+                      </div>
+                      <div>
+                        <p className="text-xl font-heading font-bold text-[#060708]">
+                          {(course as any)?.enrollment_count ?? "—"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-semibold">Mahasiswa terdaftar</p>
+                      </div>
                     </div>
+                    <p className="text-[10px] text-muted-foreground text-center leading-normal">
+                      Data privasi mahasiswa tidak ditampilkan sesuai kebijakan perlindungan data.
+                    </p>
                   </div>
                 )}
 
@@ -2404,93 +2369,32 @@ export default function CourseDetailPage({ params }: PageProps) {
                 </div>
               </div>
             ) : (
-              // Mock Midtrans Gateway Overlay UI (Fallback if snap.js does not trigger)
-              <div className="space-y-4">
-                <div className="p-4 border rounded-xl bg-background flex items-center justify-between border-border/80 border-solid">
-                  <div>
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Metode Upgrade</p>
-                    <p className="text-sm font-bold text-primary">Akses Premium Belajara</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-muted-foreground line-through">Rp 149.000</p>
-                    <p className="text-sm font-heading font-bold text-[#CF3A1F]">Rp 49.000</p>
-                  </div>
+              // Fallback if snap.js did not trigger — show retry message
+              <div className="space-y-4 text-center p-6">
+                <div className="h-14 w-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto">
+                  <AlertTriangle className="h-7 w-7 text-amber-500" />
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-primary">Pilih Metode Pembayaran</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setMockPaymentMethod("gopay")}
-                      className={`p-3 border rounded-lg text-xs font-semibold text-center cursor-pointer transition-all border-solid ${
-                        mockPaymentMethod === "gopay" 
-                          ? "bg-primary border-primary text-white" 
-                          : "bg-white hover:bg-secondary/40 border-border bg-transparent"
-                      }`}
-                    >
-                      GoPay / QRIS
-                    </button>
-                    <button
-                      onClick={() => setMockPaymentMethod("va")}
-                      className={`p-3 border rounded-lg text-xs font-semibold text-center cursor-pointer transition-all border-solid ${
-                        mockPaymentMethod === "va" 
-                          ? "bg-primary border-primary text-white" 
-                          : "bg-white hover:bg-secondary/40 border-border bg-transparent"
-                      }`}
-                    >
-                      Virtual Account
-                    </button>
-                  </div>
+                <div>
+                  <h4 className="font-heading text-base font-bold text-primary">Gateway Pembayaran Belum Siap</h4>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                    Midtrans Snap belum berhasil dimuat. Pastikan koneksi internet stabil, lalu coba lagi.
+                  </p>
                 </div>
-
-                {mockPaymentMethod === "va" ? (
-                  <div className="p-3.5 border rounded-lg bg-background text-xs space-y-2 border-solid">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Nomor Virtual Account</span>
-                      <span className="font-mono font-bold text-primary">8819082201010101</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Bank</span>
-                      <span className="font-semibold text-primary">Bank Mandiri (Mandiri VA)</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground leading-normal mt-1 border-t pt-1.5">
-                      Instruksi: Transfer sesuai nominal di atas ke nomor VA yang tertera. Pembayaran diverifikasi dalam waktu maksimal 1 menit.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-3.5 border rounded-lg bg-[#FAF9FB] flex flex-col items-center justify-center gap-2 border-solid">
-                    <div className="h-28 w-28 bg-white border border-border rounded-lg p-1 flex items-center justify-center shrink-0 border-solid">
-                      {/* Simulating QR code */}
-                      <div className="grid grid-cols-4 gap-1 w-full h-full bg-[#060708]/10 p-2">
-                        {[...Array(16)].map((_, i) => (
-                          <div key={i} className={`rounded-xs ${i % 3 === 0 || i % 5 === 2 ? "bg-[#060708]" : "bg-transparent"}`} />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground text-center">Scan QRIS menggunakan GoPay, OVO, ShopeePay, atau aplikasi Bank Transfer Anda.</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-3 justify-center">
                   <Button
                     onClick={handleCancelPayment}
                     variant="outline"
-                    className="flex-1 text-xs h-10 cursor-pointer border border-[#E8E5E9]"
-                    disabled={checkoutLoading}
+                    className="text-xs h-9 cursor-pointer"
                   >
                     Batal
                   </Button>
                   <Button
-                    onClick={handleMockPaymentSuccess}
-                    className="flex-2 bg-[#CF3A1F] hover:bg-[#CF3A1F]/95 text-white cursor-pointer h-10 rounded-lg flex items-center justify-center gap-2 font-bold shadow-xs border-none"
-                    disabled={checkoutLoading}
+                    onClick={handleCheckoutTrigger}
+                    className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white text-xs h-9 cursor-pointer"
                   >
-                    <CreditCard className="h-4.5 w-4.5" />
-                    Bayar
+                    Coba Lagi
                   </Button>
                 </div>
-                
-                <p className="text-[9px] text-[#060708] text-center italic mt-1">Menggunakan integrasi pembayaran Midtrans Snap Sandbox.</p>
               </div>
             )}
           </Card>

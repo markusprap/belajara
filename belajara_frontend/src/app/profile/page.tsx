@@ -62,22 +62,8 @@ export default function ProfilePage() {
         const d = await res.json()
         setDashData(d)
       } else {
-        // Mock fallback if dashboard endpoint fails in dev
-        const currentUser = getUser()
-        setDashData({
-          stats: {
-            active_classes_count: currentUser?.is_premium ? 2 : 1,
-            ai_recommendations_count: currentUser?.is_premium ? 3 : 1,
-            achievement_level: currentUser?.is_premium ? 5 : 3,
-            average_quiz_score: currentUser?.is_premium ? 85.5 : 72.0,
-          },
-          active_courses: currentUser?.is_premium ? [
-            { id: 1, code: "IF101", title: "Matematika Diskrit", sks: 3, semester: 3, description: "Mata kuliah dasar yang mempelajari struktur matematika diskrit, logika matematika, himpunan, relasi, fungsi, graf, dan pembuktian matematis." },
-            { id: 2, code: "IF102", title: "Struktur Data & Algoritma", sks: 3, semester: 4, description: "Mata kuliah lanjutan tentang struktur data non-linear (tree, graph) dan analisis algoritma." }
-          ] : [
-            { id: 1, code: "IF101", title: "Matematika Diskrit", sks: 3, semester: 3, description: "Mata kuliah dasar yang mempelajari struktur matematika diskrit, logika matematika, himpunan, relasi, fungsi, graf, dan pembuktian matematis." }
-          ]
-        })
+        // Dashboard endpoint unavailable — leave dashData as null for empty state
+        console.warn("Dashboard endpoint returned non-OK response:", res.status)
       }
     } catch (err) {
       console.warn("Failed to load dashboard statistics", err)

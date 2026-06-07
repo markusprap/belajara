@@ -66,7 +66,6 @@ export default function CoursePreviewPage({ params }: PageProps) {
   const [snapToken, setSnapToken] = React.useState<string | null>(null)
   const [orderId, setOrderId] = React.useState<string | null>(null)
   const [paymentStatus, setPaymentStatus] = React.useState<"idle" | "pending" | "success" | "failed">("idle")
-  const [mockPaymentMethod, setMockPaymentMethod] = React.useState<"gopay" | "va">("gopay")
 
   // Load Midtrans sandbox snap.js script
   React.useEffect(() => {
@@ -287,29 +286,7 @@ export default function CoursePreviewPage({ params }: PageProps) {
     setPaymentStatus("idle")
   }
 
-  // Simulated sandbox mock payment
-  const handleMockPaymentSuccess = async () => {
-    if (!orderId || !course) return
-    setCheckoutLoading(true)
-    
-    setTimeout(async () => {
-      try {
-        await api.payment.verify(orderId, "success")
-        fetchSessionData()
-        setPaymentStatus("success")
-        
-        setTimeout(() => {
-          setCheckoutOpen(false)
-          setPaymentStatus("idle")
-          router.push(`/courses/${course.code}`)
-        }, 1500)
-      } catch (err) {
-        alert("Konfirmasi pembayaran gagal.")
-      } finally {
-        setCheckoutLoading(false)
-      }
-    }, 1500)
-  }
+
 
   // Derived variables
   const isEnrolled = course ? activeCourseCodes.includes(course.code) : false
@@ -1058,58 +1035,23 @@ export default function CoursePreviewPage({ params }: PageProps) {
                 <span className="text-xs text-muted-foreground">Mempersiapkan kelas premium Anda...</span>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl border border-border bg-[#FAF9FB] text-left space-y-2 text-xs font-sans">
-                  <div className="flex justify-between font-semibold">
-                    <span>Mata Kuliah:</span>
-                    <span className="font-bold text-slate-800">{course?.title}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold">
-                    <span>Harga:</span>
-                    <span className="text-[#CF3A1F] font-bold">{priceFormatted}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold">
-                    <span>Order ID:</span>
-                    <span className="font-mono text-[10px] text-muted-foreground">{orderId}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-left">
-                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Metode Simulasi Pembayaran:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setMockPaymentMethod("gopay")}
-                      className={`p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-                        mockPaymentMethod === "gopay" ? "border-[#060708] bg-slate-50 text-slate-900" : "border-border text-slate-500"
-                      }`}
-                    >
-                      QRIS / GoPay
-                    </button>
-                    <button
-                      onClick={() => setMockPaymentMethod("va")}
-                      className={`p-2.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-                        mockPaymentMethod === "va" ? "border-[#060708] bg-slate-50 text-slate-900" : "border-border text-slate-500"
-                      }`}
-                    >
-                      Virtual Account
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-4 border-t">
+              <div className="text-center pt-2 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Midtrans Snap belum berhasil dimuat. Pastikan koneksi internet stabil lalu coba lagi.
+                </p>
+                <div className="flex gap-3 justify-center">
                   <Button
                     onClick={handleCancelPayment}
                     variant="outline"
-                    className="flex-1 text-xs h-9 cursor-pointer"
-                    disabled={checkoutLoading}
+                    className="text-xs h-9 cursor-pointer"
                   >
                     Batal
                   </Button>
                   <Button
-                    onClick={handleMockPaymentSuccess}
-                    className="flex-1 bg-[#060708] hover:bg-[#060708]/90 text-white text-xs font-bold h-9 rounded-lg cursor-pointer"
+                    onClick={handleCheckoutTrigger}
+                    className="bg-[#CF3A1F] hover:bg-[#CF3A1F]/90 text-white text-xs h-9 cursor-pointer"
                   >
-                    Simulasikan Sukses
+                    Coba Lagi
                   </Button>
                 </div>
               </div>
