@@ -76,6 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = React.useCallback(async (username: string, password: string) => {
     const res = await api.auth.login(username, password);
+    if (res.access) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("accessToken", res.access);
+      }
+    }
     const freshUser = await fetchUser();
     return { ...res, user: freshUser };
   }, []);
@@ -92,6 +97,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.auth.googleLogin(email, firstName, lastName, googleId, role, credential);
       console.log("DEBUG: googleLogin API success:", res);
+      
+      if (res.access) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("accessToken", res.access);
+        }
+      }
+      
       const freshUser = await fetchUser();
       console.log("DEBUG: fetchUser after googleLogin:", freshUser);
       return { ...res, user: freshUser };
@@ -110,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("accessToken");
     }
     router.push("/login");
   }, [router]);

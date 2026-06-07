@@ -3,13 +3,21 @@ import { inferProgramStudiGroup } from "./indonesia-academic-data";
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://markusprap-belajara-backend.hf.space/api";
 
 export function getToken(): string | null {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("accessToken");
+  }
   return null;
 }
 
-export function setToken(token: string) {}
+export function setToken(token: string) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("accessToken", token);
+  }
+}
 
 export function clearToken() {
   if (typeof window !== "undefined") {
+    localStorage.removeItem("accessToken");
     localStorage.removeItem("isLoggedIn");
   }
 }
@@ -23,6 +31,11 @@ export function setUser(user: any) {}
 async function request(endpoint: string, options: RequestInit = {}): Promise<any> {
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
+
+  const token = getToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   let response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,

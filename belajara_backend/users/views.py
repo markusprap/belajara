@@ -149,12 +149,16 @@ class StudentDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        logger.info(f"Dashboard: Fetching data for user: {request.user.username}, is_mahasiswa={getattr(request.user, 'is_mahasiswa', False)}")
         try:
             data = get_student_dashboard_data(request.user)
+            logger.info(f"Dashboard: Successfully retrieved data for {request.user.username}")
             return Response(data, status=status.HTTP_200_OK)
         except ValueError as ve:
+            logger.warning(f"Dashboard: ValueError for {request.user.username}: {str(ve)}")
             return Response({"detail": str(ve)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
+            logger.error(f"Dashboard: Unexpected error for {request.user.username}: {str(e)}", exc_info=True)
             return Response({"detail": f"Terjadi kesalahan internal: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 import logging
@@ -301,7 +305,9 @@ class GoogleOAuthView(APIView):
         
         response = Response({
             "message": "Login Google berhasil.",
-            "user": user_data
+            "user": user_data,
+            "access": tokens['access'],
+            "refresh": tokens['refresh']
         }, status=status.HTTP_200_OK)
         
         secure = not settings.DEBUG
@@ -351,12 +357,11 @@ class CookieTokenObtainPairView(TokenObtainPairView):
         
         response_payload = {
             "message": "Login berhasil.",
-            "user": user_data
+            "user": user_data,
+            "access": access_token,
+            "refresh": refresh_token
         }
-        if is_testing:
-            response_payload["access"] = access_token
-            response_payload["refresh"] = refresh_token
-            
+
         response = Response(response_payload, status=status.HTTP_200_OK)
         
         secure = not settings.DEBUG
