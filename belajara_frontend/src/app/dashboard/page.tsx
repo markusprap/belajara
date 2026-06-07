@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { BookOpen, Trophy, Sparkles, AlertCircle } from "lucide-react"
 
 import { useRouter } from "next/navigation"
-import { BASE_URL } from "@/lib/api"
+import { api, BASE_URL } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 
 interface Student {
@@ -79,26 +79,18 @@ export default function Page() {
     setLoading(true)
     setError(null)
 
-    fetch(`${BASE_URL}/dashboard/`, { 
-      headers: { "Content-Type": "application/json" },
-      credentials: "include"
-    })
-      .then((res) => {
-        if (res.status === 401) {
-          router.push("/login")
-          throw new Error("Sesi telah berakhir. Silakan login kembali.")
-        }
-        if (!res.ok) {
-          throw new Error("Gagal mengambil data dashboard")
-        }
-        return res.json()
-      })
+    api.dashboard.get()
       .then((data: DashboardData) => {
         setData(data)
         setLoading(false)
       })
       .catch((err) => {
-        setError(err.message || "Koneksi ke backend terputus.")
+        if (err.message.includes("401") || err.message.includes("Unauthorized")) {
+          router.push("/login")
+          setError("Sesi telah berakhir. Silakan login kembali.")
+        } else {
+          setError(err.message || "Gagal mengambil data dashboard")
+        }
         setLoading(false)
       })
   }
