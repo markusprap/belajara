@@ -673,44 +673,71 @@ export default function CourseDetailPage({ params }: PageProps) {
       setSnapToken(response.snap_token)
       setOrderId(response.order_id)
       
-      // Trigger Midtrans Snap in real sandbox if loaded and not a mock token
-      if (typeof window !== "undefined" && (window as any).snap && !response.snap_token.startsWith("mock-")) {
-        (window as any).snap.pay(response.snap_token, {
+      if (typeof window !== "undefined" && !response.snap_token.startsWith("mock-")) {
+        const isSandbox = response.snap_url ? response.snap_url.includes("sandbox") : true;
+        const snapSrc = isSandbox
+          ? "https://app.sandbox.midtrans.com/snap/snap.js"
+          : "https://app.midtrans.com/snap/snap.js";
 
-          onSuccess: async (result: any) => {
-            setPaymentStatus("success")
-            await api.payment.verify(response.order_id, "success")
-            await refreshUser()
-            await fetchCourseData() // Re-fetch course metadata to update enrollmentMode to 'verified'
-            alert("Upgrade premium berhasil! Selamat belajar.")
-            setCheckoutOpen(false)
-          },
-          onPending: () => {
-            setPaymentStatus("pending")
-          },
-          onError: async () => {
-            setPaymentStatus("failed")
-            if (response.order_id) {
-              try {
-                await api.payment.cancelTransaction(response.order_id)
-              } catch (e) {
-                console.warn(e)
+        let snapScript = document.getElementById("midtrans-snap") as HTMLScriptElement | null;
+        if (snapScript && snapScript.src !== snapSrc) {
+          snapScript.remove();
+          snapScript = null;
+        }
+
+        const triggerSnap = () => {
+          if ((window as any).snap) {
+            (window as any).snap.pay(response.snap_token, {
+              onSuccess: async (result: any) => {
+                setPaymentStatus("success")
+                await api.payment.verify(response.order_id, "success")
+                await refreshUser()
+                await fetchCourseData() // Re-fetch course metadata to update enrollmentMode to 'verified'
+                alert("Upgrade premium berhasil! Selamat belajar.")
+                setCheckoutOpen(false)
+              },
+              onPending: () => {
+                setPaymentStatus("pending")
+              },
+              onError: async () => {
+                setPaymentStatus("failed")
+                if (response.order_id) {
+                  try {
+                    await api.payment.cancelTransaction(response.order_id)
+                  } catch (e) {
+                    console.warn(e)
+                  }
+                }
+              },
+              onClose: async () => {
+                console.log("Snap checkout popup closed")
+                setCheckoutOpen(false)
+                setPaymentStatus("idle")
+                if (response.order_id) {
+                  try {
+                    await api.payment.cancelTransaction(response.order_id)
+                  } catch (e) {
+                    console.warn(e)
+                  }
+                }
               }
-            }
-          },
-          onClose: async () => {
-            console.log("Snap checkout popup closed")
-            setCheckoutOpen(false)
-            setPaymentStatus("idle")
-            if (response.order_id) {
-              try {
-                await api.payment.cancelTransaction(response.order_id)
-              } catch (e) {
-                console.warn(e)
-              }
-            }
+            })
           }
-        })
+        };
+
+        if (!snapScript) {
+          const script = document.createElement("script");
+          script.id = "midtrans-snap";
+          script.src = snapSrc;
+          script.setAttribute(
+            "data-client-key",
+            process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
+          );
+          document.body.appendChild(script);
+          script.onload = triggerSnap;
+        } else {
+          triggerSnap();
+        }
       }
     } catch (err) {
       console.error(err)
@@ -1756,6 +1783,7 @@ export default function CourseDetailPage({ params }: PageProps) {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#FAF9FB] font-sans">
       {/* Midtrans Snap script injection */}
       <script
+        id="midtrans-snap"
         src="https://app.sandbox.midtrans.com/snap/snap.js"
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "SB-Mid-client-dummy"}
         async

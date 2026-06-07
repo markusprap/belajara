@@ -198,43 +198,71 @@ export default function CoursePreviewPage({ params }: PageProps) {
       setSnapToken(response.snap_token)
       setOrderId(response.order_id)
       
-      if (typeof window !== "undefined" && (window as any).snap && !response.snap_token.startsWith("mock-")) {
-        (window as any).snap.pay(response.snap_token, {
+      if (typeof window !== "undefined" && !response.snap_token.startsWith("mock-")) {
+        const isSandbox = response.snap_url ? response.snap_url.includes("sandbox") : true;
+        const snapSrc = isSandbox
+          ? "https://app.sandbox.midtrans.com/snap/snap.js"
+          : "https://app.midtrans.com/snap/snap.js";
 
-          onSuccess: async (result: any) => {
-            setPaymentStatus("success")
-            await api.payment.verify(response.order_id, "success")
-            fetchSessionData()
-            alert(`Pendaftaran ${course.title} Kelas Lengkap Berhasil! Selamat belajar.`)
-            setCheckoutOpen(false)
-            router.push(`/courses/${course.code}`)
-          },
-          onPending: () => {
-            setPaymentStatus("pending")
-          },
-          onError: async () => {
-            setPaymentStatus("failed")
-            if (response.order_id) {
-              try {
-                await api.payment.cancelTransaction(response.order_id)
-              } catch (e) {
-                console.warn(e)
+        let snapScript = document.getElementById("midtrans-snap") as HTMLScriptElement | null;
+        if (snapScript && snapScript.src !== snapSrc) {
+          snapScript.remove();
+          snapScript = null;
+        }
+
+        const triggerSnap = () => {
+          if ((window as any).snap) {
+            (window as any).snap.pay(response.snap_token, {
+              onSuccess: async (result: any) => {
+                setPaymentStatus("success")
+                await api.payment.verify(response.order_id, "success")
+                fetchSessionData()
+                alert(`Pendaftaran ${course.title} Kelas Lengkap Berhasil! Selamat belajar.`)
+                setCheckoutOpen(false)
+                router.push(`/courses/${course.code}`)
+              },
+              onPending: () => {
+                setPaymentStatus("pending")
+              },
+              onError: async () => {
+                setPaymentStatus("failed")
+                if (response.order_id) {
+                  try {
+                    await api.payment.cancelTransaction(response.order_id)
+                  } catch (e) {
+                    console.warn(e)
+                  }
+                }
+              },
+              onClose: async () => {
+                console.log("Snap checkout popup closed")
+                setCheckoutOpen(false)
+                setPaymentStatus("idle")
+                if (response.order_id) {
+                  try {
+                    await api.payment.cancelTransaction(response.order_id)
+                  } catch (e) {
+                    console.warn(e)
+                  }
+                }
               }
-            }
-          },
-          onClose: async () => {
-            console.log("Snap checkout popup closed")
-            setCheckoutOpen(false)
-            setPaymentStatus("idle")
-            if (response.order_id) {
-              try {
-                await api.payment.cancelTransaction(response.order_id)
-              } catch (e) {
-                console.warn(e)
-              }
-            }
+            })
           }
-        })
+        };
+
+        if (!snapScript) {
+          const script = document.createElement("script");
+          script.id = "midtrans-snap";
+          script.src = snapSrc;
+          script.setAttribute(
+            "data-client-key",
+            process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
+          );
+          document.body.appendChild(script);
+          script.onload = triggerSnap;
+        } else {
+          triggerSnap();
+        }
       }
     } catch (err: any) {
       console.error(err)

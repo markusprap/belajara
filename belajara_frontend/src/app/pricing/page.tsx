@@ -349,12 +349,22 @@ export default function PricingPage() {
           return;
         }
 
-        // Load Midtrans Snap script
-        const snapScript = document.getElementById("midtrans-snap");
+        // Load Midtrans Snap script dynamically (sandbox vs production)
+        const isSandbox = data.snap_url ? data.snap_url.includes("sandbox") : true;
+        const snapSrc = isSandbox
+          ? "https://app.sandbox.midtrans.com/snap/snap.js"
+          : "https://app.midtrans.com/snap/snap.js";
+
+        let snapScript = document.getElementById("midtrans-snap") as HTMLScriptElement | null;
+        if (snapScript && snapScript.src !== snapSrc) {
+          snapScript.remove();
+          snapScript = null;
+        }
+
         if (!snapScript) {
           const script = document.createElement("script");
           script.id = "midtrans-snap";
-          script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
+          script.src = snapSrc;
           script.setAttribute(
             "data-client-key",
             process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""

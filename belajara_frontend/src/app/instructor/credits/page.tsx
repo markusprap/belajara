@@ -87,44 +87,69 @@ export default function InstructorCreditsPage() {
           }, 1500)
         } else {
           // Launch real sandbox checkout
-          if (typeof window !== "undefined" && (window as any).snap) {
-            (window as any).snap.pay(token, {
-              onSuccess: async (result: any) => {
-                const targetOrderId = response.order_id || result?.order_id
-                try {
-                  await api.payment.verify(targetOrderId, "success")
-                  showToast("success", "Top-up Kredit AI berhasil! Kredit Anda telah ditambahkan.")
-                  fetchData()
-                } catch (e) {
-                  console.error(e)
-                }
-                setIsCheckoutLoading(null)
-              },
-              onPending: () => {
-                showToast("info", "Pembayaran tertunda. Silakan selesaikan pembayaran Anda.")
-                setIsCheckoutLoading(null)
-              },
-              onError: async () => {
-                setError("Pembayaran gagal. Silakan coba lagi.")
-                setIsCheckoutLoading(null)
-                try {
-                  await api.payment.cancelTransaction(response.order_id)
-                } catch (e) {
-                  console.warn(e)
-                }
-              },
-              onClose: async () => {
-                setIsCheckoutLoading(null)
-                try {
-                  await api.payment.cancelTransaction(response.order_id)
-                } catch (e) {
-                  console.warn(e)
-                }
-              },
-            })
+          // Launch real checkout
+          const isSandbox = response.snap_url ? response.snap_url.includes("sandbox") : true;
+          const snapSrc = isSandbox
+            ? "https://app.sandbox.midtrans.com/snap/snap.js"
+            : "https://app.midtrans.com/snap/snap.js";
+
+          let snapScript = document.getElementById("midtrans-snap") as HTMLScriptElement | null;
+          if (snapScript && snapScript.src !== snapSrc) {
+            snapScript.remove();
+            snapScript = null;
+          }
+
+          const triggerSnap = () => {
+            if ((window as any).snap) {
+              (window as any).snap.pay(token, {
+                onSuccess: async (result: any) => {
+                  const targetOrderId = response.order_id || result?.order_id
+                  try {
+                    await api.payment.verify(targetOrderId, "success")
+                    showToast("success", "Top-up Kredit AI berhasil! Kredit Anda telah ditambahkan.")
+                    fetchData()
+                  } catch (e) {
+                    console.error(e)
+                  }
+                  setIsCheckoutLoading(null)
+                },
+                onPending: () => {
+                  showToast("info", "Pembayaran tertunda. Silakan selesaikan pembayaran Anda.")
+                  setIsCheckoutLoading(null)
+                },
+                onError: async () => {
+                  setError("Pembayaran gagal. Silakan coba lagi.")
+                  setIsCheckoutLoading(null)
+                  try {
+                    await api.payment.cancelTransaction(response.order_id)
+                  } catch (e) {
+                    console.warn(e)
+                  }
+                },
+                onClose: async () => {
+                  setIsCheckoutLoading(null)
+                  try {
+                    await api.payment.cancelTransaction(response.order_id)
+                  } catch (e) {
+                    console.warn(e)
+                  }
+                },
+              })
+            }
+          };
+
+          if (!snapScript) {
+            const script = document.createElement("script");
+            script.id = "midtrans-snap";
+            script.src = snapSrc;
+            script.setAttribute(
+              "data-client-key",
+              process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || ""
+            );
+            document.body.appendChild(script);
+            script.onload = triggerSnap;
           } else {
-            setError("Midtrans Snap belum berhasil dimuat. Silakan muat ulang halaman.")
-            setIsCheckoutLoading(null)
+            triggerSnap();
           }
         }
       }
