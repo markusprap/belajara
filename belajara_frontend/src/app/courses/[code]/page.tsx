@@ -40,7 +40,8 @@ import {
   Download,
   Trash2,
   Paperclip,
-  Video
+  Video,
+  Award
 } from "lucide-react"
 import { api, getUser } from "@/lib/api"
 import { MarkdownRenderer } from "@/components/markdown-renderer"
@@ -333,7 +334,10 @@ export default function CourseDetailPage({ params }: PageProps) {
   const activeSubItem = activeSubChapter?.type || "video"
 
   // Layout redesign states
-  const [activeSidebarTab, setActiveSidebarTab] = React.useState<"path" | "learners" | "discuss">("path")
+  const [activeSidebarTab, setActiveSidebarTab] = React.useState<"path" | "learners" | "discuss" | "certificate">("path")
+  const [certificateStatus, setCertificateStatus] = React.useState<"locked" | "not_eligible" | "eligible" | "claimed" | null>(null)
+  const [certificateData, setCertificateData] = React.useState<any>(null)
+  const [certificateLoading, setCertificateLoading] = React.useState<boolean>(false)
   const [activeVideoTab, setActiveVideoTab] = React.useState<"transcript" | "notes" | "resources">("transcript")
   const [videoPlayTime, setVideoPlayTime] = React.useState("1:20")
   const [videoDuration, setVideoDuration] = React.useState("12:40")
@@ -444,6 +448,41 @@ export default function CourseDetailPage({ params }: PageProps) {
       fetchForumData()
     }
   }, [activeSidebarTab, activeSubItem, fetchForumData])
+
+  // Fetch certificate status
+  const fetchCertificateData = React.useCallback(async () => {
+    if (!courseCode) return
+    setCertificateLoading(true)
+    try {
+      const res = await api.courses.getCertificate(courseCode)
+      setCertificateStatus(res.status)
+      setCertificateData(res)
+    } catch (err) {
+      console.error("Failed fetching certificate status", err)
+    } finally {
+      setCertificateLoading(false)
+    }
+  }, [courseCode])
+
+  React.useEffect(() => {
+    if (activeSidebarTab === "certificate") {
+      fetchCertificateData()
+    }
+  }, [activeSidebarTab, fetchCertificateData])
+
+  const handleClaimCertificate = async () => {
+    if (!courseCode) return
+    setCertificateLoading(true)
+    try {
+      const res = await api.courses.claimCertificate(courseCode)
+      setCertificateStatus(res.status)
+      setCertificateData(res)
+    } catch (err: any) {
+      alert(err.message || "Gagal mengklaim sertifikat.")
+    } finally {
+      setCertificateLoading(false)
+    }
+  }
 
   // Helper formatting for timer
   const formatTime = (seconds: number) => {
@@ -765,6 +804,314 @@ export default function CourseDetailPage({ params }: PageProps) {
   }, [course])
 
   const activeIndex = flatSubChapters.findIndex(item => item.id === activeSubChapter?.id)
+
+  const renderCertificateWorkspace = () => {
+    const activeStatus = enrollmentMode === "audit" ? "locked" : certificateStatus
+
+    if (certificateLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <Loader2 className="h-8 w-8 text-[#060708] animate-spin" />
+          <p className="text-xs font-semibold text-muted-foreground">Memproses data sertifikat...</p>
+        </div>
+      )
+    }
+
+    if (activeStatus === "locked") {
+      return (
+        <div className="max-w-2xl mx-auto py-10 px-4">
+          <Card className="border border-[#C6B5BF]/20 bg-white rounded-2xl shadow-md p-10 text-center flex flex-col items-center justify-center relative overflow-hidden">
+            {/* Top accent line */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#060708] via-[#C6B5BF] to-[#CF3A1F]" />
+            
+            <div className="h-20 w-20 bg-[#FAF9FB] text-[#060708] border border-[#C6B5BF]/30 rounded-full flex items-center justify-center mb-6 shadow-xs relative">
+              <Award className="h-10 w-10 text-[#060708]" />
+              <div className="absolute -bottom-1 -right-1 bg-[#CF3A1F] text-white p-1 rounded-full border-2 border-white">
+                <Lock className="h-3 w-3" />
+              </div>
+            </div>
+            
+            <h3 className="font-heading text-2xl font-black text-[#060708] tracking-tight">Sertifikat Kelulusan Resmi</h3>
+            <p className="text-sm text-slate-600 max-w-md mt-3 leading-relaxed font-sans">
+              Anda saat ini terdaftar dalam <strong>Mode Audit (Akses Gratis)</strong>. Dapatkan e-Sertifikat kompetensi resmi dari <strong>Belajara</strong> yang dapat diunduh sebagai PDF dan langsung dibagikan ke profil LinkedIn Anda.
+            </p>
+
+            <div className="w-full max-w-sm mt-8 p-4 bg-[#FAF9FB] border border-slate-200/80 rounded-xl text-left space-y-3 font-sans">
+              <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-[#C6B5BF]">Benefit Kelas Premium:</h4>
+              <ul className="space-y-2 text-xs font-semibold text-slate-700">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Sertifikat kelulusan akademik terverifikasi</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Akses penuh ke semua Evaluasi Kuis AI</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Hak prioritas dalam forum diskusi mahasiswa</span>
+                </li>
+              </ul>
+            </div>
+
+            <Button
+              onClick={handleCheckoutTrigger}
+              className="mt-8 bg-[#060708] hover:bg-[#060708]/90 text-white rounded-xl px-8 py-3 text-xs font-black flex items-center gap-2 cursor-pointer shadow-md transition-all border-none"
+            >
+              <Sparkles className="h-4 w-4 text-[#C6B5BF]" />
+              Upgrade ke Premium & Dapatkan Sertifikat
+            </Button>
+          </Card>
+        </div>
+      )
+    }
+
+    if (activeStatus === "not_eligible") {
+      const progress = certificateData?.progress || { passed_modules_count: 0, total_modules_count: 0, details: [] }
+      const remainingCount = progress.total_modules_count - progress.passed_modules_count
+
+      return (
+        <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+          <Card className="border border-[#C6B5BF]/20 bg-white rounded-2xl shadow-sm p-8 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#CF3A1F]" />
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#CF3A1F] flex items-center gap-1.5">
+                  <AlertTriangle className="h-3 w-3" />
+                  Belum Memenuhi Syarat Kelulusan
+                </span>
+                <h3 className="font-heading text-2xl font-black text-[#060708] tracking-tight">Lengkapi Evaluasi Pembelajaran</h3>
+                <p className="text-xs text-muted-foreground font-sans leading-relaxed max-w-lg">
+                  Anda perlu menyelesaikan seluruh kuis evaluasi di setiap modul dengan nilai minimal <strong>60%</strong> untuk dapat mengklaim sertifikat kelulusan.
+                </p>
+              </div>
+              <div className="bg-[#FAF9FB] border border-slate-100 p-4 rounded-2xl flex flex-col items-center justify-center shrink-0 min-w-[140px] font-sans">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#C6B5BF]">Kuis Selesai</span>
+                <span className="text-3xl font-black text-[#060708] mt-1">
+                  {progress.passed_modules_count}/{progress.total_modules_count}
+                </span>
+                <span className="text-[9px] text-muted-foreground font-semibold mt-1">
+                  Sisa {remainingCount} kuis lagi
+                </span>
+              </div>
+            </div>
+
+            {/* Custom elegant progress bar */}
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-6">
+              <div 
+                className="bg-[#060708] h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progress.total_modules_count > 0 ? (progress.passed_modules_count / progress.total_modules_count) * 100 : 0}%` }}
+              />
+            </div>
+          </Card>
+
+          <div className="space-y-3 font-sans">
+            <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Daftar Kelulusan Modul</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {progress.details?.map((detail: any, idx: number) => (
+                <div 
+                  key={idx} 
+                  className={`p-4 rounded-xl border flex items-center justify-between bg-white shadow-3xs transition-all ${
+                    detail.quiz_passed 
+                      ? "border-emerald-100 bg-emerald-50/10" 
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-slate-800 line-clamp-1">{detail.module_title}</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider ${detail.quiz_passed ? "text-emerald-700" : "text-slate-400"}`}>
+                      {detail.quiz_passed ? "Lulus Kuis" : "Belum Lulus / Selesai"}
+                    </span>
+                  </div>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${detail.quiz_passed ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
+                    {detail.quiz_passed ? <Check className="h-4 w-4" /> : <Lock className="h-3.5 w-3.5" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (activeStatus === "eligible") {
+      return (
+        <div className="max-w-2xl mx-auto py-10 px-4">
+          <Card className="border border-[#C6B5BF]/30 bg-white rounded-2xl shadow-md p-10 text-center flex flex-col items-center justify-center relative overflow-hidden">
+            {/* Celebration backdrop lines */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-50/30 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-[#060708] to-amber-500" />
+            
+            <div className="h-20 w-20 bg-amber-50 text-amber-700 border border-amber-200 rounded-full flex items-center justify-center mb-6 shadow-xs animate-bounce relative">
+              <Award className="h-10 w-10" />
+            </div>
+            
+            <h3 className="font-heading text-2xl font-black text-[#060708] tracking-tight">Selamat! Anda Lulus Evaluasi</h3>
+            <p className="text-sm text-slate-600 max-w-md mt-3 leading-relaxed font-sans">
+              Anda telah berhasil menyelesaikan seluruh modul dan lulus semua kuis kompetensi di kelas <strong>"{course?.title}"</strong> dengan hasil sangat memuaskan.
+            </p>
+
+            <p className="text-xs text-muted-foreground max-w-sm mt-2 leading-relaxed font-sans">
+              Tekan tombol di bawah untuk menerbitkan e-Sertifikat kelulusan resmi Anda secara instan.
+            </p>
+
+            <Button
+              onClick={handleClaimCertificate}
+              className="mt-8 bg-gradient-to-r from-[#060708] to-slate-800 hover:from-slate-900 hover:to-slate-700 text-white rounded-xl px-10 py-3.5 text-xs font-black flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-xl transition-all scale-100 hover:scale-[1.02] active:scale-[0.98] border-none"
+            >
+              <Award className="h-4 w-4 text-amber-400 animate-pulse" />
+              Klaim Sertifikat Kelulusan
+            </Button>
+          </Card>
+        </div>
+      )
+    }
+
+    if (activeStatus === "claimed") {
+      const cert = certificateData?.certificate || {}
+      const formattedDate = cert.issued_at 
+        ? new Date(cert.issued_at).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })
+        : new Date().toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })
+      
+      const shareText = `Saya baru saja menyelesaikan kelas "${cert.course_title || course?.title}" di Belajara dan memperoleh Sertifikat Kompetensi Kelulusan Akademik! ID: ${cert.certificate_id}`
+      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent("https://belajara.id/verify/" + cert.certificate_id)}&summary=${encodeURIComponent(shareText)}`
+
+      return (
+        <div className="max-w-4xl mx-auto py-6 px-4 space-y-8 print:p-0 print:my-0">
+          {/* Print styles */}
+          <style>{`
+            @media print {
+              body {
+                background: white !important;
+                color: black !important;
+              }
+              header, aside, footer, nav, button, .print\\:hidden {
+                display: none !important;
+              }
+              main {
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+              }
+              .print-section {
+                border: 2px solid #C6B5BF !important;
+                box-shadow: none !important;
+                position: absolute !important;
+                left: 50% !important;
+                top: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                width: 90% !important;
+                max-width: 800px !important;
+                height: auto !important;
+                aspect-ratio: 1.414/1 !important;
+                visibility: visible !important;
+                display: flex !important;
+              }
+            }
+          `}</style>
+
+          {/* Certificate display wrapper */}
+          <div className="print-section bg-white border border-[#C6B5BF]/40 rounded-2xl shadow-xl p-8 md:p-14 text-center relative overflow-hidden max-w-3xl mx-auto aspect-[1.414/1] flex flex-col justify-between select-none print:shadow-none print:border-none print:rounded-none print:p-8 print:w-full print:h-full print:aspect-auto">
+            {/* Top/Bottom Certificate Borders */}
+            <div className="absolute inset-4 border border-[#C6B5BF]/20 pointer-events-none" />
+            <div className="absolute inset-5 border-2 border-double border-[#C6B5BF]/40 pointer-events-none" />
+            
+            {/* Ornamental Corners */}
+            <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-[#C6B5BF] pointer-events-none" />
+            <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-[#C6B5BF] pointer-events-none" />
+            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-[#C6B5BF] pointer-events-none" />
+            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-[#C6B5BF] pointer-events-none" />
+
+            {/* Header */}
+            <div className="space-y-1 mt-4">
+              <span className="text-[10px] font-sans font-extrabold uppercase tracking-[0.25em] text-[#C6B5BF]">
+                Belajara Academic Board
+              </span>
+              <h2 className="text-xl md:text-2xl font-heading font-black tracking-tight text-[#060708] mt-2">
+                CERTIFICATE OF COMPLETION
+              </h2>
+              <div className="w-20 h-0.5 bg-[#C6B5BF] mx-auto mt-3" />
+            </div>
+
+            {/* Recipient */}
+            <div className="space-y-3 my-6">
+              <span className="text-[10px] font-sans font-semibold italic text-slate-500">
+                Diberikan secara resmi kepada mahasiswa:
+              </span>
+              <h1 className="text-2xl md:text-4xl font-heading font-black tracking-wide text-[#060708] border-b border-slate-200 pb-2 max-w-lg mx-auto leading-normal">
+                {cert.student_name}
+              </h1>
+              <p className="text-xs md:text-sm font-sans font-medium text-slate-600 max-w-md mx-auto leading-relaxed mt-2">
+                Atas keberhasilan menyelesaikan kurikulum mata kuliah akademik terverifikasi secara penuh pada program studi <strong>{course?.department}</strong>
+              </p>
+            </div>
+
+            {/* Course Title */}
+            <div className="my-2">
+              <h3 className="text-lg md:text-xl font-heading font-black text-[#CF3A1F] uppercase tracking-wide">
+                {cert.course_title || course?.title}
+              </h3>
+              <p className="text-[10px] font-sans font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                Kredensial SKS Resmi Belajara
+              </p>
+            </div>
+
+            {/* Signatures & Footer metadata */}
+            <div className="flex flex-row items-end justify-between mt-8 px-4 font-sans">
+              <div className="text-left space-y-1">
+                <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-widest">Nomor Sertifikat</span>
+                <span className="text-[10px] font-mono font-bold text-[#060708]">{cert.certificate_id}</span>
+                <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-widest mt-2">Tanggal Terbit</span>
+                <span className="text-[10px] font-bold text-[#060708]">{formattedDate}</span>
+              </div>
+              
+              <div className="relative pb-2 flex flex-col items-center">
+                {/* Decorative Signature */}
+                <span className="font-serif italic text-sm text-slate-500 absolute -top-5 font-bold tracking-widest">Tony Stark</span>
+                <div className="w-24 h-px bg-slate-300 mt-2" />
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1 block">Tony Stark</span>
+                <span className="text-[8px] text-slate-300 font-bold block">Certified Software Trainer</span>
+              </div>
+              
+              <div className="relative pb-2 flex flex-col items-center">
+                {/* Decorative Academic Seal */}
+                <div className="h-10 w-10 border border-dashed border-[#C6B5BF] rounded-full flex items-center justify-center absolute -top-9 bg-white shadow-3xs">
+                  <span className="text-[6px] font-black text-slate-400 font-heading">SEAL</span>
+                </div>
+                <div className="w-24 h-px bg-slate-300 mt-2" />
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1 block">Academic Board</span>
+                <span className="text-[8px] text-slate-300 font-bold block">Belajara Indonesia</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons (hidden on print) */}
+          <div className="flex flex-wrap items-center justify-center gap-3 print:hidden">
+            <Button
+              onClick={() => window.print()}
+              className="bg-[#060708] hover:bg-[#060708]/90 text-white rounded-xl px-6 py-2.5 text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm border-none"
+            >
+              <Download className="h-4 w-4 text-[#C6B5BF]" />
+              Cetak / Unduh PDF
+            </Button>
+            <a
+              href={linkedInUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-[#0077B5] hover:bg-[#0077B5]/90 text-white rounded-xl px-6 py-2.5 text-xs font-bold cursor-pointer shadow-sm no-underline"
+            >
+              <Users className="h-4 w-4" />
+              Bagikan ke LinkedIn
+            </a>
+          </div>
+        </div>
+      )
+    }
+
+    return null
+  }
 
   // Layout Redesign Render Helpers
   const renderPremiumLocked = () => (
@@ -1459,6 +1806,10 @@ export default function CourseDetailPage({ params }: PageProps) {
   )
 
   const renderMainContent = () => {
+    if (activeSidebarTab === "certificate") {
+      return renderCertificateWorkspace()
+    }
+
     if (activeSidebarTab === "discuss") {
       if (isCreatingPost) {
         return renderForumCreatePost()
@@ -1653,6 +2004,20 @@ export default function CourseDetailPage({ params }: PageProps) {
                 >
                   Discuss
                   {activeSidebarTab === "discuss" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7F56D9]" />
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveSidebarTab("certificate")
+                    setIsCreatingPost(false)
+                  }}
+                  className={`flex-1 py-3 text-center text-xs font-bold transition-all relative border-none bg-transparent cursor-pointer ${
+                    activeSidebarTab === "certificate" ? "text-[#7F56D9]" : "text-muted-foreground hover:text-primary"
+                  }`}
+                >
+                  Sertifikat
+                  {activeSidebarTab === "certificate" && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7F56D9]" />
                   )}
                 </button>
@@ -1881,6 +2246,37 @@ export default function CourseDetailPage({ params }: PageProps) {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeSidebarTab === "certificate" && (
+                  <div className="p-4 space-y-3 font-sans">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
+                      Status Sertifikasi
+                    </span>
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-2.5">
+                      <Award className="h-5 w-5 text-[#C6B5BF] shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <span className="text-xs font-bold text-slate-800">
+                          {enrollmentMode === "audit" 
+                            ? "Terkunci (Audit)" 
+                            : certificateStatus === "claimed" 
+                            ? "Telah Diklaim" 
+                            : certificateStatus === "eligible" 
+                            ? "Siap Diklaim" 
+                            : "Belum Memenuhi Syarat"}
+                        </span>
+                        <p className="text-[10px] text-muted-foreground leading-normal font-medium mt-0.5">
+                          {enrollmentMode === "audit" 
+                            ? "Upgrade ke Premium untuk memperoleh sertifikat kelulusan resmi." 
+                            : certificateStatus === "claimed" 
+                            ? "Sertifikat kompetensi Anda telah berhasil diterbitkan." 
+                            : certificateStatus === "eligible" 
+                            ? "Semua kuis lulus! Silakan lakukan klaim di layar utama." 
+                            : "Selesaikan seluruh kuis evaluasi dengan skor ≥ 60%."}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

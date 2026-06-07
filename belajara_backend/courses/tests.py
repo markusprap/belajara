@@ -339,3 +339,114 @@ class TestSubChapterCRUD:
         resp = api_client.delete(f'/api/subchapters/{sub.pk}/manage/')
         assert resp.status_code == status.HTTP_403_FORBIDDEN
 
+
+class TestCourseCertificate:
+    """GET /api/courses/<code>/certificate/ and POST /api/courses/<code>/claim-certificate/"""
+
+    @pytest.fixture
+    def enrollment_audit(self, db, student_user, sample_course):
+        from users.models import Mahasiswa
+        from courses.models import Enrollment
+        mahasiswa = Mahasiswa.objects.create(
+            user=student_user,
+            nim='12345',
+            jurusan='Informatika',
+            universitas='UI',
+            semester=3
+        )
+        return Enrollment.objects.create(
+            mahasiswa=mahasiswa,
+            course=sample_course,
+            mode='audit'
+        )
+
+    @pytest.fixture
+    def enrollment_verified(self, db, student_user, sample_course):
+        from users.models import Mahasiswa
+        from courses.models import Enrollment
+        mahasiswa = Mahasiswa.objects.create(
+            user=student_user,
+            nim='12345',
+            jurusan='Informatika',
+            universitas='UI',
+            semester=3
+        )
+        return Enrollment.objects.create(
+            mahasiswa=mahasiswa,
+            course=sample_course,
+            mode='verified'
+        )
+
+    def test_unauthenticated_cannot_access_certificate(self, api_client, sample_course):
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_audit_user_cannot_claim_certificate(self, api_client, student_user, sample_course, enrollment_audit):
+        token = get_token(api_client, 'student_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        
+        # GET certificate status
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data['status'] == 'locked'
+
+        # POST claim certificate should be 403 Forbidden for audit
+        resp = api_client.post(f'/api/courses/{sample_course.code}/claim-certificate/')
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_verified_user_not_eligible_cannot_claim(self, api_client, student_user, sample_course, enrollment_verified):
+        # Create a module and a quiz for the course
+        module = CourseModule.objects.create(course=sample_course, title='Modul 1', order=1)
+        from quizzes.models import Quiz
+        quiz = Quiz.objects.create(module=module, questions_json=[{"question": "1+1?", "correct_answer": "2"}])
+
+        token = get_token(api_client, 'student_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        # GET status - should be not_eligible
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data['status'] == 'not_eligible'
+
+        # POST claim - should return 400 Bad Request
+        resp = api_client.post(f'/api/courses/{sample_course.code}/claim-certificate/')
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_verified_user_eligible_can_claim_and_view(self, api_client, student_user, sample_course, enrollment_verified):
+        # Create a module and a quiz for the course
+        module = CourseModule.objects.create(course=sample_course, title='Modul 1', order=1)
+        from quizzes.models import Quiz, QuizSubmission
+        quiz = Quiz.objects.create(module=module, questions_json=[{"question": "1+1?", "correct_answer": "2"}])
+        
+        # Create passed quiz submission
+        from users.models import Mahasiswa
+        mahasiswa = Mahasiswa.objects.get(user=student_user)
+        QuizSubmission.objects.create(
+            mahasiswa=mahasiswa,
+            quiz=quiz,
+            answers_json={"0": "2"},
+            score=100.0,
+            passed=True
+        )
+
+        token = get_token(api_client, 'student_test', 'testpass123')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        # GET status - should be eligible
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data['status'] == 'eligible'
+
+        # POST claim - should succeed (201 Created)
+        resp = api_client.post(f'/api/courses/{sample_course.code}/claim-certificate/')
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert resp.data['status'] == 'claimed'
+        assert 'certificate_id' in resp.data['certificate']
+
+        # GET status again - should return claimed
+        resp = api_client.get(f'/api/courses/{sample_course.code}/certificate/')
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data['status'] == 'claimed'
+        assert resp.data['certificate']['student_name'] == 'student_test'
+
+

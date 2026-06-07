@@ -529,7 +529,25 @@ export const api = {
           ]
         };
       }
-    }
+    },
+    getCertificate: async (code: string) => {
+      try {
+        return await request(`/courses/${code}/certificate/`);
+      } catch (err) {
+        console.warn("Failed fetching certificate, using mock:", err);
+        return mockGetCertificate(code);
+      }
+    },
+    claimCertificate: async (code: string) => {
+      try {
+        return await request(`/courses/${code}/claim-certificate/`, {
+          method: "POST",
+        });
+      } catch (err) {
+        console.warn("Failed claiming certificate, using mock:", err);
+        return mockClaimCertificate(code);
+      }
+    },
   },
 
   quizzes: {
@@ -1228,3 +1246,65 @@ function mockGetStatus(curriculumId: number) {
     recommendations: session.status === "success" ? getMockRecommendations(group.key) : null
   };
 }
+
+function mockGetCertificate(code: string) {
+  const user = getUser();
+  const username = user?.username || "student";
+  const key = `belajara_certificate_${username}_${code}`;
+  const saved = localStorage.getItem(key);
+  if (saved) {
+    return {
+      status: "claimed",
+      certificate: JSON.parse(saved)
+    };
+  }
+
+  // Check progress
+  const progressKey = `belajara_completed_subchapters_${username}_${code}`;
+  const progressSaved = localStorage.getItem(progressKey);
+  const completed = progressSaved ? JSON.parse(progressSaved) : [];
+  
+  // A course mock has 4 modules in Matematika Diskrit (code IF101) or Struktur Data (code IF102)
+  const passedQuizzes = completed.filter((id: string) => id.includes("sub4")).length;
+  const totalQuizzes = 4;
+
+  const isEligible = passedQuizzes >= totalQuizzes;
+  
+  return {
+    status: isEligible ? "eligible" : "not_eligible",
+    detail: isEligible ? "Anda berhak mengklaim sertifikat!" : "Selesaikan seluruh kuis evaluasi dengan nilai minimal 60%.",
+    progress: {
+      passed_modules_count: passedQuizzes,
+      total_modules_count: totalQuizzes,
+      details: Array.from({ length: totalQuizzes }, (_, i) => ({
+        module_id: i + 1,
+        module_title: `Modul ${i + 1}`,
+        quiz_passed: passedQuizzes > i
+      }))
+    }
+  };
+}
+
+function mockClaimCertificate(code: string) {
+  const user = getUser();
+  const username = user?.username || "student";
+  const fullName = user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : "";
+  const studentName = fullName || username;
+  
+  const certId = `CERT-${code}-${user?.nim || "12345"}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  const certificate = {
+    certificate_id: certId,
+    issued_at: new Date().toISOString(),
+    student_name: studentName,
+    course_title: code === "IF101" ? "Matematika Diskrit" : "Struktur Data & Algoritma"
+  };
+
+  const key = `belajara_certificate_${username}_${code}`;
+  localStorage.setItem(key, JSON.stringify(certificate));
+
+  return {
+    status: "claimed",
+    certificate
+  };
+}
+

@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db.models import Q
 from users.models import Mahasiswa
-from .models import Course, CourseModule
+from .models import Course, CourseModule, Enrollment, Certificate
 from .serializers import CourseSerializer, CourseModuleSerializer
 from .permissions import IsInstructor
 
@@ -350,3 +350,176 @@ class MaterialAIGenerateView(APIView):
                 {"detail": f"Gagal menghasilkan materi: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class CourseCertificateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, code):
+        try:
+            course = Course.objects.prefetch_related('modules').get(code=code)
+        except Course.DoesNotExist:
+            return Response({"detail": "Mata kuliah tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            from users.selectors import get_mahasiswa_by_user
+            mahasiswa = get_mahasiswa_by_user(user=request.user)
+        except Exception:
+            return Response({"detail": "Hanya mahasiswa yang dapat mengakses sertifikat."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            enrollment = Enrollment.objects.get(mahasiswa=mahasiswa, course=course)
+        except Enrollment.DoesNotExist:
+            return Response({"detail": "Anda belum terdaftar di kelas ini."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Check if already claimed
+        certificate = Certificate.objects.filter(mahasiswa=mahasiswa, course=course).first()
+        if certificate:
+            return Response({
+                "status": "claimed",
+                "certificate": {
+                    "certificate_id": certificate.certificate_id,
+                    "issued_at": certificate.issued_at,
+                    "student_name": request.user.get_full_name() or request.user.username,
+                    "course_title": course.title
+                }
+            }, status=status.HTTP_200_OK)
+
+        # 2. Check if in audit mode
+        if enrollment.mode == 'audit':
+            return Response({
+                "status": "locked",
+                "detail": "Sertifikat hanya tersedia untuk Kelas Terverifikasi (Premium)."
+            }, status=status.HTTP_200_OK)
+
+        # 3. Calculate quiz progress eligibility
+        modules = course.modules.all()
+        if not modules.exists():
+            return Response({
+                "status": "not_eligible",
+                "detail": "Kelas ini belum memiliki modul.",
+                "progress": {
+                    "passed_modules_count": 0,
+                    "total_modules_count": 0,
+                    "details": []
+                }
+            }, status=status.HTTP_200_OK)
+
+        total_modules_count = modules.count()
+        passed_modules_count = 0
+        details = []
+
+        from quizzes.models import Quiz
+        for m in modules:
+            quizzes = m.quizzes.all()
+            if not quizzes.exists():
+                # No quiz means auto-passed for this module
+                passed = True
+            else:
+                # Must have passed at least one quiz in this module
+                passed = False
+                for q in quizzes:
+                    if q.submissions.filter(mahasiswa=mahasiswa, passed=True).exists():
+                        passed = True
+                        break
+            if passed:
+                passed_modules_count += 1
+            
+            details.append({
+                "module_id": m.id,
+                "module_title": m.title,
+                "quiz_passed": passed
+            })
+
+        is_eligible = (passed_modules_count == total_modules_count)
+        
+        return Response({
+            "status": "eligible" if is_eligible else "not_eligible",
+            "detail": "Anda berhak mengklaim sertifikat!" if is_eligible else "Selesaikan seluruh kuis evaluasi dengan nilai minimal 60%.",
+            "progress": {
+                "passed_modules_count": passed_modules_count,
+                "total_modules_count": total_modules_count,
+                "details": details
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class CourseClaimCertificateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, code):
+        try:
+            course = Course.objects.prefetch_related('modules').get(code=code)
+        except Course.DoesNotExist:
+            return Response({"detail": "Mata kuliah tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            from users.selectors import get_mahasiswa_by_user
+            mahasiswa = get_mahasiswa_by_user(user=request.user)
+        except Exception:
+            return Response({"detail": "Hanya mahasiswa yang dapat mengklaim sertifikat."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            enrollment = Enrollment.objects.get(mahasiswa=mahasiswa, course=course)
+        except Enrollment.DoesNotExist:
+            return Response({"detail": "Anda belum terdaftar di kelas ini."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Check if already claimed
+        existing = Certificate.objects.filter(mahasiswa=mahasiswa, course=course).first()
+        if existing:
+            return Response({
+                "status": "claimed",
+                "certificate": {
+                    "certificate_id": existing.certificate_id,
+                    "issued_at": existing.issued_at,
+                    "student_name": request.user.get_full_name() or request.user.username,
+                    "course_title": course.title
+                }
+            }, status=status.HTTP_200_OK)
+
+        # 2. Check if in audit mode
+        if enrollment.mode == 'audit':
+            return Response({"detail": "Sertifikat hanya tersedia untuk Kelas Terverifikasi (Premium)."}, status=status.HTTP_403_FORBIDDEN)
+
+        # 3. Verify eligibility
+        modules = course.modules.all()
+        if not modules.exists():
+            return Response({"detail": "Kelas ini belum memiliki modul."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from quizzes.models import Quiz
+        for m in modules:
+            quizzes = m.quizzes.all()
+            if quizzes.exists():
+                passed = False
+                for q in quizzes:
+                    if q.submissions.filter(mahasiswa=mahasiswa, passed=True).exists():
+                        passed = True
+                        break
+                if not passed:
+                    return Response({"detail": f"Anda belum menyelesaikan atau lulus evaluasi untuk {m.title}."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 4. Generate unique ID
+        import uuid
+        random_hex = uuid.uuid4().hex[:6].upper()
+        clean_nim = mahasiswa.nim or "STUDENT"
+        cert_id = f"CERT-{course.code}-{clean_nim}-{random_hex}"
+
+        certificate = Certificate.objects.create(
+            mahasiswa=mahasiswa,
+            course=course,
+            certificate_id=cert_id
+        )
+
+        # Mark enrollment completed
+        enrollment.status = 'completed'
+        enrollment.save()
+
+        return Response({
+            "status": "claimed",
+            "certificate": {
+                "certificate_id": certificate.certificate_id,
+                "issued_at": certificate.issued_at,
+                "student_name": request.user.get_full_name() or request.user.username,
+                "course_title": course.title
+            }
+        }, status=status.HTTP_201_CREATED)

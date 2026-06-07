@@ -11,6 +11,7 @@ from courses.views import (
     ModuleCreateView, ModuleUpdateDeleteView,
     SubChapterCreateView, SubChapterUpdateDeleteView,
     MaterialAIGenerateView,
+    CourseCertificateView, CourseClaimCertificateView,
 )
 from explore.views import PDFAnalyzeView, CurriculumUploadView, AIRecommendationStatusView
 
@@ -33,6 +34,8 @@ urlpatterns = [
     # Instructor CRUD endpoints
     path('api/courses/create/', CourseCreateView.as_view(), name='course-create'),
     path('api/courses/<str:code>/', CourseDetailView.as_view(), name='course-detail'),
+    path('api/courses/<str:code>/certificate/', CourseCertificateView.as_view(), name='course-certificate'),
+    path('api/courses/<str:code>/claim-certificate/', CourseClaimCertificateView.as_view(), name='course-claim-certificate'),
     path('api/courses/<str:code>/manage/', CourseUpdateDeleteView.as_view(), name='course-manage'),
     path('api/courses/<str:code>/modules/create/', ModuleCreateView.as_view(), name='module-create'),
     path('api/modules/<int:pk>/manage/', ModuleUpdateDeleteView.as_view(), name='module-manage'),

@@ -68,3 +68,14 @@ class SubChapter(models.Model):
         return f"{self.module.title} - S{self.order}: {self.title} ({self.type})"
 
 
+class Certificate(models.Model):
+    mahasiswa = models.ForeignKey('users.Mahasiswa', on_delete=models.CASCADE, related_name='certificates')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='certificates')
+    certificate_id = models.CharField(max_length=100, unique=True)
+    issued_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Certificate for {self.mahasiswa.user.username} - {self.course.code} ({self.certificate_id})"
+
+
+
