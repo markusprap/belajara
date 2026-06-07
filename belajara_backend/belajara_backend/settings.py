@@ -31,12 +31,17 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-fallback-key-d
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,*.hf.space').split(',')
 
 # HTTPS Proxy and Secure Cookie settings for Production
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', 'https://*.hf.space,https://*.vercel.app').split(',')
+
+# Security Headers for Google OAuth compatibility
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 
 # Application definition
@@ -191,9 +196,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3001",
     "https://belajara.vercel.app",
     "https://belajara-frontend.vercel.app",
+    "https://belajara.id",
+    "https://markusprap-belajara-backend.hf.space",
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
+    r"^https://.*\.belajara\.id$",
+    r"^https://.*\.hf\.space$",
 ]
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOW_CREDENTIALS = True
@@ -243,10 +252,7 @@ REST_FRAMEWORK = {
     ),
 }
 
-GOOGLE_OAUTH_CLIENT_ID = os.environ.get(
-    'GOOGLE_OAUTH_CLIENT_ID',
-    '1051932175490-ir0vmmo1bb290nk73n5kn6tvcvf29b6i.apps.googleusercontent.com',
-)
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID') or os.environ.get('GOOGLE_CLIENT_ID') or '1051932175490-ir0vmmo1bb290nk73n5kn6tvcvf29b6i.apps.googleusercontent.com'
 
 from datetime import timedelta
 SIMPLE_JWT = {

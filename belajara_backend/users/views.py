@@ -179,14 +179,18 @@ class GoogleOAuthView(APIView):
                 from google.auth.transport import requests as google_requests
                 from google.oauth2 import id_token
 
+                # Log verification attempt (safe fields only)
+                print(f"DEBUG: Verifying Google Token for email: {email} with CID: {settings.GOOGLE_OAUTH_CLIENT_ID[:10]}...")
+
                 payload = id_token.verify_oauth2_token(
                     credential,
                     google_requests.Request(),
                     settings.GOOGLE_OAUTH_CLIENT_ID,
                 )
-            except Exception:
+            except Exception as e:
+                print(f"DEBUG: Google Token Verification Failed: {str(e)}")
                 return Response(
-                    {"detail": "Token Google tidak valid."},
+                    {"detail": f"Token Google tidak valid: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -209,6 +213,10 @@ class GoogleOAuthView(APIView):
         # Try to find user with this email
         try:
             user = User.objects.get(email=email)
+            # Ensure user is active if logging in via Google
+            if not user.is_active:
+                user.is_active = True
+                user.save()
         except User.DoesNotExist:
             # Create user since they don't exist
             username = email.split('@')[0]
@@ -231,7 +239,8 @@ class GoogleOAuthView(APIView):
                     last_name=last_name,
                     is_instructor=True,
                     is_mahasiswa=False,
-                    is_onboarded=False
+                    is_onboarded=False,
+                    is_active=True  # Ensure active
                 )
                 
                 # Generate random NIDN
@@ -254,7 +263,8 @@ class GoogleOAuthView(APIView):
                     last_name=last_name,
                     is_mahasiswa=True,
                     is_instructor=False,
-                    is_onboarded=False
+                    is_onboarded=False,
+                    is_active=True  # Ensure active
                 )
 
                 # Generate random NIM
