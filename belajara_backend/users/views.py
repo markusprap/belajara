@@ -38,6 +38,7 @@ class RegisterView(APIView):
             cache.set(f"email_verify_code_{user.email}", code, timeout=86400)
             
             # Send verification email via Resend SMTP
+            email_sent = True
             try:
                 send_mail(
                     subject="Verifikasi Email Akun Belajara Anda",
@@ -47,6 +48,7 @@ class RegisterView(APIView):
                     fail_silently=False,
                 )
             except Exception as e:
+                email_sent = False
                 print(f"FAILED TO SEND VERIFICATION EMAIL TO {user.email}: {e}")
 
             # Print code to terminal for easy manual testing
@@ -58,7 +60,7 @@ class RegisterView(APIView):
                 "message": "Registrasi berhasil. Silakan cek email Anda untuk kode verifikasi.",
                 "email": user.email,
             }
-            if settings.DEBUG:
+            if settings.DEBUG or not email_sent:
                 response_data["code_sandbox"] = code
 
             return Response(response_data, status=status.HTTP_201_CREATED)
@@ -526,6 +528,7 @@ class ForgotPasswordView(APIView):
         cache.set(f"reset_code_{email}", code, timeout=600)
         
         # Send reset email via Resend SMTP
+        email_sent = True
         try:
             send_mail(
                 subject="Reset Password Akun Belajara Anda",
@@ -535,6 +538,7 @@ class ForgotPasswordView(APIView):
                 fail_silently=False,
             )
         except Exception as e:
+            email_sent = False
             print(f"FAILED TO SEND RESET PASSWORD EMAIL TO {email}: {e}")
 
         # Print to terminal for testing
@@ -543,7 +547,7 @@ class ForgotPasswordView(APIView):
         print(f"========================================")
         
         response_data = {"detail": "Kode verifikasi telah dikirim ke email Anda."}
-        if settings.DEBUG:
+        if settings.DEBUG or not email_sent:
             response_data["code_sandbox"] = code
             
         return Response(response_data, status=status.HTTP_200_OK)
