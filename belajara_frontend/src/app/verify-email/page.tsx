@@ -168,16 +168,7 @@ export default function VerifyEmailPage() {
                   </div>
                 )}
 
-                {sandboxCode && (
-                  <div className="p-3 bg-amber-50 text-amber-800 text-xs rounded-lg border border-amber-200 space-y-1">
-                    <div className="font-bold flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-900">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-600" /> Testing Sandbox Mode
-                    </div>
-                    <p className="text-[10px] leading-relaxed">
-                      Kode verifikasi Anda adalah: <strong className="font-mono text-xs text-amber-950 bg-amber-100/60 px-1.5 py-0.5 rounded border border-amber-200">{sandboxCode}</strong>.
-                    </p>
-                  </div>
-                )}
+
 
                 <div className="space-y-2">
                   <Label htmlFor="code" className="text-xs font-semibold text-primary">Kode Verifikasi (6 Digit)</Label>
