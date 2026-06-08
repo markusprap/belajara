@@ -67,7 +67,21 @@ async function request(endpoint: string, options: RequestInit = {}): Promise<any
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.detail || errData.message || "Request failed");
+    let errMsg = errData.detail || errData.message;
+    if (!errMsg && typeof errData === "object" && errData !== null) {
+      const errors: string[] = [];
+      for (const [key, val] of Object.entries(errData)) {
+        if (Array.isArray(val)) {
+          errors.push(`${key}: ${val.join(", ")}`);
+        } else if (typeof val === "string") {
+          errors.push(`${key}: ${val}`);
+        }
+      }
+      if (errors.length > 0) {
+        errMsg = errors.join(" | ");
+      }
+    }
+    throw new Error(errMsg || "Request failed");
   }
 
   return response.json();
