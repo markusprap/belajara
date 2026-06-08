@@ -54,3 +54,6 @@ belajara_backend/staticfiles/
 # Subagent state
 .agents/
 
+# Agent configuration files and tasks (local-only)
+GEMINI.md
+tasks/
