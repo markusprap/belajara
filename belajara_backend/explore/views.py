@@ -128,7 +128,15 @@ class AIRecommendationStatusView(APIView):
 
         response_data = []
         codes = [item.get("code") for item in course_matches if item.get("code")]
-        courses = Course.objects.filter(code__in=codes).prefetch_related('modules__subchapters')
+        from django.db.models import Prefetch
+        from courses.models import CourseModule
+        from courses.views import annotate_course_queryset
+
+        courses = Course.objects.filter(code__in=codes)
+        courses = annotate_course_queryset(courses)
+        courses = courses.prefetch_related(
+            Prefetch('modules', queryset=CourseModule.objects.select_related('course').prefetch_related('subchapters'))
+        )
         course_map = {c.code: c for c in courses}
 
         for item in course_matches:
@@ -202,7 +210,17 @@ class CurriculumUploadView(APIView):
                     description=f"Parse kurikulum AI: {uploaded_file.name}"
                 )
 
-            serializer = CourseSerializer(saved_courses, many=True)
+            from django.db.models import Prefetch
+            from courses.models import CourseModule
+            from courses.views import annotate_course_queryset
+
+            saved_ids = [c.id for c in saved_courses]
+            courses_qs = Course.objects.filter(id__in=saved_ids)
+            courses_qs = annotate_course_queryset(courses_qs)
+            courses_qs = courses_qs.prefetch_related(
+                Prefetch('modules', queryset=CourseModule.objects.select_related('course').prefetch_related('subchapters'))
+            )
+            serializer = CourseSerializer(courses_qs, many=True)
             return Response({
                 "message": f"Berhasil memuat {len(saved_courses)} mata kuliah dari kurikulum.",
                 "courses": serializer.data

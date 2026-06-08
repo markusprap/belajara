@@ -201,7 +201,7 @@ class ModuleQuizListView(APIView):
         if module.course.is_premium and not request.user.is_premium:
             return Response({"detail": "Evaluasi modul premium ini hanya dapat diakses oleh pengguna premium."}, status=status.HTTP_403_FORBIDDEN)
 
-        quizzes = Quiz.objects.filter(module=module)
+        quizzes = Quiz.objects.filter(module=module).select_related('module')
         
         # Determine serializer based on role
         is_instructor = not getattr(request.user, 'is_mahasiswa', False)

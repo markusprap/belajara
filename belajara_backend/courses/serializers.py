@@ -139,9 +139,13 @@ class CourseSerializer(serializers.ModelSerializer):
         ]
 
     def get_enrollment_count(self, obj):
+        if hasattr(obj, 'annotated_enrollment_count'):
+            return obj.annotated_enrollment_count
         return obj.enrollments.count()
 
     def get_completion_rate(self, obj):
+        if hasattr(obj, 'annotated_completion_rate'):
+            return round(obj.annotated_completion_rate)
         total = obj.enrollments.count()
         if total == 0:
             return 0

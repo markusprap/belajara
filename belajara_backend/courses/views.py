@@ -2,11 +2,25 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.db.models import Q
+from django.db.models import Q, Prefetch, Count, Case, When, Value, FloatField
+from django.db.models.functions import Cast
 from users.models import Mahasiswa
 from .models import Course, CourseModule, Enrollment, Certificate
 from .serializers import CourseSerializer, CourseModuleSerializer
 from .permissions import IsInstructor
+
+def annotate_course_queryset(queryset):
+    queryset = queryset.annotate(
+        annotated_enrollment_count=Count('enrollments', distinct=True),
+        annotated_completed_count=Count('enrollments', filter=Q(enrollments__status='completed'), distinct=True)
+    )
+    return queryset.annotate(
+        annotated_completion_rate=Case(
+            When(annotated_enrollment_count=0, then=Value(0.0)),
+            default=Cast('annotated_completed_count', FloatField()) * 100.0 / Cast('annotated_enrollment_count', FloatField()),
+            output_field=FloatField()
+        )
+    )
 
 from rest_framework.pagination import PageNumberPagination
 
@@ -19,7 +33,11 @@ class CourseListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        queryset = Course.objects.all().prefetch_related('modules__subchapters')
+        queryset = Course.objects.all()
+        queryset = annotate_course_queryset(queryset)
+        queryset = queryset.prefetch_related(
+            Prefetch('modules', queryset=CourseModule.objects.select_related('course').prefetch_related('subchapters'))
+        )
 
         # Search query
         search_query = request.query_params.get('search', '')
@@ -148,7 +166,11 @@ class CourseDetailView(APIView):
 
     def get(self, request, code):
         try:
-            course = Course.objects.prefetch_related('modules__subchapters').get(code=code)
+            queryset = Course.objects.all()
+            queryset = annotate_course_queryset(queryset)
+            course = queryset.prefetch_related(
+                Prefetch('modules', queryset=CourseModule.objects.select_related('course').prefetch_related('subchapters'))
+            ).get(code=code)
         except Course.DoesNotExist:
             return Response({"detail": "Mata kuliah tidak ditemukan."}, status=status.HTTP_404_NOT_FOUND)
 

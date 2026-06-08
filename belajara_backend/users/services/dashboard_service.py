@@ -25,7 +25,15 @@ def get_student_dashboard_data(user) -> dict:
     )
 
     # 2. Query active courses with prefetch_related for high performance (Service Layer standard)
-    active_courses_qs = mahasiswa.active_courses.all().prefetch_related('modules')
+    from django.db.models import Prefetch
+    from courses.models import CourseModule
+    from courses.views import annotate_course_queryset
+    
+    active_courses_qs = mahasiswa.active_courses.all()
+    active_courses_qs = annotate_course_queryset(active_courses_qs)
+    active_courses_qs = active_courses_qs.prefetch_related(
+        Prefetch('modules', queryset=CourseModule.objects.select_related('course').prefetch_related('subchapters'))
+    )
     
     from courses.models import Enrollment
     enrollments_map = {e.course_id: e for e in Enrollment.objects.filter(mahasiswa=mahasiswa)}
